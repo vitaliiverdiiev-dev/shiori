@@ -99,7 +99,7 @@ export function HealthStatus() {
       <Button
         size="lg"
         variant="outline"
-        className="h-11 w-full px-5 sm:w-auto"
+        className="w-full sm:w-auto"
         disabled={state.kind === 'checking'}
         onClick={() => {
           setState({ kind: 'checking' });

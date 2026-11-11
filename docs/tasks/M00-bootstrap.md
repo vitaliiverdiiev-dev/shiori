@@ -1,5 +1,7 @@
 # M00 — Bootstrap Shiori from scratch
 
+**Status: COMPLETE** (2026-11-11). Kept as the historical task record.
+
 **This is the current implementation task.** Implement now in the existing documentation-only repository. No approval loop or lengthy planning memo required.
 
 ## Objective

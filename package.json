@@ -15,10 +15,11 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test",
+    "test": "python3 -B -m unittest discover -s scripts && turbo run test",
     "build-storybook": "turbo run build-storybook",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "review:zip": "python3 scripts/review_zip.py"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

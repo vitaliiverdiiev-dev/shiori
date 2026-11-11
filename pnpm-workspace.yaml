@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+# Reviewed dependency build scripts (pnpm fails install on unreviewed ones).
+allowBuilds:
+  # Native binary ships as an optional platform package; postinstall not needed.
+  esbuild: false

@@ -15,7 +15,7 @@ services:
       # PostgreSQL 18+ images keep data in a versioned subfolder of this path.
       - postgres-data:/var/lib/postgresql
       # Runs only when the volume is first created.
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [

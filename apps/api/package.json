@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio --config drizzle.studio.config.ts --host 127.0.0.1 --port 4983",
     "test:db": "vitest run --config vitest.db.config.ts"
   },
   "dependencies": {

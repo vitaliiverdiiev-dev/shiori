@@ -1,25 +1,23 @@
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import type { App } from 'supertest/types.js';
+import { AppModule } from '../src/app.module.js';
 import { loadRootEnvFile } from '../src/config/env.js';
+import { configureApp } from '../src/configure-app.js';
 import {
   DATABASE,
   type Database,
   DatabaseModule,
 } from '../src/database/database.module.js';
-
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+import { isLocalDatabaseUrl } from '../src/database/local-url.js';
 
 /** Only ever touch a local database whose name ends in `_test`. */
 function assertSafeTestUrl(raw: string | undefined): string {
   if (!raw) throw new Error('TEST_DATABASE_URL is not set (see .env.example).');
-  const url = new URL(raw);
-  // Query params (e.g. ?host=, ?dbname=) override host/database in node-postgres.
-  if (
-    !LOCAL_HOSTS.has(url.hostname) ||
-    !url.pathname.endsWith('_test') ||
-    url.search !== ''
-  ) {
+  if (!isLocalDatabaseUrl(raw) || !new URL(raw).pathname.endsWith('_test')) {
     throw new Error(
       'Refusing to run: TEST_DATABASE_URL must be a local *_test database.',
     );
@@ -57,6 +55,26 @@ describe('database', () => {
       expect(result.rows).toEqual([{ ok: 1 }]);
     } finally {
       await app.close(); // runs onApplicationShutdown → pool.end()
+    }
+  });
+
+  it('reports readiness through the real database', async () => {
+    loadRootEnvFile();
+    const url = assertSafeTestUrl(process.env.TEST_DATABASE_URL);
+    const moduleRef = await Test.createTestingModule({
+      imports: [AppModule.forRoot({ DATABASE_URL: url })],
+    }).compile();
+    const app = moduleRef.createNestApplication<INestApplication<App>>();
+    configureApp(app);
+    await app.init();
+
+    try {
+      await request(app.getHttpServer())
+        .get('/api/ready')
+        .expect(200)
+        .expect({ status: 'ok', checks: { database: 'up' } });
+    } finally {
+      await app.close();
     }
   });
 });

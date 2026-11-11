@@ -4,12 +4,37 @@ import { describe, expect, it, vi } from 'vitest';
 import product from '../../../product.config.json';
 import { App } from './app.tsx';
 
+type Handler = () => Promise<Response>;
+
+const ok: Handler = () => Promise.resolve(Response.json({ status: 'ok' }));
+const ready: Handler = () =>
+  Promise.resolve(Response.json({ status: 'ok', checks: { database: 'up' } }));
+const notReady: Handler = () =>
+  Promise.resolve(
+    Response.json(
+      { status: 'error', checks: { database: 'down' } },
+      { status: 503 },
+    ),
+  );
+const unreachable: Handler = () =>
+  Promise.reject(new TypeError('Failed to fetch'));
+
+/** Stubs fetch per API path; unknown paths fail loudly. */
+function mockApi(routes: Record<string, Handler>) {
+  // The app always calls fetch with a path string.
+  const fetchMock = vi.fn((path: string) => {
+    const handler = routes[path];
+    return handler
+      ? handler()
+      : Promise.reject(new Error(`unexpected ${path}`));
+  });
+  vi.stubGlobal('fetch', fetchMock);
+  return fetchMock;
+}
+
 describe('App', () => {
-  it('shows product identity and an online API', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.resolve(Response.json({ status: 'ok' }))),
-    );
+  it('shows product identity with API and database online', async () => {
+    mockApi({ '/api/health': ok, '/api/ready': ready });
     render(<App />);
 
     expect(
@@ -19,27 +44,32 @@ describe('App', () => {
     expect(screen.getByText(product.tagline)).toBeInTheDocument();
     expect(screen.getByText(product.logoGlyph)).toBeInTheDocument();
     expect(await screen.findByText('API online')).toBeInTheDocument();
+    expect(screen.getByText('Database online')).toBeInTheDocument();
   });
 
-  it('reports an unreachable API', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
-    );
+  it('shows the database as unavailable when readiness fails', async () => {
+    mockApi({ '/api/health': ok, '/api/ready': notReady });
+    render(<App />);
+
+    expect(await screen.findByText('API online')).toBeInTheDocument();
+    expect(screen.getByText('Database unavailable')).toBeInTheDocument();
+  });
+
+  it('shows the database as unknown when the API is unreachable', async () => {
+    const fetchMock = mockApi({ '/api/health': unreachable });
     render(<App />);
 
     expect(await screen.findByText('API offline')).toBeInTheDocument();
     expect(screen.getByText('API is unreachable')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Check again' })).toBeEnabled();
+    expect(screen.getByText('Database unknown')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1); // readiness not attempted
   });
 
   it('reports an API that does not respond in time', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() =>
+    mockApi({
+      '/api/health': () =>
         Promise.reject(new DOMException('Timed out', 'TimeoutError')),
-      ),
-    );
+    });
     render(<App />);
 
     expect(
@@ -47,34 +77,32 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('makes a single health request under StrictMode', async () => {
-    const fetchMock = vi.fn(() =>
-      Promise.resolve(Response.json({ status: 'ok' })),
-    );
-    vi.stubGlobal('fetch', fetchMock);
+  it('makes one health and one readiness request under StrictMode', async () => {
+    const fetchMock = mockApi({ '/api/health': ok, '/api/ready': ready });
     render(
       <StrictMode>
         <App />
       </StrictMode>,
     );
 
-    expect(await screen.findByText('API online')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('Database online')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('recovers when the user checks again after a failure', async () => {
-    const fetchMock = vi
-      .fn<() => Promise<Response>>()
-      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      .mockResolvedValueOnce(Response.json({ status: 'ok' }));
-    vi.stubGlobal('fetch', fetchMock);
+    const health = vi
+      .fn<Handler>()
+      .mockImplementationOnce(unreachable)
+      .mockImplementation(ok);
+    mockApi({ '/api/health': health, '/api/ready': ready });
     render(<App />);
 
-    expect(await screen.findByText('API offline')).toBeInTheDocument();
+    expect(await screen.findByText('Database unknown')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Check again' }));
 
-    expect(await screen.findByText('API online')).toBeInTheDocument();
+    expect(await screen.findByText('Database online')).toBeInTheDocument();
+    expect(screen.getByText('API online')).toBeInTheDocument();
     expect(screen.queryByText('API is unreachable')).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(health).toHaveBeenCalledTimes(2);
   });
 });

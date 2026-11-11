@@ -1,0 +1,30 @@
+# Local development database only (no app containers yet). Values come from .env.
+name: shiori
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+    ports:
+      # Loopback only: not reachable from other machines on the network.
+      - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
+    volumes:
+      # PostgreSQL 18+ images keep data in a versioned subfolder of this path.
+      - postgres-data:/var/lib/postgresql
+      # Runs only when the volume is first created.
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

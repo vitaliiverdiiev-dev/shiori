@@ -1,6 +1,6 @@
 # Claude Code — Shiori
 
-**Status: M00 complete; M01 next** (`docs/tasks/M01-database-foundation.md`). Start a milestone only when the user explicitly asks for it. Before editing code, read `product.config.json`, `README.md`, `docs/01-product.md` through `docs/05-roadmap.md`, and the current task under `docs/tasks/`. These describe the intended product and future decisions; they do **not** authorize implementing everything.
+**Status: M00 and M01 complete; M02 (identity) next** — no task document yet. Start a milestone only after its task document exists and the user explicitly asks for it. Before editing code, read `product.config.json`, `README.md`, `docs/01-product.md` through `docs/05-roadmap.md`, and the current task under `docs/tasks/`. These describe the intended product and future decisions; they do **not** authorize implementing everything.
 
 ## Principles
 

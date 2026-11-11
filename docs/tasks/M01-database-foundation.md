@@ -1,6 +1,6 @@
 # M01 — PostgreSQL & Database Foundation
 
-**Status:** NEXT — authorized only after the M00 follow-up in `M00-review-instructions.md` is completed and M00 is marked complete.
+**Status:** COMPLETE (2026-11-11). Migration workflow verified with an empty journal; the first real migration arrives with M02.
 
 ## Goal
 

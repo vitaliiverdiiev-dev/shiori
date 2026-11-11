@@ -16,7 +16,12 @@
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "python3 -B -m unittest discover -s scripts && turbo run test",
+    "test:db": "pnpm --filter api test:db",
     "build-storybook": "turbo run build-storybook",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:migrate": "pnpm --filter api db:migrate",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "review:zip": "python3 scripts/review_zip.py"

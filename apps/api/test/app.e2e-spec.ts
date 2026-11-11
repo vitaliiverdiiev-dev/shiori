@@ -11,7 +11,12 @@ describe('GET /api/health', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [AppModule],
+      // Liveness must not need a database: this URL is never connected to.
+      imports: [
+        AppModule.forRoot({
+          DATABASE_URL: 'postgres://unused@127.0.0.1:1/unused',
+        }),
+      ],
     }).compile();
     app = moduleRef.createNestApplication();
     configureApp(app);

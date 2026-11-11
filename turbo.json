@@ -15,7 +15,7 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "passThroughEnv": ["PORT", "API_URL"]
+      "passThroughEnv": ["PORT", "API_URL", "DATABASE_URL"]
     }
   }
 }

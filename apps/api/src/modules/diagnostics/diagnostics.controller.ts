@@ -6,27 +6,33 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import type { QueryConfig } from 'pg';
-import { DATABASE, type Database } from './database/database.module.js';
+import {
+  DATABASE,
+  type Database,
+} from '../../infrastructure/database/database.module.js';
 
 export interface HealthResponse {
   status: 'ok';
 }
 
 export interface ReadinessResponse {
-  status: 'ok' | 'error';
-  checks: { database: 'up' | 'down' };
+  checks: { database: 'down' | 'up' };
+  status: 'error' | 'ok';
 }
+
+const READY_QUERY_TIMEOUT_MS = 2_000;
 
 // pg honours a per-query `query_timeout` (client-side), but @types/pg only
 // declares it on the client config, hence the widened type.
 const readyQuery: QueryConfig & { query_timeout: number } = {
+  query_timeout: READY_QUERY_TIMEOUT_MS,
   text: 'select 1',
-  query_timeout: 2_000,
 };
 
+/** Liveness and readiness probes (`/api/health`, `/api/ready`). */
 @Controller()
-export class HealthController {
-  private readonly logger = new Logger(HealthController.name);
+export class DiagnosticsController {
+  private readonly logger = new Logger(DiagnosticsController.name);
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
@@ -41,14 +47,14 @@ export class HealthController {
   async getReady(): Promise<ReadinessResponse> {
     try {
       await this.db.$client.query(readyQuery);
-      return { status: 'ok', checks: { database: 'up' } };
+      return { checks: { database: 'up' }, status: 'ok' };
     } catch (error) {
       // Details stay in the server log; the response body is fixed.
       const reason = error instanceof Error ? error.message : 'unknown error';
       this.logger.warn(`Database readiness check failed: ${reason}`);
       const body: ReadinessResponse = {
-        status: 'error',
         checks: { database: 'down' },
+        status: 'error',
       };
       throw new ServiceUnavailableException(body);
     }

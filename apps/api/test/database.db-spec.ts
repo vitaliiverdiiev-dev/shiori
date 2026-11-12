@@ -1,18 +1,18 @@
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
-import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
-import { AppModule } from '../src/app.module.js';
-import { loadRootEnvFile } from '../src/config/env.js';
-import { configureApp } from '../src/configure-app.js';
+import { describe, expect, it } from 'vitest';
+import { configureApp } from '../src/app/app.config.js';
+import { AppModule } from '../src/app/app.module.js';
+import { loadRootEnvFile } from '../src/infrastructure/config/env.js';
 import {
   DATABASE,
   type Database,
   DatabaseModule,
-} from '../src/database/database.module.js';
-import { isLocalDatabaseUrl } from '../src/database/local-url.js';
+} from '../src/infrastructure/database/database.module.js';
+import { isLocalDatabaseUrl } from '../src/infrastructure/database/local-url.js';
 
 /** Only ever touch a local database whose name ends in `_test`. */
 function assertSafeTestUrl(raw: string | undefined): string {
@@ -72,7 +72,7 @@ describe('database', () => {
       await request(app.getHttpServer())
         .get('/api/ready')
         .expect(200)
-        .expect({ status: 'ok', checks: { database: 'up' } });
+        .expect({ checks: { database: 'up' }, status: 'ok' });
     } finally {
       await app.close();
     }

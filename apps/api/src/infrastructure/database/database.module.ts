@@ -14,6 +14,8 @@ export const DATABASE = Symbol('DATABASE');
 export type Database = NodePgDatabase & { $client: Pool };
 
 const DATABASE_POOL = Symbol('DATABASE_POOL');
+// Fail instead of waiting forever when the server is unreachable.
+const CONNECTION_TIMEOUT_MS = 3_000;
 
 export interface DatabaseOptions {
   url: string;
@@ -25,8 +27,9 @@ export class DatabaseModule implements OnApplicationShutdown {
 
   static forRoot(options: DatabaseOptions): DynamicModule {
     return {
-      module: DatabaseModule,
+      exports: [DATABASE],
       global: true,
+      module: DatabaseModule,
       providers: [
         {
           provide: DATABASE_POOL,
@@ -34,8 +37,7 @@ export class DatabaseModule implements OnApplicationShutdown {
           useFactory: (): Pool => {
             const pool = new Pool({
               connectionString: options.url,
-              // Fail instead of waiting forever when the server is unreachable.
-              connectionTimeoutMillis: 3_000,
+              connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
             });
             // An idle client error (e.g. DB restart) must not crash the process.
             pool.on('error', (error) => {
@@ -47,12 +49,11 @@ export class DatabaseModule implements OnApplicationShutdown {
           },
         },
         {
-          provide: DATABASE,
           inject: [DATABASE_POOL],
+          provide: DATABASE,
           useFactory: (pool: Pool): Database => drizzle({ client: pool }),
         },
       ],
-      exports: [DATABASE],
     };
   }
 

@@ -4,7 +4,7 @@
 // Never prints configuration values.
 import { spawnSync } from 'node:child_process';
 import { constants, copyFileSync, existsSync } from 'node:fs';
-import { isLocalDatabaseUrl } from '../apps/api/src/database/local-url.ts';
+import { isLocalDatabaseUrl } from '../apps/api/src/infrastructure/database/local-url.ts';
 
 const root = new URL('..', import.meta.url);
 const envFile = new URL('.env', root);

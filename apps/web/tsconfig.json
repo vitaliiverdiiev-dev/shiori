@@ -5,6 +5,10 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
-    "paths": { "@/*": ["./src/*"] }
+    "paths": {
+      "@/*": ["./src/*"],
+      // The one canonical product identity, consumed only by src/app.
+      "@/product-config": ["../../product.config.json"]
+    }
   }
 }

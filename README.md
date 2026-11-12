@@ -2,7 +2,7 @@
 
 **Your Guide to Japanese** · Logo glyph: **栞** · Repository: **`shiori`**
 
-Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00, M01 and M01.1 complete** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics; no learning features yet); **M02 identity is next**.
+Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00, M01, M01.1 and M01.2 complete** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics, Architecture v1 with lint enforcement; no learning features yet); **M02 identity is next**.
 
 ## Getting started
 
@@ -31,8 +31,9 @@ The API serves everything under `/api`; the web dev server proxies `/api/*` to i
 | `pnpm dev:apps`                        | Run only web (Vite) and API (Nest watch)                       |
 | `pnpm build`                           | Production builds of both apps                                 |
 | `pnpm typecheck`                       | TypeScript checks                                              |
-| `pnpm lint`                            | ESLint (root flat config, type-aware)                          |
-| `pnpm test`                            | Vitest (web + API) and the `scripts/` tests (Python, Node)     |
+| `pnpm lint`                            | ESLint incl. architecture boundaries and ordering (no changes) |
+| `pnpm lint:fix`                        | ESLint with safe autofixes (imports, keys, JSX props order)    |
+| `pnpm test`                            | Vitest (web + API), `scripts/` tests and ESLint rule fixtures  |
 | `pnpm db:up` / `pnpm db:down`          | Start / stop local PostgreSQL (data kept)                      |
 | `pnpm db:generate` / `pnpm db:migrate` | Create / apply Drizzle SQL migrations                          |
 | `pnpm db:studio`                       | Drizzle Studio for browsing the local database                 |
@@ -58,7 +59,7 @@ pnpm db:down           # stop; data is kept in the shiori_postgres-data volume
 - **Drizzle Studio** is optional and not started by `pnpm dev`. Its server listens only on `127.0.0.1:4983`; the UI opens at `https://local.drizzle.studio`, a page served by Drizzle that talks to that local server from your browser. There are no application tables until the first real migration (M02, auth).
 
 - The API reads `DATABASE_URL` (and optional `PORT`) from the environment or the root `.env`, validates it at startup and exits with a clear error if it is missing or invalid. `/api/health` is liveness only and does not touch the database.
-- Schemas live next to their feature as `apps/api/src/**/*.schema.ts`. Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
+- Schemas will live in their owning module as `apps/api/src/modules/<module>/*.schema.ts` (Drizzle globs `src/**/*.schema.ts`). Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
 - **Current limitation:** there are no tables yet. `apps/api/drizzle/meta/_journal.json` is Drizzle's empty migration journal, so `db:migrate` runs but applies nothing, and `db:generate` fails with "No schema files found" (exit code 1) until the first schema arrives with M02 (auth); that error is expected, not a broken setup. M01 verifies the workflow, not a real schema migration.
 - `pnpm test:db` refuses to run unless `TEST_DATABASE_URL` points to a local database whose name ends in `_test`. The `shiori_test` database is created by `infra/docker/postgres/init/` when the volume is first initialised. `pnpm test` stays Docker-free.
 - To wipe all local data deliberately: `docker compose down -v`.
@@ -73,7 +74,18 @@ Writes `../shiori-review-<timestamp>.zip` (next to the repository folder) and pr
 
 > The filter works on file names; it is not a secret scanner. Inspect the archive before sharing it.
 
-Layout: `apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storybook), `apps/api` (NestJS). Add shadcn components with `pnpm dlx shadcn@latest add <name> -c apps/web`.
+## Architecture
+
+`apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storybook) and `apps/api` (NestJS + Drizzle) follow **Architecture v1**: [frontend](docs/standards/frontend-architecture-v1.md), [backend](docs/standards/backend-architecture-v1.md), [code quality](docs/standards/code-quality-v1.md). Shiori's map and exceptions: [docs/03-architecture.md](docs/03-architecture.md).
+
+```text
+apps/web/src/  main.tsx · app/ (composition, styles) · pages/home · domain/health · shared/{ui,helpers} · test/
+apps/api/src/  main.ts · app/ (module, app.config) · infrastructure/{config,database} · modules/diagnostics
+```
+
+Tests sit next to the main component (`health-status.test.tsx`) or in a local `tests/` folder; API unit tests are `*.spec.ts`, e2e and DB tests live in `apps/api/test/`. `pnpm lint` rejects layer/slice violations, deep imports, extra top-level code in main component files and magic numbers; `pnpm lint:fix` sorts imports, exports, keys (`id` first) and JSX props.
+
+**Adding a shadcn component:** `pnpm dlx shadcn@latest add <name> -c apps/web` writes `src/shared/ui/primitives/<name>.tsx`. Move it to `primitives/<name>/<name>.tsx`, change `import { cn } from 'cn'` to `@/shared/helpers/cn`, export it from `src/shared/ui/index.ts` if used outside `shared`, then run `pnpm lint:fix`.
 
 ## Development philosophy
 
@@ -92,12 +104,14 @@ Layout: `apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storyboo
 | `CLAUDE.md`                                      | Minimal coding and workflow rules                                   |
 | `docs/01-product.md`                             | Product purpose, learning workflows, self-hosted scope              |
 | `docs/02-tech-stack.md`                          | Decided, preferred, deferred technologies                           |
-| `docs/03-architecture.md`                        | Foundation/domain boundaries, configuration, future auth/deployment |
+| `docs/03-architecture.md`                        | Shiori code map, enforced boundaries, configuration, future plans   |
 | `docs/04-design-system.md`                       | Mobile-first UX, tokens, Base UI shadcn, Storybook                  |
 | `docs/05-roadmap.md`                             | Milestone scope and sequencing                                      |
 | `docs/tasks/M00-bootstrap.md`                    | M00 task (complete, historical record)                              |
 | `docs/tasks/M00-review-instructions.md`          | M00 review follow-up (complete)                                     |
 | `docs/tasks/M01-database-foundation.md`          | M01 task (complete)                                                 |
 | `docs/tasks/M01.1-infrastructure-diagnostics.md` | M01.1 task (complete)                                               |
+| `docs/tasks/M01.2-architecture-baseline.md`      | M01.2 task (complete)                                               |
+| `docs/standards/*.md`                            | Architecture v1: frontend, backend, code quality (portable)         |
 
 Do not implement features from later milestones just because they are mentioned in the docs.

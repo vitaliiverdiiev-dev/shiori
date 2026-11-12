@@ -4,22 +4,55 @@
 
 Readable, maintainable, production-minded **modular monolith**. Learn established full-stack engineering practices without layering every CRUD endpoint into five artificial abstractions. Clean code is a result of clear dependencies and cohesive modules, not folder count.
 
-## Initial repository shape (M00)
+## Architecture v1 standards
+
+Code structure, dependency direction and lint enforcement follow the portable standards. This file only records Shiori-specific decisions.
+
+- [Frontend Architecture v1](standards/frontend-architecture-v1.md): React layers, slices, main component file contract, tests.
+- [Backend Architecture v1](standards/backend-architecture-v1.md): NestJS modular monolith.
+- [Code Quality & ESLint v1](standards/code-quality-v1.md): boundaries, ordering, magic numbers, rule tests.
+
+## Current map (M01.2)
 
 ```text
-apps/
-  web/          # React + Vite + shadcn UI, Storybook
-  api/          # NestJS app
-packages/      # create ONLY packages that have an actual first consumer
-  ...
-docs/          # handoff + future lightweight ADRs
-product.config.json # canonical product identity (root)
-turbo.json
-pnpm-workspace.yaml
-CLAUDE.md
+apps/web/src/
+  main.tsx                    # bootstrap: StrictMode + app/app.tsx + global CSS
+  app/app.tsx                 # composition: <title>, favicon, HomePage with identity props
+  app/styles/index.css        # Tailwind v4 + semantic tokens (light/dark, Japanese fonts)
+  pages/home/                 # HomePage (identity via props) — renders HealthStatus
+  domain/health/              # HealthStatus: api/requests.ts, model/, helpers/, hooks/, ui/
+  shared/ui/                  # index.ts + primitives/button (shadcn on Base UI, story)
+  shared/helpers/cn.ts        # `cn`
+  test/setup.ts               # Vitest/RTL setup only
+apps/api/src/
+  main.ts                     # loads + validates env, creates the app
+  app/app.module.ts           # composition root; app/app.config.ts = global prefix + shutdown hooks
+  infrastructure/config/      # env parsing/validation (Zod)
+  infrastructure/database/    # single pg pool + Drizzle provider (DATABASE token), local-URL guard
+  modules/diagnostics/        # GET /api/health, GET /api/ready
+infra/docker/postgres/init/   # repository-level Docker assets (not the API's infrastructure/)
+compose.yaml                  # local PostgreSQL
+product.config.json           # canonical product identity
 ```
 
-Allow tools to generate their conventional files, but do not create empty `domain/`, `services/`, `adapters/`, `contracts/`, `ui/`, `mobile/` packages simply to look architectural. Do not overengineer Nest modules in M00.
+- **Diagnostics ↔ health:** the API's `modules/diagnostics` owns the `/api/health` (liveness) and `/api/ready` (readiness) contracts; the web `domain/health` slice consumes them, treats only `{ status: 'ok', checks: { database: 'up' } }` as database online, and derives "database unknown" when the API is offline.
+- **Product identity:** `@/product-config` is a single TS/Vite alias to the root `product.config.json`. ESLint allows it only in `src/app`; pages receive values as typed props.
+- **shadcn:** `components.json` targets `@/shared/ui/primitives` and `@/shared/helpers/cn`. The CLI writes `primitives/<name>.tsx`; move it to `primitives/<name>/<name>.tsx`, import `cn` from `@/shared/helpers/cn`, export it from `shared/ui/index.ts` when used outside shared, then run `pnpm lint:fix`.
+- **Database schemas** will live with their owning API module as `*.schema.ts` (Drizzle glob `src/**/*.schema.ts`); none exist yet.
+
+### Enforcement and exceptions
+
+Enforced by `pnpm lint` (`eslint.config.js`) and proven by `scripts/eslint-architecture.test.mjs`:
+
+- Frontend layer direction, cross-slice access only via `pages/<slice>/index.ts`, `domain/<slice>/index.ts`, `shared/ui/index.ts` (`eslint-plugin-boundaries`, alias and relative imports both resolved).
+- No internal `index.ts` barrels; relative imports at most `../../`; `model/` imports no React/api/helpers/hooks/store/ui.
+- Main component contract for `app/app.tsx` and `{pages,domain}/<slice>/*.tsx` (`no-restricted-syntax` selectors).
+- Backend: infrastructure never imports modules; `app/` imports modules only via `*.module.ts`; modules see other modules' `*.module.ts` only.
+- Ordering (Perfectionist, auto-fixable) and `@typescript-eslint/no-magic-numbers` in `apps/*/src` (tests, specs and stories exempt).
+
+Justified exceptions: shadcn primitives skip `sort-objects` (cva key order decides class precedence) and `react-refresh/only-export-components`; `main.tsx` and API `main.ts` are bootstrap files outside the layer graph.
+
+Manual review only: a "main component file" is recognised by location (slice-root `.tsx`), not by content; exported Nest providers consumed across modules need an explicit contract when the first real consumer appears; one-component-per-file in `ui/`, WHAT/HOW placement and test placement are conventions, not lint gates.
 
 ## Responsibilities and dependency direction
 

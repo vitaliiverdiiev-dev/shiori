@@ -1,21 +1,19 @@
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
 
+const DEFAULT_PORT = 3_000;
+const MAX_PORT = 65_535;
+
 // Server/deployment config only; public product identity stays in product.config.json.
 const envSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
-  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** Repo-root `.env` (shared with Docker Compose); same depth from src/ and dist/. */
-const rootEnvFile = new URL('../../../../.env', import.meta.url);
-
-/** Loads the local `.env` if present; variables already set in the environment win. */
-export function loadRootEnvFile(): void {
-  if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
-}
+const rootEnvFile = new URL('../../../../../.env', import.meta.url);
 
 /** Validates server config. Errors name the offending variables, never their values. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -29,4 +27,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     );
   }
   return result.data;
+}
+
+/** Loads the local `.env` if present; variables already set in the environment win. */
+export function loadRootEnvFile(): void {
+  if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 }

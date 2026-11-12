@@ -1,6 +1,6 @@
 # Claude Code — Shiori
 
-**Status: M00, M01 and M01.1 complete; M02 (identity) next** — no task document yet. Start a milestone only after its task document exists and the user explicitly asks for it. Before editing code, read `product.config.json`, `README.md`, `docs/01-product.md` through `docs/05-roadmap.md`, and the current task under `docs/tasks/`. These describe the intended product and future decisions; they do **not** authorize implementing everything.
+**Status: M00, M01, M01.1 and M01.2 complete; M02 (identity) next — not authorized**, no task document yet. Start a milestone only after its task document exists and the user explicitly asks for it. Before editing code, read `product.config.json`, `README.md`, `docs/01-product.md` through `docs/05-roadmap.md`, the Architecture v1 standards in `docs/standards/`, and the current task under `docs/tasks/`. These describe the intended product and future decisions; they do **not** authorize implementing everything.
 
 ## Principles
 
@@ -12,7 +12,7 @@
 - UI foundation: Tailwind v4, **shadcn/ui using Base UI**, semantic CSS theme tokens, Storybook. Add only components actually needed.
 - Keep foundation independent of Japanese domain logic. Compose domain into the app at the bootstrap boundary; avoid speculative layers, adapters, factories, package splits, providers, and global state.
 - `product.config.json` is the **canonical source of product identity**. Read identity from it; do not duplicate title/tagline/logo glyph in application components or create a competing config for branding.
-- Prefer colocated, cohesive code; do not enforce a folder for every function or test. Strong module boundaries matter more than folder counts.
+- Code structure follows `docs/standards/` (frontend, backend, code quality); Shiori's map and exceptions are in `docs/03-architecture.md`. Don't create segment folders without real code. Run `pnpm lint:fix` for ordering.
 - Perform relevant lint, typecheck, tests, builds, and Storybook build. Report actual results, not assumed success.
 - Do **not** commit, push, deploy, publish, install global Claude plugins, or edit KataKit without explicit permission.
 

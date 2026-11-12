@@ -1,15 +1,15 @@
-import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { AppModule } from '../src/app.module.js';
-import { configureApp } from '../src/configure-app.js';
-import { DATABASE } from '../src/database/database.module.js';
+import { configureApp } from '../src/app/app.config.js';
+import { AppModule } from '../src/app/app.module.js';
+import { DATABASE } from '../src/infrastructure/database/database.module.js';
 
 // Nothing listens on port 1: connections are refused immediately.
 const UNREACHABLE_DATABASE_URL = 'postgres://unused@127.0.0.1:1/unused';
-const DOWN = { status: 'error', checks: { database: 'down' } };
+const DOWN = { checks: { database: 'down' }, status: 'error' };
 
 async function createApp(database?: unknown): Promise<INestApplication<App>> {
   const builder = Test.createTestingModule({
@@ -60,7 +60,7 @@ describe('GET /api/ready with a stubbed database', () => {
       await request(app.getHttpServer())
         .get('/api/ready')
         .expect(200)
-        .expect({ status: 'ok', checks: { database: 'up' } });
+        .expect({ checks: { database: 'up' }, status: 'ok' });
       // The check must be bounded by a driver-level timeout.
       expect(query.mock.calls[0]?.[0].query_timeout).toBeGreaterThan(0);
     } finally {

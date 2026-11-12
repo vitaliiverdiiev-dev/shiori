@@ -14,7 +14,11 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
-    "paths": { "@/*": ["./src/*"] },
+    "paths": {
+      "@/*": ["./src/*"],
+      // The one canonical product identity, consumed only by src/app.
+      "@/product-config": ["../../product.config.json"]
+    },
 
     "strict": true,
     "noUncheckedIndexedAccess": true,

@@ -11,13 +11,13 @@ export default defineConfig({
     // Same-origin `/api` in dev (as behind a reverse proxy in prod), so no CORS.
     proxy: {
       '/api': {
-        target: apiTarget,
         changeOrigin: true,
+        target: apiTarget,
       },
     },
   },
   test: {
     environment: 'jsdom',
-    setupFiles: ['./src/test-setup.ts'],
+    setupFiles: ['./src/test/setup.ts'],
   },
 });

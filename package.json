@@ -16,6 +16,7 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "eslint scripts && turbo run lint",
+    "lint:fix": "eslint --fix .",
     "test": "python3 -B -m unittest discover -s scripts && node --test \"scripts/*.test.mjs\" && turbo run test",
     "test:db": "pnpm --filter api test:db",
     "build-storybook": "turbo run build-storybook",
@@ -31,6 +32,9 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.14.0",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-boundaries": "^7.4.2",
+    "eslint-plugin-perfectionist": "^5.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.14.0",

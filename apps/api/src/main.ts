@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module.js';
-import { configureApp } from './configure-app.js';
-import { loadEnv, loadRootEnvFile } from './config/env.js';
+import { configureApp } from './app/app.config.js';
+import { AppModule } from './app/app.module.js';
+import { loadEnv, loadRootEnvFile } from './infrastructure/config/env.js';
 
 loadRootEnvFile();
 const env = loadEnv(); // fail fast, before any module is built

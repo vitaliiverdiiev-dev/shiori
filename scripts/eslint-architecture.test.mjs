@@ -112,17 +112,111 @@ describe('frontend layers and slices', () => {
       IMPORTS,
     ));
 
-  test('model does not import React hooks or ui', async () => {
-    await rejects(
-      `${WEB}/domain/health/model/example.ts`,
-      "import { useState } from 'react';\nexport const x = useState;\n",
-      IMPORTS,
-    );
-    await rejects(
-      `${WEB}/domain/health/model/example.ts`,
-      "import { StatusRow } from '../ui/status-row';\nexport const x = StatusRow;\n",
-      IMPORTS,
-    );
+  // Boundaries resolves each import to a real file, so both spellings hit the
+  // same rule. Targets must exist: unresolved paths are not elements (and fail
+  // typecheck anyway), so store/ and pages/<slice>/{api,…} have no fixture yet.
+  describe("model/ never imports its slice's HOW segments", () => {
+    const domainModel = `${WEB}/domain/health/model/example.ts`;
+    const pageModel = `${WEB}/pages/home/model/example.ts`;
+    const use = (line) => `${line}\nexport const x = 1;\n`;
+
+    for (const [segment, target, name] of [
+      ['api', 'api/requests', 'checkStatus'],
+      ['helpers', 'helpers/helpers', 'isRecord'],
+      ['hooks', 'hooks/use-health-status', 'useHealthStatus'],
+      ['ui', 'ui/status-row', 'StatusRow'],
+    ]) {
+      test(`${segment}: relative and @/ alias`, async () => {
+        await rejects(
+          domainModel,
+          use(`import { ${name} } from '../${target}';`),
+          BOUNDARIES,
+        );
+        await rejects(
+          domainModel,
+          use(`import { ${name} } from '@/domain/health/${target}';`),
+          BOUNDARIES,
+        );
+      });
+    }
+
+    test('re-exports and literal dynamic import() are covered', async () => {
+      await rejects(
+        domainModel,
+        "export { checkStatus } from '@/domain/health/api/requests';\n",
+        BOUNDARIES,
+      );
+      await rejects(
+        domainModel,
+        "export const load = () => import('@/domain/health/helpers/helpers');\n",
+        BOUNDARIES,
+      );
+    });
+
+    test('nor its slice root, its own index.ts, shared/ui or React', async () => {
+      await rejects(
+        domainModel,
+        use("import { HealthStatus } from '@/domain/health';"),
+        BOUNDARIES,
+      );
+      await rejects(
+        pageModel,
+        use("import { HomePage } from '../home-page';"),
+        BOUNDARIES,
+      );
+      await rejects(
+        pageModel,
+        use("import { HomePage } from '@/pages/home/home-page';"),
+        BOUNDARIES,
+      );
+      await rejects(
+        domainModel,
+        use("import { Button } from '@/shared/ui';"),
+        BOUNDARIES,
+      );
+      await rejects(
+        domainModel,
+        use("import { useState } from 'react';"),
+        IMPORTS,
+      );
+    });
+
+    test('valid: own model files and non-React shared helpers', async () => {
+      await passes(
+        domainModel,
+        "import type { Status } from './types';\nexport type X = Status;\n",
+      );
+      await passes(
+        domainModel,
+        "import type { Status } from '@/domain/health/model/types';\nexport type X = Status;\n",
+      );
+      await passes(
+        domainModel,
+        "import { cn } from '@/shared/helpers/cn';\nexport const x = cn;\n",
+      );
+    });
+
+    test("valid: helpers, hooks and ui import their slice's model", async () => {
+      await passes(
+        `${WEB}/domain/health/helpers/example.ts`,
+        "import type { Status } from '@/domain/health/model/types';\nexport type X = Status;\n",
+      );
+      await passes(
+        `${WEB}/domain/health/hooks/example.ts`,
+        "import { CHECKING } from '../model/consts';\nexport const x = CHECKING;\n",
+      );
+      await passes(
+        `${WEB}/domain/health/index.ts`,
+        "export type { Status } from './model/types';\n",
+      );
+    });
+
+    test("another slice must not import a slice's model directly", () =>
+      rejects(
+        `${WEB}/pages/home/example.ts`,
+        "import { CHECKING } from '@/domain/health/model/consts';\nexport const x = CHECKING;\n",
+        BOUNDARIES,
+      ));
   });
 
   test('no internal index.ts barrels', () =>
@@ -146,7 +240,7 @@ describe('frontend layers and slices', () => {
   test('valid: same-slice internals and tests import directly', async () => {
     await passes(
       `${WEB}/domain/health/ui/example.ts`,
-      "import { dotColors } from '../model/consts';\nimport type { StatusState } from '../model/types';\nexport const x = (state: StatusState) => dotColors[state];\n",
+      "import { apiText } from '../model/consts';\nimport type { StatusState } from '../model/types';\nexport const x = (state: StatusState) => [apiText, state];\n",
     );
     await passes(
       `${WEB}/domain/health/hooks/tests/example.test.ts`,

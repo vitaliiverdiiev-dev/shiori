@@ -1,5 +1,12 @@
-import { dotColors } from '../model/consts';
 import type { StatusState } from '../model/types';
+
+const dotColors = {
+  checking: 'bg-muted-foreground animate-pulse',
+  offline: 'bg-destructive',
+  online: 'bg-success',
+  unavailable: 'bg-destructive',
+  unknown: 'bg-muted-foreground/40',
+} as const satisfies Record<StatusState, string>;
 
 type Props = {
   detail?: string | undefined;

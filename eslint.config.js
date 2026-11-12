@@ -33,6 +33,13 @@ const index = (types) => ({
 const sameSlice = (type) => ({
   element: { captured: { slice: '{{from.element.captured.slice}}' }, type },
 });
+// model/ of the importing page/domain slice (same layer and slice name).
+const ownModel = (layer) => ({
+  element: {
+    captured: { layer, slice: '{{from.element.captured.slice}}' },
+    type: 'web-model',
+  },
+});
 // shared/ui is consumed through its index.ts; shared/helpers files are direct units.
 const shared = [
   {
@@ -69,6 +76,7 @@ const architecture = {
             allow: {
               to: [
                 sameSlice('web-page'),
+                ownModel('pages'),
                 index(['web-page', 'web-domain']),
                 ...shared,
               ],
@@ -77,9 +85,39 @@ const architecture = {
           },
           {
             allow: {
-              to: [sameSlice('web-domain'), index('web-domain'), ...shared],
+              to: [
+                sameSlice('web-domain'),
+                ownModel('domain'),
+                index('web-domain'),
+                ...shared,
+              ],
             },
             from: { element: { type: 'web-domain' } },
+          },
+          {
+            // model/ (WHAT) sees only its own model/ and non-React shared
+            // units — never the slice's api/helpers/hooks/store/ui, whatever
+            // the import spelling (`../helpers` or `@/domain/<slice>/helpers`).
+            allow: {
+              to: [
+                {
+                  element: {
+                    captured: {
+                      layer: '{{from.element.captured.layer}}',
+                      slice: '{{from.element.captured.slice}}',
+                    },
+                    type: 'web-model',
+                  },
+                },
+                {
+                  element: {
+                    captured: { unit: '!{hooks,ui}' },
+                    type: 'web-shared',
+                  },
+                },
+              ],
+            },
+            from: { element: { type: 'web-model' } },
           },
           {
             allow: { to: { element: { type: 'web-shared' } } },
@@ -130,7 +168,9 @@ const architecture = {
             // The canonical product config reaches pages only as props from app.
             disallow: { to: { file: { categories: 'product-config' } } },
             from: {
-              element: { type: ['web-page', 'web-domain', 'web-shared'] },
+              element: {
+                type: ['web-page', 'web-domain', 'web-model', 'web-shared'],
+              },
             },
             message:
               'Only src/app imports @/product-config; pass values to pages as props.',
@@ -142,6 +182,14 @@ const architecture = {
   settings: {
     'boundaries/elements': [
       { partialMatch: false, pattern: `${WEB}/app`, type: 'web-app' },
+      // Before web-page/web-domain: model/ is its own element so its
+      // restrictions hold for relative and `@/` imports alike.
+      {
+        capture: ['layer', 'slice'],
+        partialMatch: false,
+        pattern: `${WEB}/{pages,domain}/*/model`,
+        type: 'web-model',
+      },
       {
         capture: ['slice'],
         partialMatch: false,
@@ -263,7 +311,8 @@ export default defineConfig([
     },
   },
   {
-    // model/ (WHAT) stays independent of React and of the slice's HOW segments.
+    // model/ stays independent of React; its local-file boundaries
+    // (api/helpers/hooks/store/ui) are enforced by boundaries (web-model).
     files: [`${WEB}/{pages,domain}/*/model/**/*.{ts,tsx}`],
     ignores: TESTS_AND_STORIES,
     rules: {
@@ -274,9 +323,8 @@ export default defineConfig([
             maxTwoLevelsUp,
             {
               message:
-                'model/ holds types, contracts and constants only: no React, api, helpers, hooks, store or ui imports.',
-              regex:
-                '^(react(-dom)?(/.*)?|\\.\\./(api|helpers|hooks|store|ui)(/.*)?)$',
+                'model/ holds types, contracts and constants only: no React imports.',
+              regex: '^react(-dom)?(/.*)?$',
             },
           ],
         },

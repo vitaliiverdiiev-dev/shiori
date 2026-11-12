@@ -45,7 +45,8 @@ product.config.json           # canonical product identity
 Enforced by `pnpm lint` (`eslint.config.js`) and proven by `scripts/eslint-architecture.test.mjs`:
 
 - Frontend layer direction, cross-slice access only via `pages/<slice>/index.ts`, `domain/<slice>/index.ts`, `shared/ui/index.ts` (`eslint-plugin-boundaries`, alias and relative imports both resolved).
-- No internal `index.ts` barrels; relative imports at most `../../`; `model/` imports no React/api/helpers/hooks/store/ui.
+- No internal `index.ts` barrels; relative imports at most `../../`.
+- `model/` is its own boundaries element (`web-model`): it imports only its own slice's `model/` files and non-React `shared/` units (not `shared/ui` or `shared/hooks`), whether spelled relative or `@/`, including `export … from` and literal `import()`. React/React DOM are banned there by `no-restricted-imports`. Not covered: computed `import()` specifiers and paths that do not resolve to a file (TypeScript rejects those).
 - Main component contract for `app/app.tsx` and `{pages,domain}/<slice>/*.tsx` (`no-restricted-syntax` selectors).
 - Backend: infrastructure never imports modules; `app/` imports modules only via `*.module.ts`; modules see other modules' `*.module.ts` only.
 - Ordering (Perfectionist, auto-fixable) and `@typescript-eslint/no-magic-numbers` in `apps/*/src` (tests, specs and stories exempt).

@@ -1,29 +1,21 @@
-import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { Pool } from 'pg';
 import request from 'supertest';
-import type { App } from 'supertest/types.js';
 import { describe, expect, it } from 'vitest';
-import { configureApp } from '../src/app/app.config.js';
-import { AppModule } from '../src/app/app.module.js';
-import { loadRootEnvFile } from '../src/infrastructure/config/env.js';
 import {
   DATABASE,
   type Database,
   DatabaseModule,
 } from '../src/infrastructure/database/database.module.js';
-import { isLocalDatabaseUrl } from '../src/infrastructure/database/local-url.js';
-
-/** Only ever touch a local database whose name ends in `_test`. */
-function assertSafeTestUrl(raw: string | undefined): string {
-  if (!raw) throw new Error('TEST_DATABASE_URL is not set (see .env.example).');
-  if (!isLocalDatabaseUrl(raw) || !new URL(raw).pathname.endsWith('_test')) {
-    throw new Error(
-      'Refusing to run: TEST_DATABASE_URL must be a local *_test database.',
-    );
-  }
-  return raw;
-}
+import { createTestApp } from './support/app.js';
+import {
+  assertSafeTestUrl,
+  MIGRATIONS_FOLDER,
+  testDatabaseUrl,
+} from './support/test-database.js';
 
 describe('database', () => {
   it('refuses non-local or non-test databases', () => {
@@ -41,10 +33,8 @@ describe('database', () => {
   });
 
   it('runs a query through the configured pool and closes it', async () => {
-    loadRootEnvFile();
-    const url = assertSafeTestUrl(process.env.TEST_DATABASE_URL);
     const moduleRef = await Test.createTestingModule({
-      imports: [DatabaseModule.forRoot({ url })],
+      imports: [DatabaseModule.forRoot({ url: testDatabaseUrl() })],
     }).compile();
     const app = moduleRef.createNestApplication();
     await app.init();
@@ -59,15 +49,7 @@ describe('database', () => {
   });
 
   it('reports readiness through the real database', async () => {
-    loadRootEnvFile();
-    const url = assertSafeTestUrl(process.env.TEST_DATABASE_URL);
-    const moduleRef = await Test.createTestingModule({
-      imports: [AppModule.forRoot({ DATABASE_URL: url })],
-    }).compile();
-    const app = moduleRef.createNestApplication<INestApplication<App>>();
-    configureApp(app);
-    await app.init();
-
+    const app = await createTestApp(testDatabaseUrl());
     try {
       await request(app.getHttpServer())
         .get('/api/ready')
@@ -75,6 +57,41 @@ describe('database', () => {
         .expect({ checks: { database: 'up' }, status: 'ok' });
     } finally {
       await app.close();
+    }
+  });
+});
+
+describe('committed migrations', () => {
+  it('created the auth tables on the empty test database', async () => {
+    const pool = new Pool({ connectionString: testDatabaseUrl() });
+    try {
+      const { rows } = await pool.query<{ table_name: string }>(
+        "select table_name from information_schema.tables where table_schema = 'public' order by table_name",
+      );
+      expect(rows.map((row) => row.table_name)).toEqual([
+        'account',
+        'session',
+        'user',
+        'verification',
+      ]);
+    } finally {
+      await pool.end();
+    }
+  });
+
+  it('are a no-op when applied again', async () => {
+    const pool = new Pool({ connectionString: testDatabaseUrl() });
+    try {
+      const applied = () =>
+        pool.query('select hash from drizzle.__drizzle_migrations');
+      const before = await applied();
+      await migrate(drizzle({ client: pool }), {
+        migrationsFolder: MIGRATIONS_FOLDER,
+      });
+      expect((await applied()).rows).toEqual(before.rows);
+      expect(before.rowCount).toBe(1);
+    } finally {
+      await pool.end();
     }
   });
 });

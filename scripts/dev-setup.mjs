@@ -42,6 +42,20 @@ export function checkDatabaseEnv(env) {
   return problems;
 }
 
+/** Variables added after `.env` may have been created from an older example. */
+const REQUIRED_AUTH_VARIABLES = ['BETTER_AUTH_SECRET', 'BETTER_AUTH_URL'];
+
+/**
+ * Names required auth variables missing from the environment.
+ * @param {Record<string, string | undefined>} env
+ * @returns {string[]}
+ */
+export function checkAuthEnv(env) {
+  return REQUIRED_AUTH_VARIABLES.filter((name) => !env[name]).map(
+    (name) => `${name} is not set (copy it from .env.example).`,
+  );
+}
+
 /** @param {string} message @returns {never} */
 function fail(message) {
   console.error(`\n✖ ${message}\n`);
@@ -89,7 +103,10 @@ function main() {
       `.env could not be read: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
-  const problems = checkDatabaseEnv(process.env);
+  const problems = [
+    ...checkDatabaseEnv(process.env),
+    ...checkAuthEnv(process.env),
+  ];
   if (problems.length > 0) {
     fail(
       `.env is inconsistent:\n  - ${problems.join('\n  - ')}\nCompare it with .env.example.`,

@@ -1,7 +1,7 @@
 // Run: node --test "scripts/*.test.mjs"
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkDatabaseEnv } from './dev-setup.mjs';
+import { checkAuthEnv, checkDatabaseEnv } from './dev-setup.mjs';
 
 const env = {
   POSTGRES_USER: 'shiori',
@@ -44,4 +44,15 @@ test('requires DATABASE_URL', () => {
   assert.deepEqual(checkDatabaseEnv({ ...env, DATABASE_URL: undefined }), [
     'DATABASE_URL is not set.',
   ]);
+});
+
+test('names missing auth variables without values', () => {
+  assert.deepEqual(
+    checkAuthEnv({ BETTER_AUTH_SECRET: 'fake', BETTER_AUTH_URL: undefined }),
+    ['BETTER_AUTH_URL is not set (copy it from .env.example).'],
+  );
+  assert.deepEqual(
+    checkAuthEnv({ BETTER_AUTH_SECRET: 'fake', BETTER_AUTH_URL: 'x' }),
+    [],
+  );
 });

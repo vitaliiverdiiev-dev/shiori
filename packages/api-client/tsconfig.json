@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    // Hey API's generated Axios runtime does not compile with
+    // exactOptionalPropertyTypes (0.99.0). Consumers import the emitted
+    // declarations and keep the flag.
+    "exactOptionalPropertyTypes": false,
+    "noFallthroughCasesInSwitch": true,
+    "noEmit": true
+  },
+  "include": ["src", "openapi-ts.config.ts"]
+}

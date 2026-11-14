@@ -1,0 +1,35 @@
+{
+  "name": "@shiori/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./react-query": {
+      "types": "./dist/@tanstack/react-query.gen.d.ts",
+      "default": "./dist/@tanstack/react-query.gen.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "generate": "openapi-ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.107.1",
+    "axios": "^1.21.1"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1",
+    "typescript": "~6.0.3"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  }
+}

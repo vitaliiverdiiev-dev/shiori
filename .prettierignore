@@ -5,3 +5,6 @@ coverage
 .turbo
 # drizzle-kit output (migrations, snapshots, journal)
 apps/api/drizzle
+# Machine-owned API contract and generated client (`pnpm api:generate`)
+apps/api/openapi.json
+packages/api-client/src/generated

@@ -6,11 +6,14 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
  * Also imported directly by `scripts/dev-setup.mjs` (keep it dependency-free).
  */
 export function isLocalDatabaseUrl(raw: string): boolean {
-  let url: URL;
+  return isLocalUrl(raw) && new URL(raw).search === '';
+}
+
+/** True when the URL's host is this machine. */
+export function isLocalUrl(raw: string): boolean {
   try {
-    url = new URL(raw);
+    return LOCAL_HOSTS.has(new URL(raw).hostname);
   } catch {
     return false;
   }
-  return LOCAL_HOSTS.has(url.hostname) && url.search === '';
 }

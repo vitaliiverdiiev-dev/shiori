@@ -13,12 +13,16 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio --config drizzle.studio.config.ts --host 127.0.0.1 --port 4983",
-    "test:db": "vitest run --config vitest.db.config.ts"
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "openapi": "nest build && node dist/openapi.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.4.2",
     "@nestjs/core": "^12.4.2",
     "@nestjs/platform-express": "^12.4.2",
+    "@nestjs/swagger": "^12.1.2",
+    "@thallesp/nestjs-better-auth": "2.8.0",
+    "better-auth": "1.7.23",
     "drizzle-orm": "^0.45.4",
     "pg": "^8.23.1",
     "reflect-metadata": "^0.2.2",

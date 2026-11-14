@@ -27,7 +27,9 @@
     "db:studio": "pnpm --filter api db:studio",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "review:zip": "python3 scripts/review_zip.py"
+    "review:zip": "python3 scripts/review_zip.py",
+    "api:generate": "pnpm --filter api openapi && pnpm --filter @shiori/api-client generate",
+    "api:check": "pnpm api:generate && git diff --exit-code -- apps/api/openapi.json packages/api-client/src/generated && test -z \"$(git status --porcelain --untracked-files=all -- apps/api/openapi.json packages/api-client/src/generated)\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

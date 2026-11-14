@@ -1,0 +1,188 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/me": {
+      "get": {
+        "operationId": "getCurrentUser",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The user of the current session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "user",
+                        "admin"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "email",
+                    "name",
+                    "role"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session."
+          }
+        },
+        "summary": "Current user",
+        "tags": [
+          "Me"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The API process is running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "Diagnostics"
+        ]
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "operationId": "getReady",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The database is reachable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {
+                          "type": "string",
+                          "enum": [
+                            "up"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "database"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "checks",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is unreachable or too slow.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {
+                          "type": "string",
+                          "enum": [
+                            "down"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "database"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "checks",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness probe",
+        "tags": [
+          "Diagnostics"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "API",
+    "description": "",
+    "version": "1",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "schemas": {}
+  }
+}

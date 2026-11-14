@@ -1,11 +1,14 @@
 import { defineConfig } from 'drizzle-kit';
-import { loadEnv, loadRootEnvFile } from './src/infrastructure/config/env.js';
+import {
+  loadDatabaseEnv,
+  loadRootEnvFile,
+} from './src/infrastructure/config/env.js';
 
 loadRootEnvFile();
 
 /** Database connection, shared with drizzle.studio.config.ts. */
 export const connection = {
-  dbCredentials: { url: loadEnv().DATABASE_URL },
+  dbCredentials: { url: loadDatabaseEnv().DATABASE_URL },
   dialect: 'postgresql',
 } as const;
 

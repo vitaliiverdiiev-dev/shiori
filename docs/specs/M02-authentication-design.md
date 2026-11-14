@@ -11,25 +11,25 @@ Repository baseline checked: `https://github.com/vitaliiverdiiev-dev/shiori` on 
 
 ## 1. Product decisions — locked for M02
 
-| Area | M02 decision |
-| --- | --- |
-| Auth engine | Better Auth email/password; NestJS adapter only after compatibility verification |
-| DB | PostgreSQL with existing Drizzle + existing managed pool; avoid second pool |
-| Roles | `admin`, `user`; no full RBAC/organizations/impersonation |
-| First admin | Local secure CLI bootstrap **now**, guarded against repeats and races; later UI Setup Wizard |
-| Registration | `closed` default, `invite` enabled, `open` **not operational** until reliable email verification/delivery; reject unsafe `open` config at startup |
-| Invitations | CLI-created, email-bound, high-entropy, one-use, 7-day expiry, hashed at rest, revocable; no SMTP; later Admin UI |
-| Signup | Does **not** automatically sign in; after signup show safe completion and navigate to sign-in |
-| Password | 15–128 characters; no uppercase/number/symbol complexity rules; permit spaces, passphrases, Unicode, autofill, paste; verify client/server alignment |
-| Password UX | Confirmation on sign-up and password change; show/hide; avoid distracting strength theater |
-| Password check | Reject a defensible set of very common/compromised passwords using a practical documented strategy; no undeclared external network requirement or faux-complete blocklist |
-| Accounts | Profile name update; email read-only until verified email change is supported; current-password change; no email reset yet |
-| Sessions | Better Auth database-backed cookie sessions, default 7-day sliding expiry; no cookie cache or duplicate Zustand session store; logout/revoke other sessions |
-| Web | React Router 7 declarative SPA; guest `sign-in`, gated `sign-up`; protected `/`, `/status`, `/settings/account`, `/settings/security`; no public marketing page |
-| HTTP | Better Auth native typed client for auth; custom Nest endpoints use Axios + Hey API generated SDK from Nest OpenAPI, TanStack Query 5 for async server state |
-| Forms | React Hook Form + Zod |
-| Install future | One command to install, UI setup/admin without IT knowledge; no wizard/production installer/SMTP implemented now |
-| Scope boundaries | No OAuth, MFA, organization/team, admin dashboard, forgotten-password email, production hosting setup, or real Japanese-learning data in M02 |
+| Area             | M02 decision                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth engine      | Better Auth email/password; NestJS adapter only after compatibility verification                                                                                          |
+| DB               | PostgreSQL with existing Drizzle + existing managed pool; avoid second pool                                                                                               |
+| Roles            | `admin`, `user`; no full RBAC/organizations/impersonation                                                                                                                 |
+| First admin      | Local secure CLI bootstrap **now**, guarded against repeats and races; later UI Setup Wizard                                                                              |
+| Registration     | `closed` default, `invite` enabled, `open` **not operational** until reliable email verification/delivery; reject unsafe `open` config at startup                         |
+| Invitations      | CLI-created, email-bound, high-entropy, one-use, 7-day expiry, hashed at rest, revocable; no SMTP; later Admin UI                                                         |
+| Signup           | Does **not** automatically sign in; after signup show safe completion and navigate to sign-in                                                                             |
+| Password         | 15–128 characters; no uppercase/number/symbol complexity rules; permit spaces, passphrases, Unicode, autofill, paste; verify client/server alignment                      |
+| Password UX      | Confirmation on sign-up and password change; show/hide; avoid distracting strength theater                                                                                |
+| Password check   | Reject a defensible set of very common/compromised passwords using a practical documented strategy; no undeclared external network requirement or faux-complete blocklist |
+| Accounts         | Profile name update; email read-only until verified email change is supported; current-password change; no email reset yet                                                |
+| Sessions         | Better Auth database-backed cookie sessions, default 7-day sliding expiry; no cookie cache or duplicate Zustand session store; logout/revoke other sessions               |
+| Web              | React Router 7 declarative SPA; guest `sign-in`, gated `sign-up`; protected `/`, `/status`, `/settings/account`, `/settings/security`; no public marketing page           |
+| HTTP             | Better Auth native typed client for auth; custom Nest endpoints use Axios + Hey API generated SDK from Nest OpenAPI, TanStack Query 5 for async server state              |
+| Forms            | React Hook Form + Zod                                                                                                                                                     |
+| Install future   | One command to install, UI setup/admin without IT knowledge; no wizard/production installer/SMTP implemented now                                                          |
+| Scope boundaries | No OAuth, MFA, organization/team, admin dashboard, forgotten-password email, production hosting setup, or real Japanese-learning data in M02                              |
 
 ### 1.1 User journeys
 
@@ -61,7 +61,7 @@ Core Better Auth schema: user/account/session/verification as required by **inst
 
 **Potential blocker: atomic invitation redemption.** Before designing it, prove the invite code can be passed to and validated by the actual Better Auth sign-up endpoint (including body schema restrictions), and that **every** account-creating route is constrained. `before/after` hooks do not by themselves make invitation consumption atomic with Better Auth's user/account inserts. M02.1 must investigate and record the supported transaction boundary; M02.2 must provide tests for two concurrent signups, partial failure, retries, crash/recovery, and email-match behavior. If atomicity cannot be demonstrated with the available adapter, **stop and report a concrete design alternative**; do not mark one-use invitations secure based on a sequential happy path. Better Auth adapter support and database hook semantics vary by version.
 
-For the Drizzle adapter, generate the ORM auth schema using the installed compatible Better Auth CLI and use the **existing Drizzle Kit** to create/commit/apply SQL migration. Do not run `auth migrate` as if it migrated a Drizzle database. Ensure both production/dev and isolated test DBs get the same committed migration; `pnpm dev` must continue to migrate repeatably.
+For the Drizzle adapter, generate the ORM auth schema using the installed compatible Better Auth CLI and use the **existing Drizzle Kit** to create/commit/apply SQL migration. **Decided in M02.1 review:** the schema was written by hand from the installed version's `getAuthTables` output (running the CLI through `pnpm dlx` was blocked by package-execution restrictions, which must not be bypassed). Better Auth's runtime schema check and `pnpm test:db` guard it; every Better Auth upgrade must re-verify the schema (see `docs/03-architecture.md`). Do not run `auth migrate` as if it migrated a Drizzle database. Ensure both production/dev and isolated test DBs get the same committed migration; `pnpm dev` must continue to migrate repeatably.
 
 ### 2.3 Auth session and security
 
@@ -69,7 +69,7 @@ Session source of truth is Better Auth; `useSession`/typed client in React. Data
 
 Review reverse-proxy trust boundaries before deriving an IP address for rate limiting. Rate limiting applies to sign-in, sign-up, invite validation/attempts and other sensitive endpoints. Ensure development-only in-memory behavior is not presented as reliable across future production replicas; document storage/scale assumption. Avoid perma-lockout abuse, overbroad admin grants, and cleartext credentials.
 
-No forced password complexity; require 15–128 with consistent Unicode handling; do not trim/normalize password silently. Use Better Auth password hashing (no DIY hashing). A common-password/breached-password strategy must not silently depend on external availability: document actual offline guarantee, online optional behavior, and unavailable-network policy. No fake claim that a tiny local list checks all known leaks.
+No forced password complexity; require 15–128 with consistent Unicode handling; never trim passwords. Use Better Auth password hashing (no DIY hashing). **Decided in M02.1 review:** Better Auth's hasher applies Unicode NFKC to the password before hashing and verifying; this is accepted, so canonically or compatibility-equivalent input (e.g. full-width Latin typed with a Japanese IME) is the same password. The 15–128 length check counts UTF-16 code units of the raw input, so client validation must use the same rule. Covered by `apps/api/test/auth.db-spec.ts`. A common-password/breached-password strategy must not silently depend on external availability: document actual offline guarantee, online optional behavior, and unavailable-network policy. No fake claim that a tiny local list checks all known leaks.
 
 Generic login errors to avoid user enumeration. With `autoSignIn: false` and Admin Plugin, verify `customSyntheticUser` response fields for indistinguishable duplicate-email signup responses, per installed docs. Avoid a success/error differential that discloses existing email. Frontend messages derived from known typed error codes; unknown errors show safe neutral fallback.
 
@@ -79,16 +79,16 @@ Use `apps/web/src/app/` for router composition, query provider, root layouts and
 
 Actual routes in M02:
 
-| Route | Access/behavior |
-| --- | --- |
-| `/` | Protected home/dashboard placeholder, no public landing |
-| `/sign-in` | Guest only; signed-in user redirected to `/` |
-| `/sign-up` | Guest only; available in invite mode, rejected in closed/open-disabled; frontend presentation mirrors safe backend policy |
-| `/settings/account` | Protected; name edit, read-only email |
-| `/settings/security` | Protected; password change and other-session revocation |
-| `/status` | Protected UI diagnostics; `GET /api/health` and `/api/ready` stay publicly callable |
-| `*` | Accessible not-found state; may include link to safe destination |
-| `/admin/*`, `/setup` | Future only; do not scaffold pages |
+| Route                | Access/behavior                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `/`                  | Protected home/dashboard placeholder, no public landing                                                                   |
+| `/sign-in`           | Guest only; signed-in user redirected to `/`                                                                              |
+| `/sign-up`           | Guest only; available in invite mode, rejected in closed/open-disabled; frontend presentation mirrors safe backend policy |
+| `/settings/account`  | Protected; name edit, read-only email                                                                                     |
+| `/settings/security` | Protected; password change and other-session revocation                                                                   |
+| `/status`            | Protected UI diagnostics; `GET /api/health` and `/api/ready` stay publicly callable                                       |
+| `*`                  | Accessible not-found state; may include link to safe destination                                                          |
+| `/admin/*`, `/setup` | Future only; do not scaffold pages                                                                                        |
 
 Implement a small guest/protected route boundary around Better Auth session checking, with four distinct states: checking, authenticated, unauthenticated, **unavailable**. Network 5xx should not immediately be treated as logout. Avoid protected-content flashes; do not blank the whole app during quiet background refresh. After login restore an **internal, validated** redirect only; reject protocol-relative, encoded, cross-origin and malformed destinations. Fallback `/`.
 
@@ -100,31 +100,31 @@ Use RHF + Zod for meaningful forms; place schemas in `model/`, transforms in `he
 - **Own NestJS endpoints**: define runtime-validated Zod schemas/DTOs and accurate OpenAPI operation IDs/responses; generate typed SDK and TanStack Query query/mutation options with Hey API, Axios as HTTP transport. Don't write parallel hand-maintained TypeScript DTOs and `fetch` wrappers.
 - Determine the exact compatible Nest + Zod OpenAPI bridge in M02.1 (real generated spec, not theoretical). Zod source of runtime truth whenever compatible; if framework integration cannot derive reliable OpenAPI, document the smallest supported alternative without silently changing stack.
 - Prefer generated SDK in a domain-specific `packages/api-client` workspace if actually used by the web health-check; do not introduce a generic API framework or unused packages. Generated files are machine-owned and not manually edited; codegen determinism and drift checked in CI/quality gate.
-- TanStack Query 5 manages *all app-specific async server state* including existing health/readiness UI (migrate its manual effect/state/fetch once SDK is ready), without redundantly wrapping Better Auth's own `useSession`. Do not invent duplicate query-key implementations where generator provides them.
+- TanStack Query 5 manages _all app-specific async server state_ including existing health/readiness UI (migrate its manual effect/state/fetch once SDK is ready), without redundantly wrapping Better Auth's own `useSession`. Do not invent duplicate query-key implementations where generator provides them.
 - API errors use Axios/SDK facilities and typed error shapes; 401 vs 403 vs network errors vs validation errors handled distinctly. Never globally redirect on all 401. Cancel requests via AbortSignal as supported; consciously configure retry policy (do not stack retries).
 - On sign-out, account change or session invalidation, clear sensitive TanStack cache and ensure data from user A is never shown to B. Do not remove all unrelated public cache without reason.
 
 ## 3. Security and correctness matrix (must pass by M02.4)
 
-| Scenario | Required observable result |
-| --- | --- |
-| Fresh DB + first bootstrap | Exactly one admin; admin authenticated only after ordinary sign-in; passwords not logged or passed in argv |
-| Second bootstrap / concurrent bootstrap | No second first-owner privilege; clear safe failure |
-| `closed` direct POST signup | Rejected even without frontend |
-| `invite` valid / expired / revoked / wrong email | Only valid bound token authorizes one registration; invalid responses do not expose secrets |
-| Same invitation, parallel POSTs and retries | At most one user; no duplicate usable invitations; crash/failure path is demonstrated |
-| Missing/invalid credentials | Generic auth failure without email enumeration |
-| Successful signup | No session/cookie created; separate sign-in needed |
-| Ordinary user calls privileged/admin endpoint | `403`/safe denial; impersonation and unauthorized role changes inaccessible |
-| Guest calls protected endpoint | `401`; health and readiness remain intentionally public |
-| Session expiry / logout / revoke other | Previous cookie no longer authorizes after required invalidation |
-| API unavailable while checking session | Error/retry state; not misreported as confirmed logout |
-| External redirect query | Rejected to safe root |
-| User A -> logout -> user B | No A-specific cached data or UI flashes |
-| Password change | Requires current password, policy validated, other sessions revoked |
-| Open-mode env without email verification | Startup rejects/explicitly disables unsafe configuration; never silently opens signup |
-| Debug/logging & HTTP headers | No secrets, passwords or tokens in logs; correct cookies/Origin/rate limiting |
-| Docs/installer | Clean fresh DB with committed migrations starts via documented developer commands |
+| Scenario                                         | Required observable result                                                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Fresh DB + first bootstrap                       | Exactly one admin; admin authenticated only after ordinary sign-in; passwords not logged or passed in argv |
+| Second bootstrap / concurrent bootstrap          | No second first-owner privilege; clear safe failure                                                        |
+| `closed` direct POST signup                      | Rejected even without frontend                                                                             |
+| `invite` valid / expired / revoked / wrong email | Only valid bound token authorizes one registration; invalid responses do not expose secrets                |
+| Same invitation, parallel POSTs and retries      | At most one user; no duplicate usable invitations; crash/failure path is demonstrated                      |
+| Missing/invalid credentials                      | Generic auth failure without email enumeration                                                             |
+| Successful signup                                | No session/cookie created; separate sign-in needed                                                         |
+| Ordinary user calls privileged/admin endpoint    | `403`/safe denial; impersonation and unauthorized role changes inaccessible                                |
+| Guest calls protected endpoint                   | `401`; health and readiness remain intentionally public                                                    |
+| Session expiry / logout / revoke other           | Previous cookie no longer authorizes after required invalidation                                           |
+| API unavailable while checking session           | Error/retry state; not misreported as confirmed logout                                                     |
+| External redirect query                          | Rejected to safe root                                                                                      |
+| User A -> logout -> user B                       | No A-specific cached data or UI flashes                                                                    |
+| Password change                                  | Requires current password, policy validated, other sessions revoked                                        |
+| Open-mode env without email verification         | Startup rejects/explicitly disables unsafe configuration; never silently opens signup                      |
+| Debug/logging & HTTP headers                     | No secrets, passwords or tokens in logs; correct cookies/Origin/rate limiting                              |
+| Docs/installer                                   | Clean fresh DB with committed migrations starts via documented developer commands                          |
 
 ## 4. Milestone boundaries and review gates
 

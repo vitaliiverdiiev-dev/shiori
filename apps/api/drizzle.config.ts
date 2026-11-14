@@ -6,7 +6,6 @@ import {
 
 loadRootEnvFile();
 
-/** Database connection, shared with drizzle.studio.config.ts. */
 export const connection = {
   dbCredentials: { url: loadDatabaseEnv().DATABASE_URL },
   dialect: 'postgresql',
@@ -15,7 +14,6 @@ export const connection = {
 export default defineConfig({
   ...connection,
   out: './drizzle',
-  // Each feature owns its tables in a colocated `*.schema.ts` file.
   schema: './src/**/*.schema.ts',
   strict: true,
 });

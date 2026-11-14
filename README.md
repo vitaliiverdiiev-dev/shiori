@@ -2,7 +2,7 @@
 
 **Your Guide to Japanese** · Logo glyph: **栞** · Repository: **`shiori`**
 
-Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00, M01, M01.1 and M01.2 complete** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics, Architecture v1 with lint enforcement; no learning features yet); **M02 identity is next**.
+Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00–M01.2 complete; M02.1 implemented, awaiting review** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics, Architecture v1 with lint enforcement, Better Auth email/password backend with registration closed, typed API client pipeline; no sign-in UI or learning features yet); **M02.2 (first admin, invitations) is next**.
 
 ## Getting started
 
@@ -16,7 +16,7 @@ pnpm dev            # web on http://localhost:5173, API on http://localhost:3000
 `pnpm dev` runs `scripts/dev-setup.mjs` first, then the apps:
 
 1. Checks that Docker and Docker Compose are available.
-2. Creates `.env` from `.env.example` if it is missing (fake, local-only values; an existing `.env` is never overwritten) and checks that `DATABASE_URL` matches the `POSTGRES_*` settings and points to this machine.
+2. Creates `.env` from `.env.example` if it is missing (fake, local-only values; an existing `.env` is never overwritten) and checks that `DATABASE_URL` matches the `POSTGRES_*` settings and points to this machine, and that the auth variables (`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`) are set. A `.env` created before M02.1 lacks them: copy both from `.env.example`.
 3. Starts PostgreSQL (`docker compose up -d --wait postgres`) and waits until it is healthy.
 4. Applies the committed migrations (`pnpm db:migrate`). It never generates migrations or pushes schema changes.
 5. Starts Vite (HMR) and NestJS (watch mode) via Turborepo.
@@ -39,6 +39,8 @@ The API serves everything under `/api`; the web dev server proxies `/api/*` to i
 | `pnpm db:studio`                       | Drizzle Studio for browsing the local database                 |
 | `pnpm test:db`                         | Real-database integration test (needs `pnpm db:up`)            |
 | `pnpm format:check`                    | Prettier check (`pnpm format` to fix)                          |
+| `pnpm api:generate`                    | Regenerate `apps/api/openapi.json` and `packages/api-client`   |
+| `pnpm api:check`                       | Fail if the contract or SDK differ from a fresh generation     |
 | `pnpm build-storybook`                 | Static Storybook build                                         |
 | `pnpm --filter web storybook`          | Storybook dev server on http://localhost:6006                  |
 
@@ -56,12 +58,11 @@ pnpm test:db           # real-database test against the isolated shiori_test DB
 pnpm db:down           # stop; data is kept in the shiori_postgres-data volume
 ```
 
-- **Drizzle Studio** is optional and not started by `pnpm dev`. Its server listens only on `127.0.0.1:4983`; the UI opens at `https://local.drizzle.studio`, a page served by Drizzle that talks to that local server from your browser. There are no application tables until the first real migration (M02, auth).
+- **Drizzle Studio** is optional and not started by `pnpm dev`. Its server listens only on `127.0.0.1:4983`; the UI opens at `https://local.drizzle.studio`, a page served by Drizzle that talks to that local server from your browser.
 
-- The API reads `DATABASE_URL` (and optional `PORT`) from the environment or the root `.env`, validates it at startup and exits with a clear error if it is missing or invalid. `/api/health` is liveness only and does not touch the database.
-- Schemas will live in their owning module as `apps/api/src/modules/<module>/*.schema.ts` (Drizzle globs `src/**/*.schema.ts`). Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
-- **Current limitation:** there are no tables yet. `apps/api/drizzle/meta/_journal.json` is Drizzle's empty migration journal, so `db:migrate` runs but applies nothing, and `db:generate` fails with "No schema files found" (exit code 1) until the first schema arrives with M02 (auth); that error is expected, not a broken setup. M01 verifies the workflow, not a real schema migration.
-- `pnpm test:db` refuses to run unless `TEST_DATABASE_URL` points to a local database whose name ends in `_test`. The `shiori_test` database is created by `infra/docker/postgres/init/` when the volume is first initialised. `pnpm test` stays Docker-free.
+- The API reads `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and optional `PORT`, `REGISTRATION_MODE`) from the environment or the root `.env`, validates them at startup and exits with an error naming the variable (never its value). Outside loopback, `BETTER_AUTH_URL` must be https and the example secret is refused; `REGISTRATION_MODE=open` is refused until email verification exists. Drizzle commands need only `DATABASE_URL`. `/api/health` is liveness only and does not touch the database.
+- Schemas live in their owning module as `apps/api/src/modules/<module>/*.schema.ts` (Drizzle globs `src/**/*.schema.ts`); the first migration, `0000_auth`, creates the Better Auth tables. Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
+- `pnpm test:db` refuses to run unless `TEST_DATABASE_URL` points to a local database whose name ends in `_test`; each run drops that database's schemas and applies the committed migrations from scratch. The `shiori_test` database is created by `infra/docker/postgres/init/` when the volume is first initialised. `pnpm test` stays Docker-free.
 - To wipe all local data deliberately: `docker compose down -v`.
 
 ## Sharing source for review
@@ -80,7 +81,8 @@ Writes `../shiori-review-<timestamp>.zip` (next to the repository folder) and pr
 
 ```text
 apps/web/src/  main.tsx · app/ (composition, styles) · pages/home · domain/health · shared/{ui,helpers} · test/
-apps/api/src/  main.ts · app/ (module, app.config) · infrastructure/{config,database} · modules/diagnostics
+apps/api/src/  main.ts · openapi.ts · app/ (module, app.config, openapi) · infrastructure/{config,database,openapi} · modules/{auth,diagnostics}
+packages/      api-client (generated from apps/api/openapi.json)
 ```
 
 Tests sit next to the main component (`health-status.test.tsx`) or in a local `tests/` folder; API unit tests are `*.spec.ts`, e2e and DB tests live in `apps/api/test/`. `pnpm lint` rejects layer/slice violations, deep imports, extra top-level code in main component files and magic numbers; `pnpm lint:fix` sorts imports, exports, keys (`id` first) and JSX props.

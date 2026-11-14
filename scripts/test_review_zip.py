@@ -1,5 +1,3 @@
-"""Tests for review_zip.py. Run: python3 -m unittest discover -s scripts"""
-
 from __future__ import annotations
 
 import os

@@ -9,7 +9,6 @@ export type AppEnv = Pick<
   'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL' | 'DATABASE_URL'
 >;
 
-/** Composition root: infrastructure plus feature modules. */
 @Module({})
 export class AppModule {
   static forRoot(env: AppEnv): DynamicModule {

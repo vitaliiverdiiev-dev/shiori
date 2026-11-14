@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createOpenApiDocument } from '../src/app/openapi.js';
+import { unauthorizedResponseSchema } from '../src/modules/auth/auth.dto.js';
 import {
   healthResponseSchema,
   notReadyResponseSchema,
@@ -59,8 +60,13 @@ describe('with an unreachable database', () => {
     expect(notReadyResponseSchema.parse(response.body)).toEqual(DOWN);
   });
 
-  it('GET /api/me requires a session', async () => {
-    await request(app.getHttpServer()).get('/api/me').expect(401);
+  it('GET /api/me requires a session and answers with the documented 401 body', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/api/me')
+      .expect(401);
+    expect(unauthorizedResponseSchema.parse(response.body)).toEqual(
+      response.body,
+    );
   });
 
   it('serves Better Auth once under /api/auth, never under /api/api/auth', async () => {

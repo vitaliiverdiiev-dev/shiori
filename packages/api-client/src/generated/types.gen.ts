@@ -15,8 +15,13 @@ export type GetCurrentUserErrors = {
     /**
      * No valid session.
      */
-    401: unknown;
+    401: {
+        message: string;
+        statusCode: 401;
+    };
 };
+
+export type GetCurrentUserError = GetCurrentUserErrors[keyof GetCurrentUserErrors];
 
 export type GetCurrentUserResponses = {
     /**

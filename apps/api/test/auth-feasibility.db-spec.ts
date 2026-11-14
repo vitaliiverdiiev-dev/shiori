@@ -1,6 +1,6 @@
-// M02.1 feasibility evidence for M02.2 (invitations), recorded as tests.
-// Each case builds Shiori's real auth options with sign-up enabled and adds
-// only the hooks under test, then calls Better Auth's HTTP handler.
+// Better Auth behaviour that sign-up policy and invitations rely on. Each case
+// uses Shiori's real options with sign-up enabled plus only the hooks under
+// test, so a library upgrade that changes these contracts fails here.
 import {
   betterAuth,
   type BetterAuthOptions,
@@ -11,7 +11,12 @@ import { createAuthMiddleware } from 'better-auth/api';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
-import { authOptions } from '../src/modules/auth/auth.config.js';
+import { z } from 'zod';
+import {
+  betterAuthOptions,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '../src/modules/auth/auth.config.js';
 import { TEST_AUTH_ENV, TEST_ORIGIN } from './support/app.js';
 import { testDatabaseUrl } from './support/test-database.js';
 
@@ -22,6 +27,10 @@ const SIGN_UP = {
   name: 'Invitee Test',
   password: 'a long enough passphrase',
 };
+const signUpResponseSchema = z.object({
+  token: z.string().nullable(),
+  user: z.record(z.string(), z.unknown()),
+});
 
 async function count(table: 'account' | 'user' | 'verification') {
   const { rows } = await pool.query<{ count: string }>(
@@ -46,7 +55,7 @@ function postSignUp(
 function signUpAuth(
   extra: Pick<BetterAuthOptions, 'databaseHooks' | 'hooks'> = {},
 ) {
-  const base = authOptions(db, {
+  const base = betterAuthOptions(db, {
     baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
     secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
   });
@@ -238,24 +247,43 @@ describe('sign-up request body', () => {
     expect(await count('account')).toBe(1);
   });
 
-  it('enforces the 15-character minimum on the server', async () => {
-    const response = await postSignUp(signUpAuth(), {
-      ...SIGN_UP,
-      password: '14 characters!',
-    });
-    expect(response.status).toBe(400);
-    expect(await count('user')).toBe(0);
-  });
+  it.each([
+    { accepted: false, length: PASSWORD_MIN_LENGTH - 1 },
+    { accepted: true, length: PASSWORD_MIN_LENGTH },
+    { accepted: true, length: PASSWORD_MAX_LENGTH },
+    { accepted: false, length: PASSWORD_MAX_LENGTH + 1 },
+  ])(
+    'enforces password length on the server: $length characters',
+    async ({ accepted, length }) => {
+      const response = await postSignUp(signUpAuth(), {
+        ...SIGN_UP,
+        password: 'p'.repeat(length),
+      });
+      expect(response.status).toBe(accepted ? 200 : 400);
+      expect(await count('user')).toBe(accepted ? 1 : 0);
+    },
+  );
 
   it('answers a duplicate email exactly like a new sign-up (no enumeration)', async () => {
     const auth = signUpAuth();
-    const first = await postSignUp(auth, SIGN_UP);
-    const duplicate = await postSignUp(auth, SIGN_UP);
+    const first = signUpResponseSchema.parse(
+      await (await postSignUp(auth, SIGN_UP)).json(),
+    );
+    const duplicateResponse = await postSignUp(auth, SIGN_UP);
+    const duplicate = signUpResponseSchema.parse(
+      await duplicateResponse.json(),
+    );
 
-    expect(duplicate.status).toBe(first.status);
-    const shape = (body: unknown) =>
-      typeof body === 'object' && body !== null ? Object.keys(body).sort() : [];
-    expect(shape(await duplicate.json())).toEqual(shape(await first.json()));
+    expect(duplicateResponse.status).toBe(200);
+    expect(duplicate.token).toBeNull();
+    expect(first.token).toBeNull();
+    expect(Object.keys(duplicate.user).sort()).toEqual(
+      Object.keys(first.user).sort(),
+    );
+    expect(duplicate.user).toMatchObject({
+      email: SIGN_UP.email,
+      role: 'user',
+    });
     expect(await count('user')).toBe(1);
   });
 });

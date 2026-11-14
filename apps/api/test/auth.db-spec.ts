@@ -16,13 +16,24 @@ import {
 import { currentUserResponseSchema } from '../src/modules/auth/auth.dto.js';
 import { createTestApp, TEST_ORIGIN } from './support/app.js';
 import { testDatabaseUrl } from './support/test-database.js';
-import { ALICE, authOf, createUser } from './support/users.js';
+import { ALICE, createUser, getAuth } from './support/users.js';
 
 const SESSION_COOKIE = 'better-auth.session_token';
 const DAY_MS = 86_400_000;
+const HTTPS_ORIGIN = 'https://shiori.example.test';
 
+let aliceId: string;
 let app: INestApplication<App>;
 let pool: Pool;
+
+/** The `Cookie` header a browser would send back: every cookie the response set. */
+function browserCookies(setCookie: string[] | undefined): string {
+  const pairs = (setCookie ?? []).map((value) => value.split(';')[0] ?? '');
+  if (!pairs.some((pair) => pair.startsWith(`${SESSION_COOKIE}=`))) {
+    throw new Error('No session cookie was set');
+  }
+  return pairs.join('; ');
+}
 
 async function countRows(table: 'session' | 'user'): Promise<number> {
   const { rows } = await pool.query<{ count: string }>(
@@ -31,20 +42,21 @@ async function countRows(table: 'session' | 'user'): Promise<number> {
   return Number(rows[0]?.count);
 }
 
-/** `name=value` of the session cookie set by a response. */
-function sessionCookie(setCookie: string[] | undefined): string {
-  const cookie = setCookie?.find((value) =>
-    value.startsWith(`${SESSION_COOKIE}=`),
-  );
-  if (!cookie) throw new Error('No session cookie was set');
-  return cookie.split(';')[0] ?? '';
-}
-
-function signIn(email: string, password: string, origin: string = TEST_ORIGIN) {
-  return request(app.getHttpServer())
+function signIn(
+  email: string,
+  password: string,
+  origin: string = TEST_ORIGIN,
+  target: INestApplication<App> = app,
+) {
+  return request(target.getHttpServer())
     .post('/api/auth/sign-in/email')
     .set('Origin', origin)
     .send({ email, password });
+}
+
+async function signInAlice(): Promise<string> {
+  const response = await signIn(ALICE.email, ALICE.password).expect(200);
+  return browserCookies(response.get('Set-Cookie'));
 }
 
 beforeAll(async () => {
@@ -58,7 +70,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await createUser(authOf(app), ALICE);
+  aliceId = await createUser(getAuth(app), ALICE);
 });
 
 afterEach(async () => {
@@ -87,20 +99,66 @@ describe('sign-in and session', () => {
     expect(cookie).not.toMatch(/; Secure/i);
   });
 
+  it('sets a __Secure- prefixed, Secure session cookie when the public URL is https', async () => {
+    const httpsApp = await createTestApp(testDatabaseUrl(), {
+      env: { BETTER_AUTH_URL: HTTPS_ORIGIN },
+    });
+    try {
+      const response = await signIn(
+        ALICE.email,
+        ALICE.password,
+        HTTPS_ORIGIN,
+        httpsApp,
+      ).expect(200);
+      const cookie = response
+        .get('Set-Cookie')
+        ?.find((value) => value.startsWith(`__Secure-${SESSION_COOKIE}=`));
+      expect(cookie).toMatch(/; Secure/i);
+      expect(cookie).toMatch(/; HttpOnly/i);
+      expect(cookie).toMatch(/; SameSite=Lax/i);
+    } finally {
+      await httpsApp.close();
+    }
+  });
+
   it('authorizes the private endpoint with a real session', async () => {
-    const cookie = sessionCookie(
-      (await signIn(ALICE.email, ALICE.password).expect(200)).get('Set-Cookie'),
-    );
     const response = await request(app.getHttpServer())
       .get('/api/me')
-      .set('Cookie', cookie)
+      .set('Cookie', await signInAlice())
       .expect(200);
     expect(currentUserResponseSchema.parse(response.body)).toEqual({
-      id: expect.any(String) as string,
+      id: aliceId,
       email: ALICE.email,
       name: ALICE.name,
       role: 'user',
     });
+  });
+
+  it('denies a session once it has expired in the database (no cookie cache)', async () => {
+    const cookie = await signInAlice();
+    await pool.query(
+      "update session set expires_at = now() - interval '1 minute'",
+    );
+    await request(app.getHttpServer())
+      .get('/api/me')
+      .set('Cookie', cookie)
+      .expect(401);
+  });
+
+  it('does not let a signed-in user make themselves admin', async () => {
+    const cookie = await signInAlice();
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/update-user')
+      .set('Origin', TEST_ORIGIN)
+      .set('Cookie', cookie)
+      .send({ role: 'admin' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ code: 'FIELD_NOT_ALLOWED' });
+    const { rows } = await pool.query<{ role: string }>(
+      'select role from "user"',
+    );
+    expect(rows).toEqual([{ role: 'user' }]);
   });
 
   it('stores a database session that expires in seven days', async () => {
@@ -114,9 +172,7 @@ describe('sign-in and session', () => {
   });
 
   it('denies the old cookie after sign-out', async () => {
-    const cookie = sessionCookie(
-      (await signIn(ALICE.email, ALICE.password).expect(200)).get('Set-Cookie'),
-    );
+    const cookie = await signInAlice();
     await request(app.getHttpServer())
       .post('/api/auth/sign-out')
       .set('Origin', TEST_ORIGIN)
@@ -138,14 +194,18 @@ describe('sign-in and session', () => {
     expect(wrongPassword.get('Set-Cookie')).toBeUndefined();
   });
 
-  // Whitespace is significant. Better Auth's hasher applies NFKC to both
-  // hash and verify, so composed and decomposed forms are the same password.
-  it('never trims passwords and treats Unicode forms as equivalent', async () => {
+  // Accepted design (M02 spec §2.3): Better Auth's hasher applies NFKC on
+  // hash and verify, so canonically and compatibility-equivalent input
+  // (e.g. IME full-width Latin) is the same password; whitespace is kept.
+  it('never trims passwords and treats NFKC-equivalent input as the same password', async () => {
     const password = '  栞 café correct horse  '.normalize('NFC');
     const bob = { email: 'bob@example.test', name: 'Bob Test', password };
-    await createUser(authOf(app), bob);
+    await createUser(getAuth(app), bob);
     await signIn(bob.email, password.trim()).expect(401);
     await signIn(bob.email, password.normalize('NFD')).expect(200);
+    await signIn(bob.email, '  栞 café ｃｏｒｒｅｃｔ ｈｏｒｓｅ  ').expect(
+      200,
+    );
     await signIn(bob.email, password).expect(200);
   });
 

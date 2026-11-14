@@ -9,7 +9,6 @@ export function isLocalDatabaseUrl(raw: string): boolean {
   return isLocalUrl(raw) && new URL(raw).search === '';
 }
 
-/** True when the URL's host is this machine. */
 export function isLocalUrl(raw: string): boolean {
   try {
     return LOCAL_HOSTS.has(new URL(raw).hostname);

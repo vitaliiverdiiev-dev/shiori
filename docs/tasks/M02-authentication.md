@@ -10,17 +10,17 @@ Implement Shiori's secure identity milestone with Better Auth, NestJS, PostgreSQ
 
 1. Root `CLAUDE.md`, `docs/01-product.md`–`docs/05-roadmap.md`, and `docs/standards/` (Architecture v1).
 2. `docs/specs/M02-authentication-design.md` (locked product decisions, technical checkpoints, test matrix, deferred scope).
-3. Exactly the *one* phase document explicitly requested below.
+3. Exactly the _one_ phase document explicitly requested below.
 4. Installed KataKit `frontend-architecture`, `backend-architecture`, `code-quality`, `testing`, `ui-design` as relevant; `quality-gate` before phase handoff. Do not copy these skills into Shiori.
 
 ## Execution order and acceptance
 
-| Phase | Input | Required output | Gate |
-| --- | --- | --- | --- |
-| M02.1 | `M02.1-auth-foundation.md` | Proven Nest/Better Auth/Drizzle integration; schema + first migration; typed OpenAPI SDK pipeline; auth smoke tests | Backend auth tests + migration + codegen + no public regression |
-| M02.2 | `M02.2-registration-invitations.md` | Safe CLI bootstrap, one-use invitations, `closed/invite/open-disabled`, limited privilege | Real DB concurrent/rollback/security tests |
-| M02.3 | `M02.3-frontend-auth.md` | Routing and auth UI; account/security settings; Query health migration | Component/router tests + authenticated browser journey |
-| M02.4 | `M02.4-integration-security.md` | Cross-stack security/regression checks; documentation; quality gate report | All required checks run and reported; no outstanding P0/P1 |
+| Phase | Input                               | Required output                                                                                                     | Gate                                                            |
+| ----- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| M02.1 | `M02.1-auth-foundation.md`          | Proven Nest/Better Auth/Drizzle integration; schema + first migration; typed OpenAPI SDK pipeline; auth smoke tests | Backend auth tests + migration + codegen + no public regression |
+| M02.2 | `M02.2-registration-invitations.md` | Safe CLI bootstrap, one-use invitations, `closed/invite/open-disabled`, limited privilege                           | Real DB concurrent/rollback/security tests                      |
+| M02.3 | `M02.3-frontend-auth.md`            | Routing and auth UI; account/security settings; Query health migration                                              | Component/router tests + authenticated browser journey          |
+| M02.4 | `M02.4-integration-security.md`     | Cross-stack security/regression checks; documentation; quality gate report                                          | All required checks run and reported; no outstanding P0/P1      |
 
 Each phase must finish with a **handoff report**: changed files; key design choices and reasons; actual checks with PASS/FAIL/NOT RUN/BLOCKED; risks and known gaps; explicit next recommended task. Do not auto-start the next phase. No commits, pushes, PRs, deployment, plugin changes or modifications outside active scope without permission. `pnpm lint:fix` may modify project files; inspect diff afterward.
 

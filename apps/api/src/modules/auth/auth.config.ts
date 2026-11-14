@@ -11,21 +11,21 @@ export const PASSWORD_MAX_LENGTH = 128;
 
 export type Auth = ReturnType<typeof createAuth>;
 
-export interface AuthOptions {
+export interface AuthSettings {
   /** Public origin the browser uses (the web app behind the same-origin `/api` proxy). */
   baseURL: string;
   secret: string;
 }
 
-/** Shiori's Better Auth configuration; feasibility tests vary single options from it. */
-export function authOptions(db: Database, options: AuthOptions) {
+/** Exported separately so tests can vary single options. */
+export function betterAuthOptions(db: Database, settings: AuthSettings) {
   return {
     // Better Auth disables its Origin/CSRF check when NODE_ENV=test or TEST
     // is set; keep it on everywhere.
     advanced: { disableOriginCheck: false },
     // Absolute: the Nest global prefix is not applied to Better Auth routes.
     basePath: '/api/auth',
-    baseURL: options.baseURL,
+    baseURL: settings.baseURL,
     database: drizzleAdapter(db, {
       provider: 'pg',
       schema,
@@ -34,13 +34,13 @@ export function authOptions(db: Database, options: AuthOptions) {
     }),
     emailAndPassword: {
       autoSignIn: false,
-      // Registration is closed until invitations exist (M02.2).
+      // Public sign-up stays off: REGISTRATION_MODE accepts only `closed`.
       disableSignUp: true,
       enabled: true,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       minPasswordLength: PASSWORD_MIN_LENGTH,
     },
-    secret: options.secret,
+    secret: settings.secret,
     // Database-backed sessions only: no cookie cache, 7-day rolling expiry.
     session: {
       expiresIn: SESSION_DAYS * DAY_SECONDS,
@@ -60,6 +60,6 @@ export function authOptions(db: Database, options: AuthOptions) {
   } satisfies BetterAuthOptions;
 }
 
-export function createAuth(db: Database, options: AuthOptions) {
-  return betterAuth(authOptions(db, options));
+export function createAuth(db: Database, settings: AuthSettings) {
+  return betterAuth(betterAuthOptions(db, settings));
 }

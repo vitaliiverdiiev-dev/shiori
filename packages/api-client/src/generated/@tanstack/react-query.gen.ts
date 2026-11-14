@@ -5,7 +5,7 @@ import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen.js';
 import { getCurrentUser, getHealth, getReady, type Options } from '../sdk.gen.js';
-import type { GetCurrentUserData, GetCurrentUserResponse, GetHealthData, GetHealthResponse, GetReadyData, GetReadyError, GetReadyResponse } from '../types.gen.js';
+import type { GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetHealthData, GetHealthResponse, GetReadyData, GetReadyError, GetReadyResponse } from '../types.gen.js';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseURL' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -45,7 +45,7 @@ export const getCurrentUserQueryKey = (options?: Options<GetCurrentUserData>) =>
 /**
  * Current user
  */
-export const getCurrentUserOptions = (options?: Options<GetCurrentUserData>) => queryOptions<GetCurrentUserResponse, AxiosError<DefaultError>, GetCurrentUserResponse, ReturnType<typeof getCurrentUserQueryKey>>({
+export const getCurrentUserOptions = (options?: Options<GetCurrentUserData>) => queryOptions<GetCurrentUserResponse, AxiosError<GetCurrentUserError>, GetCurrentUserResponse, ReturnType<typeof getCurrentUserQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
         const { data } = await getCurrentUser({
             ...options,

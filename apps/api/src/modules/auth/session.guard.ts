@@ -9,7 +9,9 @@ const reflector = new Reflector();
 /**
  * The library guard loads the session before checking @AllowAnonymous, so a
  * request carrying a session cookie made /api/health query the database.
- * Public routes now skip the session lookup entirely.
+ * @AllowAnonymous routes now skip the lookup and never see `request.user` or
+ * @Session(); a route that wants the user when one is signed in must use
+ * @OptionalAuth instead.
  */
 @Injectable()
 export class SessionGuard extends AuthGuard {

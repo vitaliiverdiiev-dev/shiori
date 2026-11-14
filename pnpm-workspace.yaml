@@ -7,3 +7,7 @@ allowBuilds:
   '@scarf/scarf': false
   # Native binary ships as an optional platform package; postinstall not needed.
   esbuild: false
+# @hey-api/json-schema-ref-parser pins js-yaml 4.2.0 (CPU-exhaustion advisories);
+# 4.3.2 is the same-major patched release. Drop when upstream updates the pin.
+overrides:
+  'js-yaml@>=4.0.0 <4.3.2': 4.3.2

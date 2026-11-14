@@ -1,6 +1,5 @@
 // Proves the Architecture v1 lint rules (eslint.config.js) by linting inline
 // samples at virtual paths: nothing is written to the source tree.
-// Run: node --test "scripts/*.test.mjs"
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, test } from 'node:test';

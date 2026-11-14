@@ -3,7 +3,6 @@ import { checkStatus } from '../api/requests';
 import { CHECKING } from '../model/consts';
 import type { Status } from '../model/types';
 
-/** Current API/database status; `retry` starts a fresh check. */
 export function useHealthStatus(): { retry: () => void; status: Status } {
   const [attempt, setAttempt] = useState(0);
   const [status, setStatus] = useState<Status>(CHECKING);

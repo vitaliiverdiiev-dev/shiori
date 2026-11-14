@@ -8,7 +8,6 @@ import {
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
-/** Injection token for the Drizzle database: `@Inject(DATABASE) db: Database`. */
 export const DATABASE = Symbol('DATABASE');
 /** Drizzle database; `$client` is the managed pool (for driver-level options). */
 export type Database = NodePgDatabase & { $client: Pool };

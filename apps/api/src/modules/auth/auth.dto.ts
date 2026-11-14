@@ -1,3 +1,4 @@
+import { HttpStatus } from '@nestjs/common';
 import { z } from 'zod';
 
 export const currentUserResponseSchema = z.object({
@@ -8,3 +9,9 @@ export const currentUserResponseSchema = z.object({
 });
 
 export type CurrentUserResponse = z.infer<typeof currentUserResponseSchema>;
+
+/** Nest's default UnauthorizedException body, thrown by the session guard. */
+export const unauthorizedResponseSchema = z.object({
+  message: z.string(),
+  statusCode: z.literal(HttpStatus.UNAUTHORIZED),
+});

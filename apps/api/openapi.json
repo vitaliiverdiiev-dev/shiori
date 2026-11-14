@@ -42,7 +42,30 @@
             }
           },
           "401": {
-            "description": "No valid session."
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        401
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
           }
         },
         "summary": "Current user",

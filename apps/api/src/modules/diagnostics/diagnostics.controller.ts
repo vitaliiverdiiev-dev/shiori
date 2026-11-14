@@ -35,7 +35,6 @@ const readyQuery: QueryConfig & { query_timeout: number } = {
   text: 'select 1',
 };
 
-/** Liveness and readiness probes (`/api/health`, `/api/ready`); public for health checkers. */
 @AllowAnonymous()
 @Controller()
 export class DiagnosticsController {

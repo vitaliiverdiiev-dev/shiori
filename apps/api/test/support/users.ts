@@ -15,10 +15,6 @@ export const ALICE: TestUser = {
   password: 'correct horse battery staple',
 };
 
-export function authOf(app: INestApplication): Auth {
-  return app.get<AuthService<Auth>>(AuthService, { strict: false }).instance;
-}
-
 /** Creates a credential user the way sign-up would, bypassing the closed sign-up endpoint. */
 export async function createUser(auth: Auth, user: TestUser): Promise<string> {
   const context = await auth.$context;
@@ -33,4 +29,8 @@ export async function createUser(auth: Auth, user: TestUser): Promise<string> {
     userId: created.id,
   });
   return created.id;
+}
+
+export function getAuth(app: INestApplication): Auth {
+  return app.get<AuthService<Auth>>(AuthService, { strict: false }).instance;
 }

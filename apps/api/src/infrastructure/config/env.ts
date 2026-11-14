@@ -20,8 +20,8 @@ const envSchema = databaseEnvSchema
     BETTER_AUTH_SECRET: z.string().min(MIN_AUTH_SECRET_LENGTH),
     BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
     PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
-    // `invite` arrives with invitations (M02.2). `open` needs verified email
-    // delivery, which does not exist yet, so it is rejected below.
+    // `open` needs verified email delivery, which does not exist yet, so it is
+    // rejected below.
     REGISTRATION_MODE: z.enum(['closed', 'open']).default('closed'),
   })
   .superRefine((env, ctx) => {

@@ -23,7 +23,6 @@ function isSchemaObject(value: unknown): value is SchemaObject {
   });
 }
 
-/** OpenAPI 3.0 schema for a Zod schema, so Zod stays the single source of the contract. */
 export function toOpenApiSchema(schema: z.ZodType): SchemaObject {
   const jsonSchema = Object.fromEntries(
     Object.entries(z.toJSONSchema(schema, { target: 'openapi-3.0' })).filter(

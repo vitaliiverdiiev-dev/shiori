@@ -12,7 +12,7 @@ Code structure, dependency direction and lint enforcement follow the portable st
 - [Backend Architecture v1](standards/backend-architecture-v1.md): NestJS modular monolith.
 - [Code Quality & ESLint v1](standards/code-quality-v1.md): boundaries, ordering, magic numbers, rule tests.
 
-## Current map (M01.2)
+## Current map (M02.1)
 
 ```text
 apps/web/src/
@@ -26,19 +26,33 @@ apps/web/src/
   test/setup.ts               # Vitest/RTL setup only
 apps/api/src/
   main.ts                     # loads + validates env, creates the app
-  app/app.module.ts           # composition root; app/app.config.ts = global prefix + shutdown hooks
+  openapi.ts                  # second entry point: writes apps/api/openapi.json offline
+  app/app.module.ts           # composition root; app/app.config.ts = body parser off, global prefix, shutdown hooks
+  app/openapi.ts              # OpenAPI document of the app's own Nest endpoints
   infrastructure/config/      # env parsing/validation (Zod)
   infrastructure/database/    # single pg pool + Drizzle provider (DATABASE token), local-URL guard
+  infrastructure/openapi/     # Zod schema → OpenAPI 3.0 schema object
+  modules/auth/               # Better Auth config + schema, SessionGuard, GET /api/me
   modules/diagnostics/        # GET /api/health, GET /api/ready
+apps/api/drizzle/             # committed SQL migrations (0000_auth)
+apps/api/openapi.json         # committed API contract (machine-owned)
+packages/api-client/          # @shiori/api-client: Hey API SDK (Axios) + TanStack Query options
 infra/docker/postgres/init/   # repository-level Docker assets (not the API's infrastructure/)
 compose.yaml                  # local PostgreSQL
 product.config.json           # canonical product identity
 ```
 
 - **Diagnostics ↔ health:** the API's `modules/diagnostics` owns the `/api/health` (liveness) and `/api/ready` (readiness) contracts; the web `domain/health` slice consumes them, treats only `{ status: 'ok', checks: { database: 'up' } }` as database online, and derives "database unknown" when the API is offline.
+- **Auth (`modules/auth`):** Better Auth (pinned exactly) owns `/api/auth/*`, mounted at an absolute base path (the Nest `api` prefix does not apply; `/api/api/auth` is a tested 404). It reuses the shared pool through the `DATABASE` token. Nest starts with `bodyParser: false`; the adapter re-adds JSON/URL-encoded parsing for every other route. Sessions are database-backed (7 days, refreshed daily, no cookie cache); cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` with a `__Secure-` prefix when `BETTER_AUTH_URL` is https. The Origin check is forced on (`disableOriginCheck: false`) because Better Auth skips it under `NODE_ENV=test`. Same-origin only: no CORS.
+- **Route protection:** `SessionGuard` (global `APP_GUARD`) protects every Nest route. `@AllowAnonymous()` routes skip the session lookup entirely, so health stays independent of the database even when a cookie is sent, and they never receive `request.user` / `@Session()`. A route that should know the user when one is signed in uses `@OptionalAuth()` instead. A missing session is Nest's default 401 body `{ message, statusCode: 401 }`, documented in OpenAPI.
+- **Roles:** `user.role` (`user` | `admin`) is a Better Auth additional field with `input: false` and a database CHECK; clients cannot set it on sign-up or `update-user` (tested). The Admin plugin is not used, so its endpoints do not exist.
+- **Auth schema and upgrades:** `auth.schema.ts` is hand-written for the pinned Better Auth version (the CLI was not run). Better Auth's runtime schema check compares it with the fields the library expects on first use, and `pnpm test:db` migrates a fresh database and exercises sign-in. **When upgrading Better Auth**, diff the expected tables (`getAuthTables`) against `auth.schema.ts`, generate a migration for any change and run `pnpm test:db` before committing.
+- **Passwords:** 15–128 characters, never trimmed, hashed by Better Auth, which applies Unicode NFKC before hashing and verifying (canonically or compatibility-equivalent input, such as full-width Latin from a Japanese IME, is the same password). The length check counts UTF-16 code units of the raw input; a client-side check must use the same rule.
+- **Registration:** `closed` only; `REGISTRATION_MODE=open` is rejected at startup until verified email exists. HTTP is allowed only for a loopback `BETTER_AUTH_URL`; any other host needs https and a non-example secret.
+- **API contract and client:** Zod DTOs → `@nestjs/swagger` → committed `apps/api/openapi.json` → `@hey-api/openapi-ts` → `packages/api-client/src/generated` (committed, never hand-edited). `pnpm api:generate` rebuilds both; `pnpm api:check` fails on drift, and an API e2e test fails when `openapi.json` is stale. Better Auth routes stay out: its own client is their contract. The generated paths already include `/api` and the default base URL is empty, so browser requests are relative and same-origin (through the Vite proxy in development) and carry the session cookie without CORS or `withCredentials`. The package builds to `dist/`; consumers import `@shiori/api-client` and `@shiori/api-client/react-query` and must build it first. `@tanstack/react-query` is a peer dependency so the web app owns the only runtime copy.
 - **Product identity:** `@/product-config` is a single TS/Vite alias to the root `product.config.json`. ESLint allows it only in `src/app`; pages receive values as typed props.
 - **shadcn:** `components.json` targets `@/shared/ui/primitives` and `@/shared/helpers/cn`. The CLI writes `primitives/<name>.tsx`; move it to `primitives/<name>/<name>.tsx`, import `cn` from `@/shared/helpers/cn`, export it from `shared/ui/index.ts` when used outside shared, then run `pnpm lint:fix`.
-- **Database schemas** will live with their owning API module as `*.schema.ts` (Drizzle glob `src/**/*.schema.ts`); none exist yet.
+- **Database schemas** live with their owning API module as `*.schema.ts` (Drizzle glob `src/**/*.schema.ts`); the first is `modules/auth/auth.schema.ts`.
 
 ### Enforcement and exceptions
 
@@ -51,7 +65,7 @@ Enforced by `pnpm lint` (`eslint.config.js`) and proven by `scripts/eslint-archi
 - Backend: infrastructure never imports modules; `app/` imports modules only via `*.module.ts`; modules see other modules' `*.module.ts` only.
 - Ordering (Perfectionist, auto-fixable) and `@typescript-eslint/no-magic-numbers` in `apps/*/src` (tests, specs and stories exempt).
 
-Justified exceptions: shadcn primitives skip `sort-objects` (cva key order decides class precedence) and `react-refresh/only-export-components`; `main.tsx` and API `main.ts` are bootstrap files outside the layer graph.
+Justified exceptions: shadcn primitives skip `sort-objects` (cva key order decides class precedence) and `react-refresh/only-export-components`; `main.tsx` and API `main.ts`/`openapi.ts` are bootstrap files outside the layer graph. `packages/api-client` compiles its generated code with `exactOptionalPropertyTypes: false` because Hey API's generated Axios runtime (0.99.0) does not compile with it; the exception is limited to that package's own build, the generated directory is excluded from ESLint and Prettier, and consumers keep the flag (verified by compiling against the emitted declarations with `exactOptionalPropertyTypes: true` and `skipLibCheck: false`).
 
 Manual review only: a "main component file" is recognised by location (slice-root `.tsx`), not by content; exported Nest providers consumed across modules need an explicit contract when the first real consumer appears; one-component-per-file in `ui/`, WHAT/HOW placement and test placement are conventions, not lint gates.
 

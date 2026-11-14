@@ -1,9 +1,7 @@
-/** `/api/health` body: `{ status: 'ok' }`. */
 export function isApiHealthy(body: unknown): boolean {
   return isRecord(body) && body.status === 'ok';
 }
 
-/** `/api/ready` body: `{ status: 'ok', checks: { database: 'up' } }`; anything else is not ready. */
 export function isDatabaseUp(body: unknown): boolean {
   return (
     isRecord(body) &&

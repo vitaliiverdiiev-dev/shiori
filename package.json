@@ -15,7 +15,7 @@
     "dev:apps": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "eslint scripts && turbo run lint",
+    "lint": "eslint --max-warnings 0 scripts && turbo run lint",
     "lint:fix": "eslint --fix .",
     "test": "python3 -B -m unittest discover -s scripts && node --test \"scripts/*.test.mjs\" && turbo run test",
     "test:db": "pnpm --filter api test:db",
@@ -29,7 +29,7 @@
     "format:check": "prettier --check .",
     "review:zip": "python3 scripts/review_zip.py",
     "api:generate": "pnpm --filter api openapi && pnpm --filter @shiori/api-client generate",
-    "api:check": "pnpm api:generate && git diff --exit-code -- apps/api/openapi.json packages/api-client/src/generated && test -z \"$(git status --porcelain --untracked-files=all -- apps/api/openapi.json packages/api-client/src/generated)\""
+    "api:check": "node scripts/api-check.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

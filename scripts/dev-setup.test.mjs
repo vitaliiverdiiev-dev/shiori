@@ -1,4 +1,3 @@
-// Run: node --test "scripts/*.test.mjs"
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { checkAuthEnv, checkDatabaseEnv } from './dev-setup.mjs';

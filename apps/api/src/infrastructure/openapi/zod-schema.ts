@@ -8,7 +8,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// JSON Schema allows boolean sub-schemas; OpenAPI 3.0 does not.
 function isSchemaObject(value: unknown): value is SchemaObject {
   if (!isRecord(value)) return false;
   return Object.entries(value).every(([key, child]) => {

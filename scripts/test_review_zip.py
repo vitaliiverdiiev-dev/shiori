@@ -34,7 +34,6 @@ class ExportTest(unittest.TestCase):
             git(repo, "-c", "user.name=t", "-c", "user.email=t@example.invalid",
                 "commit", "-qm", "init")
 
-            # Working-tree state the archive must reflect.
             (repo / "src/app.ts").write_text("export const v = 2;\n")
             extra = {
                 "src/new file ü.ts": "export {};\n",
@@ -60,7 +59,7 @@ class ExportTest(unittest.TestCase):
                 names = set(archive.namelist())
                 app = archive.read("demo/src/app.ts").decode()
 
-            self.assertEqual(app, "export const v = 2;\n")  # unstaged edit
+            self.assertEqual(app, "export const v = 2;\n")
             for kept in ("demo/src/new file ü.ts", "demo/src/password-input.tsx",
                          "demo/.env.example", "demo/.gitignore"):
                 self.assertIn(kept, names)

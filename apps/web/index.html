@@ -7,11 +7,8 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="color-scheme" content="light dark" />
-    <!-- Fallback only: the app sets the title from product.config.json, which is
-         bundled at build time (rebuild after changing it). -->
     <title>Loading…</title>
     <script>
-      // Follow the OS theme before first paint; shadcn tokens switch on `.dark`.
       const media = matchMedia('(prefers-color-scheme: dark)');
       const applyTheme = () =>
         document.documentElement.classList.toggle('dark', media.matches);

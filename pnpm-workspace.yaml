@@ -1,13 +1,9 @@
 packages:
   - apps/*
   - packages/*
-# Reviewed dependency build scripts (pnpm fails install on unreviewed ones).
 allowBuilds:
-  # swagger-ui-dist usage telemetry; not needed.
   '@scarf/scarf': false
-  # Native binary ships as an optional platform package; postinstall not needed.
   esbuild: false
-# @hey-api/json-schema-ref-parser pins js-yaml 4.2.0 (CPU-exhaustion advisories);
-# 4.3.2 is the same-major patched release. Drop when upstream updates the pin.
+# WORKAROUND(@hey-api/json-schema-ref-parser@1.4.4): Pins vulnerable js-yaml 4.2.0; remove once upstream bumps it.
 overrides:
   'js-yaml@>=4.0.0 <4.3.2': 4.3.2

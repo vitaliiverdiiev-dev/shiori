@@ -28,8 +28,7 @@ import {
 
 const READY_QUERY_TIMEOUT_MS = 2_000;
 
-// pg honours a per-query `query_timeout` (client-side), but @types/pg only
-// declares it on the client config, hence the widened type.
+// COMPAT(@types/pg@8.23): pg honours a per-query query_timeout that the types declare only on the client config.
 const readyQuery: QueryConfig & { query_timeout: number } = {
   query_timeout: READY_QUERY_TIMEOUT_MS,
   text: 'select 1',
@@ -42,7 +41,6 @@ export class DiagnosticsController {
 
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
-  /** Liveness: the process answers. Never touches the database. */
   @ApiOkResponse({
     description: 'The API process is running.',
     schema: toOpenApiSchema(healthResponseSchema),
@@ -53,7 +51,6 @@ export class DiagnosticsController {
     return { status: 'ok' };
   }
 
-  /** Readiness: the database answers a trivial query within a bounded time. */
   @ApiOkResponse({
     description: 'The database is reachable.',
     schema: toOpenApiSchema(readyResponseSchema),
@@ -69,7 +66,6 @@ export class DiagnosticsController {
       await this.db.$client.query(readyQuery);
       return { checks: { database: 'up' }, status: 'ok' };
     } catch (error) {
-      // Details stay in the server log; the response body is fixed.
       const reason = error instanceof Error ? error.message : 'unknown error';
       this.logger.warn(`Database readiness check failed: ${reason}`);
       const body: NotReadyResponse = {

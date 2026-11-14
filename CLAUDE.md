@@ -16,6 +16,7 @@
 - Inventory and Punch UI are reference ideas only; do not copy their source or architecture.
 - Machine-owned files are never hand-edited: `apps/api/openapi.json` and `packages/api-client/src/generated` (`pnpm api:generate`), and `apps/api/drizzle/` (`pnpm db:generate`). Never run `drizzle-kit push` or Better Auth's `auth migrate`.
 - Better Auth is pinned exactly; an upgrade must follow the schema check in `docs/03-architecture.md`.
+- Comments follow KataKit `code-quality`; `pnpm lint` enforces the markers via `shiori/comment-policy`. Do not add rule exemptions without review.
 - Do **not** commit, push, deploy, publish, or install global Claude plugins without explicit permission.
 
 ## Commands

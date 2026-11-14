@@ -12,36 +12,30 @@ export const PASSWORD_MAX_LENGTH = 128;
 export type Auth = ReturnType<typeof createAuth>;
 
 export interface AuthSettings {
-  /** Public origin the browser uses (the web app behind the same-origin `/api` proxy). */
   baseURL: string;
   secret: string;
 }
 
-/** Exported separately so tests can vary single options. */
 export function betterAuthOptions(db: Database, settings: AuthSettings) {
   return {
-    // Better Auth disables its Origin/CSRF check when NODE_ENV=test or TEST
-    // is set; keep it on everywhere.
+    // COMPAT(better-auth@1.7.23): Origin checks default to off when NODE_ENV=test or TEST is set.
     advanced: { disableOriginCheck: false },
-    // Absolute: the Nest global prefix is not applied to Better Auth routes.
+    // COMPAT(@thallesp/nestjs-better-auth@2.8.0): The Nest global prefix is not applied to Better Auth routes.
     basePath: '/api/auth',
     baseURL: settings.baseURL,
     database: drizzleAdapter(db, {
       provider: 'pg',
       schema,
-      // Sign-up's user + account inserts (and database hooks) commit or roll back together.
       transaction: true,
     }),
     emailAndPassword: {
       autoSignIn: false,
-      // Public sign-up stays off: REGISTRATION_MODE accepts only `closed`.
       disableSignUp: true,
       enabled: true,
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       minPasswordLength: PASSWORD_MIN_LENGTH,
     },
     secret: settings.secret,
-    // Database-backed sessions only: no cookie cache, 7-day rolling expiry.
     session: {
       expiresIn: SESSION_DAYS * DAY_SECONDS,
       updateAge: DAY_SECONDS,

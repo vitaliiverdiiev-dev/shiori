@@ -13,11 +13,9 @@ import {
 } from '../src/modules/diagnostics/diagnostics.dto.js';
 import { createTestApp, TEST_AUTH_ENV } from './support/app.js';
 
-// Nothing listens on port 1: connections are refused immediately.
 const UNREACHABLE_DATABASE_URL = 'postgres://unused@127.0.0.1:1/unused';
 const DOWN = { checks: { database: 'down' }, status: 'error' };
 
-/** A correctly signed (but unknown) session cookie: Better Auth must look it up. */
 function signedSessionCookie(token: string): string {
   const signature = createHmac('sha256', TEST_AUTH_ENV.BETTER_AUTH_SECRET)
     .update(token)
@@ -103,7 +101,6 @@ describe('GET /api/ready with a stubbed database', () => {
         .expect(200)
         .expect({ checks: { database: 'up' }, status: 'ok' });
       expect(readyResponseSchema.parse(response.body)).toEqual(response.body);
-      // The check must be bounded by a driver-level timeout.
       expect(query.mock.calls[0]?.[0].query_timeout).toBeGreaterThan(0);
     } finally {
       await app.close();

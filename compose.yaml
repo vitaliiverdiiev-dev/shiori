@@ -1,4 +1,3 @@
-# Local development database only (no app containers yet). Values come from .env.
 name: shiori
 
 services:
@@ -9,12 +8,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     ports:
-      # Loopback only: not reachable from other machines on the network.
       - '127.0.0.1:${POSTGRES_PORT:-55432}:5432'
     volumes:
-      # PostgreSQL 18+ images keep data in a versioned subfolder of this path.
+      # COMPAT(postgres:18 image): Data lives in a versioned subfolder, so the volume mounts the parent.
       - postgres-data:/var/lib/postgresql
-      # Runs only when the volume is first created.
+      # COMPAT(postgres:18 image): Init scripts run only when the data volume is empty.
       - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:

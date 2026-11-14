@@ -1,6 +1,3 @@
-// Better Auth behaviour that sign-up policy and invitations rely on. Each case
-// uses Shiori's real options with sign-up enabled plus only the hooks under
-// test, so a library upgrade that changes these contracts fails here.
 import {
   betterAuth,
   type BetterAuthOptions,
@@ -84,7 +81,6 @@ const failAccountInsert = {
   },
 };
 
-/** Writes an invitation-like row through the adapter of the running transaction. */
 async function consumeInTransaction(
   context: GenericEndpointContext | null,
 ): Promise<void> {

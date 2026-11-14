@@ -20,7 +20,6 @@ export class AuthModule {
           inject: [DATABASE],
           useFactory: (db: Database) => ({
             auth: createAuth(db, settings),
-            // Same-origin only (the web app proxies /api): no CORS.
             disableTrustedOriginsCors: true,
           }),
         }),

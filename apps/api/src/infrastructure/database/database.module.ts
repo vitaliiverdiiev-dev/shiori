@@ -9,11 +9,9 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
 export const DATABASE = Symbol('DATABASE');
-/** Drizzle database; `$client` is the managed pool (for driver-level options). */
 export type Database = NodePgDatabase & { $client: Pool };
 
 const DATABASE_POOL = Symbol('DATABASE_POOL');
-// Fail instead of waiting forever when the server is unreachable.
 const CONNECTION_TIMEOUT_MS = 3_000;
 
 export interface DatabaseOptions {
@@ -32,13 +30,12 @@ export class DatabaseModule implements OnApplicationShutdown {
       providers: [
         {
           provide: DATABASE_POOL,
-          // Lazy: no connection is opened until the first query.
           useFactory: (): Pool => {
             const pool = new Pool({
               connectionString: options.url,
               connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
             });
-            // An idle client error (e.g. DB restart) must not crash the process.
+            // COMPAT(pg@8.23): An unhandled idle-client 'error' event crashes the Node process.
             pool.on('error', (error) => {
               new Logger(DatabaseModule.name).error(
                 `Idle database client error: ${error.message}`,

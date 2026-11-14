@@ -34,7 +34,6 @@ EXCLUDED_SUFFIXES = (
     ".zip", ".tar", ".tgz", ".gz", ".bz2", ".xz", ".7z", ".rar",
     ".sqlite", ".sqlite3", ".db",
 )
-# Personal Claude Code state; shared `.claude/settings.json` and rules stay in.
 EXCLUDED_PATHS = {".claude/settings.local.json"}
 
 SECRET_NAMES = {
@@ -46,8 +45,6 @@ SECRET_SUFFIXES = (
     ".crt", ".cer", ".der", ".asc", ".gpg",
 )
 SAFE_ENV_SUFFIXES = (".example", ".sample", ".template")
-# Source files may legitimately be named e.g. `password-input.tsx`; other
-# files with these words in their name are treated as possible secrets.
 SUSPICIOUS_WORDS = re.compile(
     r"secret|token|passw|credential|private[-_]?key|service[-_]?account", re.I
 )
@@ -99,7 +96,7 @@ def export(root: Path, output: Path, max_bytes: int) -> int:
             if file.is_symlink():
                 reason = "symlink"
             elif not file.is_file():
-                continue  # tracked but deleted in the working tree
+                continue
             elif file.stat().st_size > max_bytes:
                 reason = "too large"
         if reason:
@@ -117,7 +114,7 @@ def export(root: Path, output: Path, max_bytes: int) -> int:
     for reason in sorted(skipped):
         paths = skipped[reason]
         print(f"Skipped ({reason}): {len(paths)}")
-        if reason != "generated":  # paths only, never contents
+        if reason != "generated":
             for rel in paths:
                 print(f"  - {rel}")
     print("Note: filename filtering is not a secret scanner; "

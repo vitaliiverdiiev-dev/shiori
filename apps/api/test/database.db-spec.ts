@@ -44,7 +44,7 @@ describe('database', () => {
       const result = await db.execute(sql`select 1 as ok`);
       expect(result.rows).toEqual([{ ok: 1 }]);
     } finally {
-      await app.close(); // runs onApplicationShutdown → pool.end()
+      await app.close();
     }
   });
 

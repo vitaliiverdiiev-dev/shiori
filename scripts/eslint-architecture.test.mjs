@@ -1,5 +1,3 @@
-// Proves the Architecture v1 lint rules (eslint.config.js) by linting inline
-// samples at virtual paths: nothing is written to the source tree.
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, test } from 'node:test';
@@ -7,8 +5,6 @@ import { ESLint } from 'eslint';
 
 const root = path.resolve(import.meta.dirname, '..');
 
-// Virtual files are not in any tsconfig, so lint them without type information
-// and skip the type-aware typescript-eslint rules (covered by `pnpm lint`).
 const options = {
   cwd: root,
   overrideConfig: {
@@ -23,7 +19,6 @@ const options = {
 const linter = new ESLint(options);
 const fixer = new ESLint({ ...options, fix: true });
 
-/** Rule ids reported for `code` linted as if it lived at `file`. */
 async function ruleIds(file, code) {
   const [result] = await linter.lintText(code, {
     filePath: path.join(root, file),
@@ -111,9 +106,7 @@ describe('frontend layers and slices', () => {
       IMPORTS,
     ));
 
-  // Boundaries resolves each import to a real file, so both spellings hit the
-  // same rule. Targets must exist: unresolved paths are not elements (and fail
-  // typecheck anyway), so store/ and pages/<slice>/{api,…} have no fixture yet.
+  // TODO: Add store/ and pages/<slice>/{api,…} fixtures once those folders exist; boundaries needs real import targets.
   describe("model/ never imports its slice's HOW segments", () => {
     const domainModel = `${WEB}/domain/health/model/example.ts`;
     const pageModel = `${WEB}/pages/home/model/example.ts`;
@@ -355,7 +348,6 @@ describe('ordering autofix', () => {
     ].join('\n');
     const expected = [
       "export const user = { id: '123', age: 20, identity: 'x', name: 'Example' };",
-      // sort-modules also orders the two declarations; Prettier tidies `;`.
       'export interface Card { id: string; body: string; title: string; }',
       'export type User = { id: string; age: number; name: string; userId: string; };',
       '',

@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, test } from 'node:test';
-import { diffTrees } from './api-check.mjs';
+import { diffTrees, findDrift } from './api-check.mjs';
 
 const PATHS = ['contract.json', 'generated'];
 const temporaryRoots = [];
@@ -51,4 +58,60 @@ test('reports changed, added and removed generated files', () => {
 test('ignores files outside the generated paths', () => {
   const regenerated = tree({ ...current, 'README.md': 'changed' });
   assert.deepEqual(diffTrees(tree(current), regenerated, PATHS), []);
+});
+
+/** @param {Record<string, string>} files @returns {(outputRoot: string) => void} */
+function writes(files) {
+  return (outputRoot) => {
+    for (const [path, content] of Object.entries(files)) {
+      mkdirSync(join(outputRoot, path, '..'), { recursive: true });
+      writeFileSync(join(outputRoot, path), content);
+    }
+  };
+}
+
+test('generates outside the checked tree and leaves it untouched', () => {
+  const root = tree(current);
+  let outputRoot = '';
+  const drift = findDrift({
+    generate: (output) => {
+      outputRoot = output;
+      writes({ ...current, 'generated/sdk.gen.ts': 'export const a = 2;' })(
+        output,
+      );
+    },
+    paths: PATHS,
+    root,
+  });
+
+  assert.deepEqual(drift, ['generated/sdk.gen.ts']);
+  assert.notEqual(outputRoot, root);
+  assert.equal(
+    readFileSync(join(root, 'generated/sdk.gen.ts'), 'utf8'),
+    'export const a = 1;',
+  );
+  assert.equal(existsSync(outputRoot), false);
+});
+
+test('a failed generation still leaves the tree untouched and cleans up', () => {
+  const root = tree(current);
+  let outputRoot = '';
+  assert.throws(
+    () =>
+      findDrift({
+        generate: (output) => {
+          outputRoot = output;
+          writes({ 'generated/sdk.gen.ts': 'partial' })(output);
+          throw new Error('generator crashed');
+        },
+        paths: PATHS,
+        root,
+      }),
+    /generator crashed/,
+  );
+  assert.equal(
+    readFileSync(join(root, 'generated/sdk.gen.ts'), 'utf8'),
+    'export const a = 1;',
+  );
+  assert.equal(existsSync(outputRoot), false);
 });

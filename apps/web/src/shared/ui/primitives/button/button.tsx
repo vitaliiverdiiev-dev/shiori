@@ -18,8 +18,6 @@ const buttonVariants = cva(
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',
       },
-      // Touch policy: regular sizes grow to a 44px target on coarse pointers
-      // (phones/tablets); xs/sm stay compact for dense, secondary controls.
       size: {
         default:
           'h-8 gap-1.5 px-2.5 pointer-coarse:h-11 pointer-coarse:px-4 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',

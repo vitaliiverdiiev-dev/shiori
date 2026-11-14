@@ -2,17 +2,11 @@ import { type ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@thallesp/nestjs-better-auth';
 
-// Metadata key set by @AllowAnonymous() in @thallesp/nestjs-better-auth.
+// COMPAT(@thallesp/nestjs-better-auth@2.8.0): @AllowAnonymous() sets this key; the library guard loads the session first.
 const PUBLIC_KEY = 'PUBLIC';
 const reflector = new Reflector();
 
-/**
- * The library guard loads the session before checking @AllowAnonymous, so a
- * request carrying a session cookie made /api/health query the database.
- * @AllowAnonymous routes now skip the lookup and never see `request.user` or
- * @Session(); a route that wants the user when one is signed in must use
- * @OptionalAuth instead.
- */
+// INVARIANT: @AllowAnonymous routes never load a session or see request.user; use @OptionalAuth to read an optional user.
 @Injectable()
 export class SessionGuard extends AuthGuard {
   override async canActivate(context: ExecutionContext): Promise<boolean> {

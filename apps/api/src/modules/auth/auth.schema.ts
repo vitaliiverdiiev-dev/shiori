@@ -8,9 +8,7 @@ import {
   timestamp,
 } from 'drizzle-orm/pg-core';
 
-// Better Auth core tables for the installed version (1.7) plus the `role`
-// additional field. Field names must match getAuthTables(options); Better
-// Auth's runtime schema check rejects a mismatch on first use.
+// COMPAT(better-auth@1.7.23): Must match getAuthTables(options); re-verify on upgrade (docs/03-architecture.md).
 
 const createdAt = () =>
   timestamp('created_at', { withTimezone: true }).defaultNow().notNull();

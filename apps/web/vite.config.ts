@@ -8,7 +8,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { tsconfigPaths: true },
   server: {
-    // Same-origin `/api` in dev (as behind a reverse proxy in prod), so no CORS.
     proxy: {
       '/api': {
         changeOrigin: true,

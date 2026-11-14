@@ -1,28 +1,24 @@
-// Fails when the working-tree API contract or generated client differ from a
-// fresh `pnpm api:generate`, whether or not they are committed. The working
-// tree is restored afterwards, so the check never rewrites files.
 import { spawnSync } from 'node:child_process';
 import {
-  cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const GENERATED_PATHS = [
-  'apps/api/openapi.json',
-  'packages/api-client/src/generated',
-];
+const OPENAPI_FILE = 'apps/api/openapi.json';
+const CLIENT_DIR = 'packages/api-client/src/generated';
+const GENERATED_PATHS = [OPENAPI_FILE, CLIENT_DIR];
 
 /**
- * Generated files that differ, appear or disappear between two roots.
  * @param {string} expectedRoot @param {string} actualRoot @param {string[]} paths
  * @returns {string[]}
  */
@@ -40,6 +36,47 @@ export function diffTrees(expectedRoot, actualRoot, paths) {
     .sort();
 }
 
+/**
+ * @param {{ generate: (outputRoot: string) => void, paths: string[], root: string }} options
+ * @returns {string[]}
+ */
+export function findDrift({ generate, paths, root }) {
+  const outputRoot = mkdtempSync(join(tmpdir(), 'shiori-api-check-'));
+  try {
+    generate(outputRoot);
+    return diffTrees(outputRoot, root, paths);
+  } finally {
+    rmSync(outputRoot, { force: true, recursive: true });
+  }
+}
+
+/** @param {string} outputRoot */
+function generateInto(outputRoot) {
+  const openapiFile = join(outputRoot, OPENAPI_FILE);
+  mkdirSync(dirname(openapiFile), { recursive: true });
+  pnpm(['--filter', 'api', 'run', 'openapi', openapiFile]);
+
+  const clientConfig = join(outputRoot, 'openapi-ts.config.mjs');
+  const baseConfig = join(root, 'packages/api-client/openapi-ts.config.ts');
+  writeFileSync(
+    clientConfig,
+    [
+      `import baseConfig from ${JSON.stringify(baseConfig)};`,
+      'const config = await baseConfig;',
+      `export default { ...config, input: ${JSON.stringify(openapiFile)}, output: { ...config.output, path: ${JSON.stringify(join(outputRoot, CLIENT_DIR))} } };`,
+      '',
+    ].join('\n'),
+  );
+  pnpm([
+    '--filter',
+    '@shiori/api-client',
+    'exec',
+    'openapi-ts',
+    '--file',
+    clientConfig,
+  ]);
+}
+
 /** @param {string} base @param {string} path @returns {string[]} */
 function listFiles(base, path) {
   const absolute = join(base, path);
@@ -51,6 +88,38 @@ function listFiles(base, path) {
     .map((file) => relative(base, file).split(sep).join('/'));
 }
 
+function main() {
+  let drift;
+  try {
+    drift = findDrift({ generate: generateInto, paths: GENERATED_PATHS, root });
+  } catch (error) {
+    console.error(
+      `\n✖ API generation failed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  if (drift.length > 0) {
+    console.error(
+      `\n✖ Generated API files are stale; run \`pnpm api:generate\`:\n  - ${drift.join('\n  - ')}\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  console.log('\n✔ API contract and client match a fresh generation.\n');
+}
+
+/** @param {string[]} args */
+function pnpm(args) {
+  const result = spawnSync('pnpm', args, {
+    cwd: root,
+    // COMPAT(node@26 on Windows): pnpm is a .cmd shim, which spawn() runs only with shell: true.
+    shell: process.platform === 'win32',
+    stdio: 'inherit',
+  });
+  if (result.status !== 0) throw new Error(`pnpm ${args.join(' ')} failed`);
+}
+
 /** @param {string} left @param {string} right */
 function sameFile(left, right) {
   return (
@@ -58,45 +127,6 @@ function sameFile(left, right) {
     existsSync(right) &&
     readFileSync(left).equals(readFileSync(right))
   );
-}
-
-/** @param {string} from @param {string} to */
-function copyPaths(from, to) {
-  for (const path of GENERATED_PATHS) {
-    rmSync(join(to, path), { force: true, recursive: true });
-    if (existsSync(join(from, path))) {
-      cpSync(join(from, path), join(to, path), { recursive: true });
-    }
-  }
-}
-
-function main() {
-  const snapshot = mkdtempSync(join(tmpdir(), 'shiori-api-check-'));
-  try {
-    copyPaths(root, snapshot);
-    const generation = spawnSync('pnpm', ['api:generate'], {
-      cwd: root,
-      shell: process.platform === 'win32',
-      stdio: 'inherit',
-    });
-    if (generation.status !== 0) {
-      console.error('\n✖ pnpm api:generate failed.\n');
-      process.exitCode = 1;
-      return;
-    }
-    const drift = diffTrees(snapshot, root, GENERATED_PATHS);
-    if (drift.length > 0) {
-      console.error(
-        `\n✖ Generated API files are stale; run \`pnpm api:generate\`:\n  - ${drift.join('\n  - ')}\n`,
-      );
-      process.exitCode = 1;
-      return;
-    }
-    console.log('\n✔ API contract and client match a fresh generation.\n');
-  } finally {
-    copyPaths(snapshot, root);
-    rmSync(snapshot, { force: true, recursive: true });
-  }
 }
 
 if (import.meta.main) main();

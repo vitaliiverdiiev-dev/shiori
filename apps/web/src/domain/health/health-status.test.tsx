@@ -18,9 +18,7 @@ const notReady: Handler = () =>
 const unreachable: Handler = () =>
   Promise.reject(new TypeError('Failed to fetch'));
 
-/** Stubs fetch per API path; unknown paths fail loudly. */
 function mockApi(routes: Record<string, Handler>) {
-  // The app always calls fetch with a path string.
   const fetchMock = vi.fn((path: string) => {
     const handler = routes[path];
     return handler
@@ -67,7 +65,7 @@ describe('HealthStatus', () => {
     expect(await screen.findByText('API offline')).toBeInTheDocument();
     expect(screen.getByText('API is unreachable')).toBeInTheDocument();
     expect(screen.getByText('Database unknown')).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(1); // readiness not attempted
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('reports an API that does not respond in time', async () => {

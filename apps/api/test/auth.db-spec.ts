@@ -26,7 +26,6 @@ let aliceId: string;
 let app: INestApplication<App>;
 let pool: Pool;
 
-/** The `Cookie` header a browser would send back: every cookie the response set. */
 function browserCookies(setCookie: string[] | undefined): string {
   const pairs = (setCookie ?? []).map((value) => value.split(';')[0] ?? '');
   if (!pairs.some((pair) => pair.startsWith(`${SESSION_COOKIE}=`))) {
@@ -194,9 +193,6 @@ describe('sign-in and session', () => {
     expect(wrongPassword.get('Set-Cookie')).toBeUndefined();
   });
 
-  // Accepted design (M02 spec §2.3): Better Auth's hasher applies NFKC on
-  // hash and verify, so canonically and compatibility-equivalent input
-  // (e.g. IME full-width Latin) is the same password; whitespace is kept.
   it('never trims passwords and treats NFKC-equivalent input as the same password', async () => {
     const password = '  栞 café correct horse  '.normalize('NFC');
     const bob = { email: 'bob@example.test', name: 'Bob Test', password };

@@ -6,7 +6,6 @@ const DEFAULT_PORT = 3_000;
 const MAX_PORT = 65_535;
 const MIN_AUTH_SECRET_LENGTH = 32;
 
-/** The fake secret shipped in `.env.example`; acceptable only on this machine. */
 export const EXAMPLE_AUTH_SECRET =
   'local-dev-only-better-auth-secret-change-me';
 
@@ -14,14 +13,11 @@ const databaseEnvSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 });
 
-// Server/deployment config only; public product identity stays in product.config.json.
 const envSchema = databaseEnvSchema
   .extend({
     BETTER_AUTH_SECRET: z.string().min(MIN_AUTH_SECRET_LENGTH),
     BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
     PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
-    // `open` needs verified email delivery, which does not exist yet, so it is
-    // rejected below.
     REGISTRATION_MODE: z.enum(['closed', 'open']).default('closed'),
   })
   .superRefine((env, ctx) => {
@@ -52,22 +48,18 @@ const envSchema = databaseEnvSchema
 export type DatabaseEnv = z.infer<typeof databaseEnvSchema>;
 export type Env = z.infer<typeof envSchema>;
 
-/** Repo-root `.env` (shared with Docker Compose); same depth from src/ and dist/. */
 const rootEnvFile = new URL('../../../../../.env', import.meta.url);
 
-/** Only what migrations and Drizzle Kit need. */
 export function loadDatabaseEnv(
   source: NodeJS.ProcessEnv = process.env,
 ): DatabaseEnv {
   return parse(databaseEnvSchema, source);
 }
 
-/** Validates server config. Errors name the offending variables and rules, never their values. */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   return parse(envSchema, source);
 }
 
-/** Loads the local `.env` if present; variables already set in the environment win. */
 export function loadRootEnvFile(): void {
   if (existsSync(rootEnvFile)) process.loadEnvFile(rootEnvFile);
 }

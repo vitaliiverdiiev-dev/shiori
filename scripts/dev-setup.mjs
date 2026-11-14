@@ -1,7 +1,3 @@
-// Prepares local development before `pnpm dev` starts the app servers:
-// Docker check → .env bootstrap and consistency → PostgreSQL → committed migrations.
-// Every failure exits non-zero with an actionable message, so the servers never start.
-// Never prints configuration values.
 import { spawnSync } from 'node:child_process';
 import { constants, copyFileSync, existsSync } from 'node:fs';
 import { isLocalDatabaseUrl } from '../apps/api/src/infrastructure/database/local-url.ts';
@@ -11,8 +7,6 @@ const envFile = new URL('.env', root);
 const exampleFile = new URL('.env.example', root);
 
 /**
- * Compares DATABASE_URL with the POSTGRES_* values Compose uses.
- * Returns problems naming variables only, never their values.
  * @param {Record<string, string | undefined>} env
  * @returns {string[]}
  */
@@ -42,11 +36,9 @@ export function checkDatabaseEnv(env) {
   return problems;
 }
 
-/** Variables added after `.env` may have been created from an older example. */
 const REQUIRED_AUTH_VARIABLES = ['BETTER_AUTH_SECRET', 'BETTER_AUTH_URL'];
 
 /**
- * Names required auth variables missing from the environment.
  * @param {Record<string, string | undefined>} env
  * @returns {string[]}
  */
@@ -68,7 +60,7 @@ function run(command, args, show = false) {
     cwd: root,
     encoding: 'utf8',
     stdio: show ? 'inherit' : 'pipe',
-    // `pnpm` is a .cmd shim on Windows.
+    // COMPAT(node@26 on Windows): pnpm is a .cmd shim, which spawn() runs only with shell: true.
     shell: process.platform === 'win32' && command === 'pnpm',
   });
 }
@@ -97,7 +89,7 @@ function main() {
     console.log('› Created .env from .env.example (fake, local-only values).');
   }
   try {
-    process.loadEnvFile(envFile); // variables already set in the shell win
+    process.loadEnvFile(envFile);
   } catch (error) {
     fail(
       `.env could not be read: ${error instanceof Error ? error.message : String(error)}`,

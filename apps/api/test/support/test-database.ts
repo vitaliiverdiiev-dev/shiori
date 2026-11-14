@@ -4,7 +4,6 @@ import { isLocalDatabaseUrl } from '../../src/infrastructure/database/local-url.
 export const MIGRATIONS_FOLDER = new URL('../../drizzle', import.meta.url)
   .pathname;
 
-/** Only ever touch a local database whose name ends in `_test`. */
 export function assertSafeTestUrl(raw: string | undefined): string {
   if (!raw) throw new Error('TEST_DATABASE_URL is not set (see .env.example).');
   if (!isLocalDatabaseUrl(raw) || !new URL(raw).pathname.endsWith('_test')) {

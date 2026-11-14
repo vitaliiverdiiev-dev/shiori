@@ -7,8 +7,6 @@ import {
 } from '../model/consts';
 import type { JsonResult, Status } from '../model/types';
 
-// Shared in-flight check: StrictMode's dev remount and concurrent callers
-// reuse it instead of firing (and cancelling) duplicate requests.
 let inFlight: Promise<Status> | undefined;
 
 export function checkStatus(): Promise<Status> {

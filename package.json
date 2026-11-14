@@ -15,7 +15,7 @@
     "dev:apps": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "lint": "eslint --max-warnings 0 scripts && turbo run lint",
+    "lint": "eslint --max-warnings 0 eslint.config.js scripts && turbo run lint",
     "lint:fix": "eslint --fix .",
     "test": "python3 -B -m unittest discover -s scripts && node --test \"scripts/*.test.mjs\" && turbo run test",
     "test:db": "pnpm --filter api test:db",

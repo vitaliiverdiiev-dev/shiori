@@ -18,6 +18,12 @@ describe('loadEnv', () => {
     });
   });
 
+  it('accepts invite-only registration', () => {
+    expect(
+      loadEnv({ ...valid, REGISTRATION_MODE: 'invite' }).REGISTRATION_MODE,
+    ).toBe('invite');
+  });
+
   it('accepts a deployed https origin with its own secret', () => {
     const env = { ...valid, BETTER_AUTH_URL: 'https://shiori.example.com' };
     expect(loadEnv(env).BETTER_AUTH_URL).toBe('https://shiori.example.com');
@@ -36,7 +42,7 @@ describe('loadEnv', () => {
     [{ ...valid, BETTER_AUTH_SECRET: undefined }, 'BETTER_AUTH_SECRET'],
     [{ ...valid, BETTER_AUTH_SECRET: 'short' }, 'BETTER_AUTH_SECRET'],
     [{ ...valid, BETTER_AUTH_URL: 'ftp://localhost' }, 'BETTER_AUTH_URL'],
-    [{ ...valid, REGISTRATION_MODE: 'invite' }, 'REGISTRATION_MODE'],
+    [{ ...valid, REGISTRATION_MODE: 'public' }, 'REGISTRATION_MODE'],
     [
       { ...valid, REGISTRATION_MODE: 'open' },
       'REGISTRATION_MODE (open registration requires email verification)',

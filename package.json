@@ -29,7 +29,9 @@
     "format:check": "prettier --check .",
     "review:zip": "python3 scripts/review_zip.py",
     "api:generate": "pnpm --filter api openapi && pnpm --filter @shiori/api-client generate",
-    "api:check": "node scripts/api-check.mjs"
+    "api:check": "node scripts/api-check.mjs",
+    "auth:bootstrap-admin": "pnpm --filter api cli bootstrap-admin",
+    "auth:invite": "pnpm --filter api cli invite"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

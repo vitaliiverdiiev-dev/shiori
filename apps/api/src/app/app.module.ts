@@ -6,7 +6,10 @@ import { DiagnosticsModule } from '../modules/diagnostics/diagnostics.module.js'
 
 export type AppEnv = Pick<
   Env,
-  'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL' | 'DATABASE_URL'
+  | 'BETTER_AUTH_SECRET'
+  | 'BETTER_AUTH_URL'
+  | 'DATABASE_URL'
+  | 'REGISTRATION_MODE'
 >;
 
 @Module({})
@@ -15,10 +18,7 @@ export class AppModule {
     return {
       imports: [
         DatabaseModule.forRoot({ url: env.DATABASE_URL }),
-        AuthModule.forRoot({
-          baseURL: env.BETTER_AUTH_URL,
-          secret: env.BETTER_AUTH_SECRET,
-        }),
+        AuthModule.forRoot(env),
         DiagnosticsModule,
       ],
       module: AppModule,

@@ -30,19 +30,7 @@ export class DatabaseModule implements OnApplicationShutdown {
       providers: [
         {
           provide: DATABASE_POOL,
-          useFactory: (): Pool => {
-            const pool = new Pool({
-              connectionString: options.url,
-              connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
-            });
-            // COMPAT(pg@8.23): An unhandled idle-client 'error' event crashes the Node process.
-            pool.on('error', (error) => {
-              new Logger(DatabaseModule.name).error(
-                `Idle database client error: ${error.message}`,
-              );
-            });
-            return pool;
-          },
+          useFactory: (): Pool => createPool(options.url),
         },
         {
           inject: [DATABASE_POOL],
@@ -56,4 +44,18 @@ export class DatabaseModule implements OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
   }
+}
+
+export function createPool(url: string): Pool {
+  const pool = new Pool({
+    connectionString: url,
+    connectionTimeoutMillis: CONNECTION_TIMEOUT_MS,
+  });
+  // COMPAT(pg@8.23): An unhandled idle-client 'error' event crashes the Node process.
+  pool.on('error', (error) => {
+    new Logger(DatabaseModule.name).error(
+      `Idle database client error: ${error.message}`,
+    );
+  });
+  return pool;
 }

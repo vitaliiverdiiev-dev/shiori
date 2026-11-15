@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "cli": "nest build && node dist/cli.js",
     "start": "node dist/main",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings 0 .",
@@ -17,6 +18,7 @@
     "openapi": "nest build && node dist/openapi.js"
   },
   "dependencies": {
+    "@better-auth/core": "1.7.23",
     "@nestjs/common": "^12.4.2",
     "@nestjs/core": "^12.4.2",
     "@nestjs/platform-express": "^12.4.2",

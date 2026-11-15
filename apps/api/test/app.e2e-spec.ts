@@ -153,6 +153,7 @@ describe('OpenAPI contract', () => {
       ]),
     ).toEqual([
       ['/api/me', 'getCurrentUser'],
+      ['/api/registration', 'getRegistration'],
       ['/api/health', 'getHealth'],
       ['/api/ready', 'getReady'],
     ]);

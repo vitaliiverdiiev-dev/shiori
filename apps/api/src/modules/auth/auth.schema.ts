@@ -6,6 +6,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 // COMPAT(better-auth@1.7.23): Must match getAuthTables(options); re-verify on upgrade (docs/03-architecture.md).
@@ -34,6 +35,10 @@ export const user = pgTable(
   },
   (table) => [
     check('user_role_check', sql`${table.role} in ('user', 'admin')`),
+    check('user_email_lowercase', sql`${table.email} = lower(${table.email})`),
+    uniqueIndex('user_single_admin_idx')
+      .on(table.role)
+      .where(sql`${table.role} = 'admin'`),
   ],
 );
 

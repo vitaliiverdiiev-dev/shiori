@@ -54,13 +54,10 @@ function signUpAuth(
 ) {
   const base = betterAuthOptions(db, {
     baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
+    registrationMode: 'invite',
     secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
   });
-  return betterAuth({
-    ...base,
-    ...extra,
-    emailAndPassword: { ...base.emailAndPassword, disableSignUp: false },
-  });
+  return betterAuth({ ...base, ...extra, plugins: [] });
 }
 
 afterEach(async () => {

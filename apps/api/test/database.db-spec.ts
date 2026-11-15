@@ -62,7 +62,7 @@ describe('database', () => {
 });
 
 describe('committed migrations', () => {
-  it('created the auth tables on the empty test database', async () => {
+  it('created the auth and invitation tables on the empty test database', async () => {
     const pool = new Pool({ connectionString: testDatabaseUrl() });
     try {
       const { rows } = await pool.query<{ table_name: string }>(
@@ -70,6 +70,7 @@ describe('committed migrations', () => {
       );
       expect(rows.map((row) => row.table_name)).toEqual([
         'account',
+        'invitation',
         'session',
         'user',
         'verification',
@@ -89,7 +90,7 @@ describe('committed migrations', () => {
         migrationsFolder: MIGRATIONS_FOLDER,
       });
       expect((await applied()).rows).toEqual(before.rows);
-      expect(before.rowCount).toBe(1);
+      expect(before.rowCount).toBe(2);
     } finally {
       await pool.end();
     }

@@ -37,6 +37,24 @@ export type GetCurrentUserResponses = {
 
 export type GetCurrentUserResponse = GetCurrentUserResponses[keyof GetCurrentUserResponses];
 
+export type GetRegistrationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/registration';
+};
+
+export type GetRegistrationResponses = {
+    /**
+     * How new accounts can be created.
+     */
+    200: {
+        mode: 'closed' | 'invite';
+    };
+};
+
+export type GetRegistrationResponse = GetRegistrationResponses[keyof GetRegistrationResponses];
+
 export type GetHealthData = {
     body?: never;
     path?: never;

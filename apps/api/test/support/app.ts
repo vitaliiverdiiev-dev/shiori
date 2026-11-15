@@ -8,6 +8,7 @@ import { DATABASE } from '../../src/infrastructure/database/database.module.js';
 export const TEST_AUTH_ENV = {
   BETTER_AUTH_SECRET: 'test-only-secret-not-used-anywhere-else',
   BETTER_AUTH_URL: 'http://localhost:5173',
+  REGISTRATION_MODE: 'closed',
 } as const;
 export const TEST_ORIGIN = TEST_AUTH_ENV.BETTER_AUTH_URL;
 

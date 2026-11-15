@@ -1,6 +1,6 @@
 # Claude Code — Shiori
 
-**Status:** M00–M01.2 complete. **M02 (identity) in progress:** M02.1 (auth backend foundation, typed API client) implemented and awaiting manual review; M02.2–M02.4 not authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
+**Status:** M00–M02.1 complete. **M02 (identity) in progress:** M02.2 (first-admin CLI, invite-only registration) implemented and awaiting manual review; M02.3–M02.4 not authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
 
 ## Sources of truth
 
@@ -15,7 +15,7 @@
 - Compiler flags (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) are set in the tsconfigs; the only exception is generated code in `packages/api-client` (see `docs/03-architecture.md`).
 - Inventory and Punch UI are reference ideas only; do not copy their source or architecture.
 - Machine-owned files are never hand-edited: `apps/api/openapi.json` and `packages/api-client/src/generated` (`pnpm api:generate`), and `apps/api/drizzle/` (`pnpm db:generate`). Never run `drizzle-kit push` or Better Auth's `auth migrate`.
-- Better Auth is pinned exactly; an upgrade must follow the schema check in `docs/03-architecture.md`.
+- Better Auth and `@better-auth/core` are pinned exactly to the same version; an upgrade must follow the schema check in `docs/03-architecture.md`.
 - Comments follow KataKit `code-quality`; `pnpm lint` enforces the markers via `shiori/comment-policy`. Do not add rule exemptions without review.
 - Do **not** commit, push, deploy, publish, or install global Claude plugins without explicit permission.
 

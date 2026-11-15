@@ -12,7 +12,7 @@ Code structure, dependency direction and lint enforcement follow the portable st
 - [Backend Architecture v1](standards/backend-architecture-v1.md): NestJS modular monolith.
 - [Code Quality & ESLint v1](standards/code-quality-v1.md): boundaries, ordering, magic numbers, rule tests.
 
-## Current map (M02.1)
+## Current map (M02.2)
 
 ```text
 apps/web/src/
@@ -26,15 +26,18 @@ apps/web/src/
   test/setup.ts               # Vitest/RTL setup only
 apps/api/src/
   main.ts                     # loads + validates env, creates the app
+  cli.ts                      # local account CLI entry: env, pool, Better Auth, terminal I/O
   openapi.ts                  # second entry point: writes apps/api/openapi.json offline
   app/app.module.ts           # composition root; app/app.config.ts = body parser off, global prefix, shutdown hooks
   app/openapi.ts              # OpenAPI document of the app's own Nest endpoints
   infrastructure/config/      # env parsing/validation (Zod)
   infrastructure/database/    # single pg pool + Drizzle provider (DATABASE token), local-URL guard
   infrastructure/openapi/     # Zod schema → OpenAPI 3.0 schema object
-  modules/auth/               # Better Auth config + schema, SessionGuard, GET /api/me
+  infrastructure/terminal/    # prompt/hidden-input terminal I/O for the CLI
+  modules/auth/               # Better Auth config + schema, SessionGuard, GET /api/me, GET /api/registration,
+                              # invitation plugin + operations, first-admin bootstrap, CLI commands
   modules/diagnostics/        # GET /api/health, GET /api/ready
-apps/api/drizzle/             # committed SQL migrations (0000_auth)
+apps/api/drizzle/             # committed SQL migrations (0000_auth, 0001_invitations)
 apps/api/openapi.json         # committed API contract (machine-owned)
 packages/api-client/          # @shiori/api-client: Hey API SDK (Axios) + TanStack Query options
 infra/docker/postgres/init/   # repository-level Docker assets (not the API's infrastructure/)
@@ -45,14 +48,16 @@ product.config.json           # canonical product identity
 - **Diagnostics ↔ health:** the API's `modules/diagnostics` owns the `/api/health` (liveness) and `/api/ready` (readiness) contracts; the web `domain/health` slice consumes them, treats only `{ status: 'ok', checks: { database: 'up' } }` as database online, and derives "database unknown" when the API is offline.
 - **Auth (`modules/auth`):** Better Auth (pinned exactly) owns `/api/auth/*`, mounted at an absolute base path (the Nest `api` prefix does not apply; `/api/api/auth` is a tested 404). It reuses the shared pool through the `DATABASE` token. Nest starts with `bodyParser: false`; the adapter re-adds JSON/URL-encoded parsing for every other route. Sessions are database-backed (7 days, refreshed daily, no cookie cache); cookies are `HttpOnly`, `SameSite=Lax`, and `Secure` with a `__Secure-` prefix when `BETTER_AUTH_URL` is https. The Origin check is forced on (`disableOriginCheck: false`) because Better Auth skips it under `NODE_ENV=test`. Same-origin only: no CORS.
 - **Route protection:** `SessionGuard` (global `APP_GUARD`) protects every Nest route. `@AllowAnonymous()` routes skip the session lookup entirely, so health stays independent of the database even when a cookie is sent, and they never receive `request.user` / `@Session()`. A route that should know the user when one is signed in uses `@OptionalAuth()` instead. A missing session is Nest's default 401 body `{ message, statusCode: 401 }`, documented in OpenAPI.
-- **Roles:** `user.role` (`user` | `admin`) is a Better Auth additional field with `input: false` and a database CHECK; clients cannot set it on sign-up or `update-user` (tested). The Admin plugin is not used, so its endpoints do not exist.
-- **Auth schema and upgrades:** `auth.schema.ts` is hand-written for the pinned Better Auth version (the CLI was not run). Better Auth's runtime schema check compares it with the fields the library expects on first use, and `pnpm test:db` migrates a fresh database and exercises sign-in. **When upgrading Better Auth**, diff the expected tables (`getAuthTables`) against `auth.schema.ts`, generate a migration for any change and run `pnpm test:db` before committing.
+- **Roles:** `user.role` (`user` | `admin`) is a Better Auth additional field with `input: false` and a database CHECK; clients cannot set it on sign-up or `update-user`, including the admin (tested). The Admin plugin is not used, so impersonation, role, password and removal endpoints do not exist (tested 404 for an admin session), and `delete-user` is disabled. Nest routes can require a role with the adapter's `@Roles(['admin'])` (401 guest, 403 user, tested). A partial unique index (`user_single_admin_idx`) allows **one admin per installation**; adding admins later needs a migration and a protected operation.
+- **Auth schema and upgrades:** `auth.schema.ts` (and the invitation plugin's `invitation` model) is hand-written for the pinned Better Auth version (the CLI was not run). Better Auth's runtime schema check compares it with the fields the library expects on first use, and `pnpm test:db` migrates a fresh database and exercises sign-in. **When upgrading Better Auth**, diff the expected tables (`getAuthTables`) against `auth.schema.ts`, generate a migration for any change and run `pnpm test:db` before committing.
 - **Passwords:** 15–128 characters, never trimmed, hashed by Better Auth, which applies Unicode NFKC before hashing and verifying (canonically or compatibility-equivalent input, such as full-width Latin from a Japanese IME, is the same password). The length check counts UTF-16 code units of the raw input; a client-side check must use the same rule.
-- **Registration:** `closed` only; `REGISTRATION_MODE=open` is rejected at startup until verified email exists. HTTP is allowed only for a loopback `BETTER_AUTH_URL`; any other host needs https and a non-example secret.
+- **Registration:** `REGISTRATION_MODE` is `closed` (default) or `invite`; `open` is rejected at startup until verified email exists. `GET /api/registration` (public, OpenAPI `getRegistration`) returns only the mode. Changing the mode never touches sessions. HTTP is allowed only for a loopback `BETTER_AUTH_URL`; any other host needs https and a non-example secret.
+- **Invitations:** project-owned `invitation` table (`invitation.schema.ts`): normalized email (CHECK), unique SHA-256 `code_hash` of a 256-bit random code, 7-day expiry, `used_at`/`revoked_at` with a CHECK that at most one is set. `invitation.plugin.ts` registers the table with Better Auth and enforces invite-only sign-up in two steps: a read-only check before the endpoint (so an existing email gets the same `INVALID_INVITATION` for a bad code as a new one) and, in `user.create.before`, a single conditional `UPDATE … WHERE code_hash, email, unused, unrevoked, unexpired` through the transaction adapter that must touch exactly one row. Because the Drizzle adapter runs sign-up with `transaction: true`, the claim commits or rolls back with the user and account rows; concurrent redemptions serialize on the row lock. Any other endpoint that tries to create a user is refused. An existing email gets Better Auth's synthetic success and its invitation is not consumed.
+- **First admin:** `bootstrapFirstAdmin` validates input, then creates the user (role `admin`) and credential account with Better Auth's `internalAdapter` and hasher inside `runWithTransaction` (`@better-auth/core`, pinned to the same version as `better-auth`). The single-admin index decides races; a pre-check only gives a friendlier message. The CLI (`pnpm auth:bootstrap-admin`, `pnpm auth:invite …`) is a transport over these operations; a future setup wizard or admin UI must add its own authorization boundary.
 - **API contract and client:** Zod DTOs → `@nestjs/swagger` → committed `apps/api/openapi.json` → `@hey-api/openapi-ts` → `packages/api-client/src/generated` (committed, never hand-edited). `pnpm api:generate` rebuilds both; `pnpm api:check` generates both into a temporary directory with the same configuration and fails on drift without writing the tracked files (it only rebuilds `apps/api/dist`), and an API e2e test fails when `openapi.json` is stale. Better Auth routes stay out: its own client is their contract. The generated paths already include `/api` and the default base URL is empty, so browser requests are relative and same-origin (through the Vite proxy in development) and carry the session cookie without CORS or `withCredentials`. The package builds to `dist/`; consumers import `@shiori/api-client` and `@shiori/api-client/react-query` and must build it first. `@tanstack/react-query` is a peer dependency so the web app owns the only runtime copy.
 - **Product identity:** `@/product-config` is a single TS/Vite alias to the root `product.config.json`. ESLint allows it only in `src/app`; pages receive values as typed props.
 - **shadcn:** `components.json` targets `@/shared/ui/primitives` and `@/shared/helpers/cn`. The CLI writes `primitives/<name>.tsx`; move it to `primitives/<name>/<name>.tsx`, import `cn` from `@/shared/helpers/cn`, export it from `shared/ui/index.ts` when used outside shared, then run `pnpm lint:fix`.
-- **Database schemas** live with their owning API module as `*.schema.ts` (Drizzle glob `src/**/*.schema.ts`); the first is `modules/auth/auth.schema.ts`.
+- **Database schemas** live with their owning API module as `*.schema.ts` (Drizzle glob `src/**/*.schema.ts`); `modules/auth/` owns `auth.schema.ts` and `invitation.schema.ts`.
 
 ### Enforcement and exceptions
 

@@ -74,6 +74,41 @@
         ]
       }
     },
+    "/api/registration": {
+      "get": {
+        "operationId": "getRegistration",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "How new accounts can be created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "closed",
+                        "invite"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Registration mode",
+        "tags": [
+          "Registration"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "getHealth",

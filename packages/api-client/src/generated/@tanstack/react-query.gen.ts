@@ -4,8 +4,8 @@ import { type DefaultError, queryOptions } from '@tanstack/react-query';
 import type { AxiosError } from 'axios';
 
 import { client } from '../client.gen.js';
-import { getCurrentUser, getHealth, getReady, type Options } from '../sdk.gen.js';
-import type { GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetHealthData, GetHealthResponse, GetReadyData, GetReadyError, GetReadyResponse } from '../types.gen.js';
+import { getCurrentUser, getHealth, getReady, getRegistration, type Options } from '../sdk.gen.js';
+import type { GetCurrentUserData, GetCurrentUserError, GetCurrentUserResponse, GetHealthData, GetHealthResponse, GetReadyData, GetReadyError, GetReadyResponse, GetRegistrationData, GetRegistrationResponse } from '../types.gen.js';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseURL' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -56,6 +56,24 @@ export const getCurrentUserOptions = (options?: Options<GetCurrentUserData>) => 
         return data;
     },
     queryKey: getCurrentUserQueryKey(options)
+});
+
+export const getRegistrationQueryKey = (options?: Options<GetRegistrationData>) => createQueryKey('getRegistration', options);
+
+/**
+ * Registration mode
+ */
+export const getRegistrationOptions = (options?: Options<GetRegistrationData>) => queryOptions<GetRegistrationResponse, AxiosError<DefaultError>, GetRegistrationResponse, ReturnType<typeof getRegistrationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRegistration({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRegistrationQueryKey(options)
 });
 
 export const getHealthQueryKey = (options?: Options<GetHealthData>) => createQueryKey('getHealth', options);

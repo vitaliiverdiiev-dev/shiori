@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetHealthData, GetHealthResponses, GetReadyData, GetReadyErrors, GetReadyResponses } from './types.gen.js';
+import type { GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetHealthData, GetHealthResponses, GetReadyData, GetReadyErrors, GetReadyResponses, GetRegistrationData, GetRegistrationResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -24,6 +24,15 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 export const getCurrentUser = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentUserData, ThrowOnError>): RequestResult<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentUserResponses, GetCurrentUserErrors, ThrowOnError>({
     responseType: 'json',
     url: '/api/me',
+    ...options
+});
+
+/**
+ * Registration mode
+ */
+export const getRegistration = <ThrowOnError extends boolean = false>(options?: Options<GetRegistrationData, ThrowOnError>): RequestResult<GetRegistrationResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetRegistrationResponses, unknown, ThrowOnError>({
+    responseType: 'json',
+    url: '/api/registration',
     ...options
 });
 

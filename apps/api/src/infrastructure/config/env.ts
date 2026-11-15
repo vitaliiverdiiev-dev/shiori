@@ -18,16 +18,16 @@ const envSchema = databaseEnvSchema
     BETTER_AUTH_SECRET: z.string().min(MIN_AUTH_SECRET_LENGTH),
     BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
     PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),
-    REGISTRATION_MODE: z.enum(['closed', 'open']).default('closed'),
+    REGISTRATION_MODE: z
+      .enum(['closed', 'invite', 'open'])
+      .default('closed')
+      .refine((mode) => mode !== 'open', {
+        abort: true,
+        message: 'open registration requires email verification',
+      })
+      .pipe(z.enum(['closed', 'invite'])),
   })
   .superRefine((env, ctx) => {
-    if (env.REGISTRATION_MODE === 'open') {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'open registration requires email verification',
-        path: ['REGISTRATION_MODE'],
-      });
-    }
     if (isLocalUrl(env.BETTER_AUTH_URL)) return;
     if (new URL(env.BETTER_AUTH_URL).protocol !== 'https:') {
       ctx.addIssue({

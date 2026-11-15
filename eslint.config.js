@@ -144,7 +144,7 @@ const architecture = {
                 { element: { type: 'api-infrastructure' } },
                 {
                   element: {
-                    fileInternalPath: '*.module.ts',
+                    fileInternalPath: ['*.module.ts', 'index.ts'],
                     type: 'api-module',
                   },
                 },

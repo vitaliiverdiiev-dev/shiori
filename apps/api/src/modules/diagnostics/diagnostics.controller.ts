@@ -10,13 +10,13 @@ import {
   ApiOperation,
   ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import type { QueryConfig } from 'pg';
 import {
   DATABASE,
   type Database,
 } from '../../infrastructure/database/database.module.js';
 import { toOpenApiSchema } from '../../infrastructure/openapi/zod-schema.js';
+import { AllowAnonymous } from '../auth/index.js';
 import {
   type HealthResponse,
   healthResponseSchema,

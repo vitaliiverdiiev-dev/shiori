@@ -432,6 +432,38 @@ describe('backend boundaries', () => {
       BOUNDARIES,
     ));
 
+  test("a module must not deep-import auth's internals behind its public entrypoint", async () => {
+    await rejects(
+      `${API}/modules/other/example.ts`,
+      "import { SessionGuard } from '../auth/session.guard.js';\nexport const x = SessionGuard;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${API}/modules/other/example.ts`,
+      "export { SessionGuard } from '../auth/session.guard.js';\n",
+      BOUNDARIES,
+    );
+  });
+
+  test('app still composes modules only through *.module.ts', () =>
+    rejects(
+      `${API}/app/example.ts`,
+      "import { SessionGuard } from '../modules/auth/session.guard.js';\nexport const x = SessionGuard;\n",
+      BOUNDARIES,
+    ));
+
+  test("valid: a module imports another module's public index.ts", () =>
+    passes(
+      `${API}/modules/other/example.ts`,
+      "import { AllowAnonymous } from '../auth/index.js';\nexport const x = AllowAnonymous;\n",
+    ));
+
+  test('valid: a module imports its own files directly', () =>
+    passes(
+      `${API}/modules/auth/example.ts`,
+      "import { SessionGuard } from './session.guard.js';\nexport const x = SessionGuard;\n",
+    ));
+
   test('valid: app composes module classes; modules use infrastructure providers', async () => {
     await passes(
       `${API}/app/example.ts`,

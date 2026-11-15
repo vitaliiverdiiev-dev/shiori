@@ -43,6 +43,7 @@ A module may begin with only `diagnostics.module.ts` and `diagnostics.controller
 ## 4. Public contracts and imports
 
 - Each NestJS module exports only services/providers that another module actually needs (Nest `exports`). Use explicit imports; don't require an `index.ts` in every backend folder.
+- When another module consumes a module's providers, tokens, types or decorators, they go through one designated public entrypoint, `modules/<feature>/index.ts`, listing only what consumers use. A module without external consumers has none, and a module never imports its own `index.ts`. ESLint allows cross-module imports of `*.module.ts` and `index.ts` only.
 - Do not deep-import another _feature module's_ internal controllers/services/helpers from outside its module as a shortcut. Prefer Nest DI via an exported provider or an explicitly owned public contract when a real consumer appears.
 - Application composition can import module entry classes directly to wire the app. Infrastructure may be shared where genuinely generic.
 - Keep runtime-only Nest decorator metadata and `.js` import specifiers where required by the project's ESM/Node configuration. Test typecheck/build after relocating files.

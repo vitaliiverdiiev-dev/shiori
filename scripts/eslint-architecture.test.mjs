@@ -415,6 +415,20 @@ describe('magic numbers', () => {
       file,
       'const RETRY_DELAY_MS = 1_500;\nexport const wait = () => new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));\nexport const next = (n: number) => (n > 0 ? n + 1 : 0);\n',
     ));
+
+  test('API source is checked, its unit and DB specs are exempt', async () => {
+    const code = 'export const days = 7 * 86_400;\n';
+    await rejects(
+      `${API}/modules/auth/application/example.ts`,
+      code,
+      '@typescript-eslint/no-magic-numbers',
+    );
+    await passes(`${API}/modules/auth/domain/tests/example.spec.ts`, code);
+    await passes(
+      `${API}/modules/auth/tests/integrations/example.db-spec.ts`,
+      code,
+    );
+  });
 });
 
 describe('backend boundaries', () => {
@@ -435,12 +449,12 @@ describe('backend boundaries', () => {
   test("a module must not deep-import auth's internals behind its public entrypoint", async () => {
     await rejects(
       `${API}/modules/other/example.ts`,
-      "import { SessionGuard } from '../auth/session.guard.js';\nexport const x = SessionGuard;\n",
+      "import { SessionGuard } from '../auth/http/session.guard.js';\nexport const x = SessionGuard;\n",
       BOUNDARIES,
     );
     await rejects(
       `${API}/modules/other/example.ts`,
-      "export { SessionGuard } from '../auth/session.guard.js';\n",
+      "export { SessionGuard } from '../auth/http/session.guard.js';\n",
       BOUNDARIES,
     );
   });
@@ -448,7 +462,7 @@ describe('backend boundaries', () => {
   test('app still composes modules only through *.module.ts', () =>
     rejects(
       `${API}/app/example.ts`,
-      "import { SessionGuard } from '../modules/auth/session.guard.js';\nexport const x = SessionGuard;\n",
+      "import { SessionGuard } from '../modules/auth/http/session.guard.js';\nexport const x = SessionGuard;\n",
       BOUNDARIES,
     ));
 
@@ -468,7 +482,7 @@ describe('backend boundaries', () => {
   test('valid: a module imports its own files directly', () =>
     passes(
       `${API}/modules/auth/example.ts`,
-      "import { SessionGuard } from './session.guard.js';\nexport const x = SessionGuard;\n",
+      "import { SessionGuard } from './http/session.guard.js';\nexport const x = SessionGuard;\n",
     ));
 
   test('valid: app composes module classes; modules use infrastructure providers', async () => {
@@ -481,4 +495,113 @@ describe('backend boundaries', () => {
       "import { DATABASE } from '../../infrastructure/database/database.module.js';\nimport { DiagnosticsModule } from '../diagnostics/diagnostics.module.js';\nexport const x = [DATABASE, DiagnosticsModule];\n",
     );
   });
+});
+
+describe('backend module areas', () => {
+  const AUTH = `${API}/modules/auth`;
+
+  test('an area imports only the areas below it in its own module', async () => {
+    await rejects(
+      `${AUTH}/persistence/example.ts`,
+      "import { createInvitation } from '../application/invitations.js';\nexport const x = createInvitation;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${AUTH}/http/example.ts`,
+      "import { user } from '../persistence/auth.schema.js';\nexport const x = user;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${AUTH}/integrations/example.ts`,
+      "import { createInvitation } from '../application/invitations.js';\nexport const x = createInvitation;\n",
+      BOUNDARIES,
+    );
+  });
+
+  test('an area must not import its own module root or public index.ts', async () => {
+    await rejects(
+      `${AUTH}/http/example.ts`,
+      "import { AllowAnonymous } from '../index.js';\nexport const x = AllowAnonymous;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${AUTH}/application/example.ts`,
+      "import { AuthModule } from '../auth.module.js';\nexport const x = AuthModule;\n",
+      BOUNDARIES,
+    );
+  });
+
+  test('domain imports neither other areas, infrastructure nor technical packages', async () => {
+    await rejects(
+      `${AUTH}/domain/example.ts`,
+      "import { user } from '../persistence/auth.schema.js';\nexport const x = user;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${AUTH}/domain/example.ts`,
+      "import { isUniqueViolation } from '../../../infrastructure/database/postgres-errors.js';\nexport const x = isUniqueViolation;\n",
+      BOUNDARIES,
+    );
+    for (const name of [
+      'drizzle-orm',
+      '@nestjs/common',
+      'better-auth/api',
+      '@better-auth/core',
+    ]) {
+      await rejects(
+        `${AUTH}/domain/example.ts`,
+        `import * as vendor from '${name}';\nexport const x = vendor;\n`,
+        IMPORTS,
+      );
+    }
+  });
+
+  test('API relative imports climb at most three levels', async () => {
+    await passes(
+      `${AUTH}/http/example.ts`,
+      "import { toOpenApiSchema } from '../../../infrastructure/openapi/zod-schema.js';\nexport const x = toOpenApiSchema;\n",
+    );
+    await rejects(
+      `${AUTH}/domain/tests/example.ts`,
+      "import { toOpenApiSchema } from '../../../../infrastructure/openapi/zod-schema.js';\nexport const x = toOpenApiSchema;\n",
+      IMPORTS,
+    );
+  });
+
+  test('valid: areas follow the direction, reach infrastructure and other modules through their public files', async () => {
+    await passes(
+      `${AUTH}/http/example.ts`,
+      "import { createInvitation } from '../application/invitations.js';\nimport { normalizeEmail } from '../domain/credentials.js';\nimport { createAuth } from '../integrations/auth.config.js';\nexport const x = [createInvitation, normalizeEmail, createAuth];\n",
+    );
+    await passes(
+      `${AUTH}/application/example.ts`,
+      "import { DATABASE } from '../../../infrastructure/database/database.module.js';\nimport { user } from '../persistence/auth.schema.js';\nexport const x = [DATABASE, user];\n",
+    );
+    await passes(
+      `${API}/modules/other/http/example.ts`,
+      "import { AllowAnonymous } from '../../auth/index.js';\nexport const x = AllowAnonymous;\n",
+    );
+    await passes(
+      `${AUTH}/domain/example.ts`,
+      "import { z } from 'zod';\nimport { normalizeEmail } from './credentials.js';\nexport const x = [z, normalizeEmail];\n",
+    );
+  });
+
+  test("valid: module root files and module tests use the module's own areas", async () => {
+    await passes(
+      `${AUTH}/example.ts`,
+      "import { SessionGuard } from './http/session.guard.js';\nexport const x = SessionGuard;\n",
+    );
+    await passes(
+      `${AUTH}/tests/integrations/example.ts`,
+      "import { user } from '../../persistence/auth.schema.js';\nexport const x = user;\n",
+    );
+  });
+
+  test("another module's area is not reachable", () =>
+    rejects(
+      `${API}/modules/other/http/example.ts`,
+      "import { user } from '../../auth/persistence/auth.schema.js';\nexport const x = user;\n",
+      BOUNDARIES,
+    ));
 });

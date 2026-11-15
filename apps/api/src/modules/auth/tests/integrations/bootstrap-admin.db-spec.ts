@@ -1,18 +1,22 @@
+import {
+  createTestApp,
+  TEST_AUTH_ENV,
+  TEST_ORIGIN,
+} from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { createUser } from '#test/support/users.js';
 import { betterAuth } from 'better-auth';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { bootstrapFirstAdmin } from '../../application/bootstrap-admin.js';
+import { currentUserResponseSchema } from '../../http/auth.dto.js';
 import {
   type AuthSettings,
   betterAuthOptions,
   createAuth,
-} from '../src/modules/auth/auth.config.js';
-import { currentUserResponseSchema } from '../src/modules/auth/auth.dto.js';
-import { bootstrapFirstAdmin } from '../src/modules/auth/bootstrap-admin.js';
-import { createTestApp, TEST_AUTH_ENV, TEST_ORIGIN } from './support/app.js';
-import { testDatabaseUrl } from './support/test-database.js';
-import { createUser } from './support/users.js';
+} from '../../integrations/auth.config.js';
 
 const PARALLEL_BOOTSTRAPS = 5;
 const SETTINGS: AuthSettings = {

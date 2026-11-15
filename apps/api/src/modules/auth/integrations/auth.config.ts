@@ -1,12 +1,15 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import type { Database } from '../../infrastructure/database/database.module.js';
+import type { Database } from '../../../infrastructure/database/database.module.js';
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '../domain/credentials.js';
+import { adminBootstrap } from '../persistence/admin-bootstrap.schema.js';
+import * as authSchema from '../persistence/auth.schema.js';
+import { invitation } from '../persistence/invitation.schema.js';
 import { adminBootstrapPlugin } from './admin-bootstrap.plugin.js';
-import { adminBootstrap } from './admin-bootstrap.schema.js';
-import * as authSchema from './auth.schema.js';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './credentials.js';
 import { invitationPlugin } from './invitation.plugin.js';
-import { invitation } from './invitation.schema.js';
 
 const DAY_SECONDS = 86_400;
 const SESSION_DAYS = 7;

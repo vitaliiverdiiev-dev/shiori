@@ -1,11 +1,11 @@
+import { TEST_AUTH_ENV } from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
-import { type CliIo, runAuthCli } from '../src/modules/auth/auth.cli.js';
-import { createAuth } from '../src/modules/auth/auth.config.js';
-import { hashInvitationCode } from '../src/modules/auth/invitations.js';
-import { TEST_AUTH_ENV } from './support/app.js';
-import { testDatabaseUrl } from './support/test-database.js';
+import { type CliIo, runAuthCli } from '../../cli/auth.cli.js';
+import { hashInvitationCode } from '../../domain/invitation-code.js';
+import { createAuth } from '../../integrations/auth.config.js';
 
 const PASSWORD = 'an admin passphrase that is long';
 const pool = new Pool({ connectionString: testDatabaseUrl() });

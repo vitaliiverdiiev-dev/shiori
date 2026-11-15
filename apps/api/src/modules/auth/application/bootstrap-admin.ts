@@ -1,13 +1,13 @@
 import type { AuthContext, BetterAuthOptions } from '@better-auth/core';
 import { runWithTransaction } from '@better-auth/core/context';
 import { getCurrentAdapter } from 'better-auth';
-import { isUniqueViolation } from '../../infrastructure/database/postgres-errors.js';
-import { INITIAL_ADMIN_BOOTSTRAP_ID } from './admin-bootstrap.schema.js';
+import { isUniqueViolation } from '../../../infrastructure/database/postgres-errors.js';
 import {
   normalizeEmail,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-} from './credentials.js';
+} from '../domain/credentials.js';
+import { INITIAL_ADMIN_BOOTSTRAP_ID } from '../persistence/admin-bootstrap.schema.js';
 
 const ADMIN_BOOTSTRAP_KEY = 'admin_bootstrap_pkey';
 const USER_EMAIL_UNIQUE = 'user_email_unique';

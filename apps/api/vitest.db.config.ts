@@ -4,6 +4,6 @@ export default defineConfig({
   test: {
     fileParallelism: false,
     globalSetup: ['test/support/reset-test-database.ts'],
-    include: ['test/**/*.db-spec.ts'],
+    include: ['src/**/*.db-spec.ts', 'test/**/*.db-spec.ts'],
   },
 });

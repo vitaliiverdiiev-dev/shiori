@@ -5,7 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createOpenApiDocument } from '../src/app/openapi.js';
-import { unauthorizedResponseSchema } from '../src/modules/auth/auth.dto.js';
+import { unauthorizedResponseSchema } from '../src/modules/auth/http/auth.dto.js';
 import {
   healthResponseSchema,
   notReadyResponseSchema,

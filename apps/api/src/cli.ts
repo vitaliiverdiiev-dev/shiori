@@ -6,8 +6,11 @@ import {
   createTerminalIo,
   TerminalInputClosedError,
 } from './infrastructure/terminal/terminal-io.js';
-import { runAuthCli } from './modules/auth/auth.cli.js';
-import { authSettingsFromEnv, createAuth } from './modules/auth/auth.config.js';
+import { runAuthCli } from './modules/auth/cli/auth.cli.js';
+import {
+  authSettingsFromEnv,
+  createAuth,
+} from './modules/auth/integrations/auth.config.js';
 
 loadRootEnvFile();
 const env = loadEnv();

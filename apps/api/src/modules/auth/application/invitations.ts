@@ -1,19 +1,16 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { z } from 'zod';
-import type { Database } from '../../infrastructure/database/database.module.js';
-import { user } from './auth.schema.js';
-import { normalizeEmail } from './credentials.js';
-import { invitation } from './invitation.schema.js';
+import { randomUUID } from 'node:crypto';
+import type { Database } from '../../../infrastructure/database/database.module.js';
+import { normalizeEmail } from '../domain/credentials.js';
+import {
+  generateInvitationCode,
+  hashInvitationCode,
+} from '../domain/invitation-code.js';
+import { user } from '../persistence/auth.schema.js';
+import { invitation } from '../persistence/invitation.schema.js';
 
-const CODE_BYTES = 32;
-const CODE_LENGTH = 43;
 const DAY_MS = 86_400_000;
 export const INVITATION_LIFETIME_DAYS = 7;
-export const invitationCodeSchema = z
-  .string()
-  .length(CODE_LENGTH)
-  .regex(/^[\w-]+$/);
 
 export type CreateInvitationResult =
   | { code: string; invitation: InvitationSummary; ok: true }
@@ -42,7 +39,7 @@ export async function createInvitation(
     .where(eq(user.email, email));
   if (existing) return { ok: false, reason: 'email-taken' };
 
-  const code = randomBytes(CODE_BYTES).toString('base64url');
+  const code = generateInvitationCode();
   const [row] = await db
     .insert(invitation)
     .values({
@@ -55,10 +52,6 @@ export async function createInvitation(
     .returning();
   if (!row) throw new Error('Invitation insert returned no row');
   return { code, invitation: summarize(row, now), ok: true };
-}
-
-export function hashInvitationCode(code: string): string {
-  return createHash('sha256').update(code).digest('hex');
 }
 
 export async function listInvitations(

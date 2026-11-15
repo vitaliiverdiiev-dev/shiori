@@ -1,12 +1,12 @@
-import type { Database } from '../../infrastructure/database/database.module.js';
-import type { Auth } from './auth.config.js';
-import { bootstrapFirstAdmin } from './bootstrap-admin.js';
+import type { Database } from '../../../infrastructure/database/database.module.js';
+import { bootstrapFirstAdmin } from '../application/bootstrap-admin.js';
 import {
   createInvitation,
   INVITATION_LIFETIME_DAYS,
   listInvitations,
   revokeInvitation,
-} from './invitations.js';
+} from '../application/invitations.js';
+import type { Auth } from '../integrations/auth.config.js';
 
 export interface AuthCliDependencies {
   auth: Auth;

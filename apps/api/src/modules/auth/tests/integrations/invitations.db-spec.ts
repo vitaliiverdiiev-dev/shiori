@@ -1,13 +1,13 @@
+import { testDatabaseUrl } from '#test/support/test-database.js';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import {
   createInvitation,
-  hashInvitationCode,
   listInvitations,
   revokeInvitation,
-} from '../src/modules/auth/invitations.js';
-import { testDatabaseUrl } from './support/test-database.js';
+} from '../../application/invitations.js';
+import { hashInvitationCode } from '../../domain/invitation-code.js';
 
 const DAY_MS = 86_400_000;
 const NOW = new Date('2026-11-15T12:00:00.000Z');

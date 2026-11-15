@@ -5,17 +5,17 @@ import {
   DATABASE,
   type Database,
 } from '../../infrastructure/database/database.module.js';
+import { MeController } from './http/me.controller.js';
+import {
+  REGISTRATION_MODE,
+  RegistrationController,
+} from './http/registration.controller.js';
+import { SessionGuard } from './http/session.guard.js';
 import {
   type AuthEnv,
   authSettingsFromEnv,
   createAuth,
-} from './auth.config.js';
-import { MeController } from './me.controller.js';
-import {
-  REGISTRATION_MODE,
-  RegistrationController,
-} from './registration.controller.js';
-import { SessionGuard } from './session.guard.js';
+} from './integrations/auth.config.js';
 
 @Module({})
 export class AuthModule {

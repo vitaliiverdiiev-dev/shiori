@@ -5,8 +5,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Session, type UserSession } from '@thallesp/nestjs-better-auth';
-import { toOpenApiSchema } from '../../infrastructure/openapi/zod-schema.js';
-import type { Auth } from './auth.config.js';
+import { toOpenApiSchema } from '../../../infrastructure/openapi/zod-schema.js';
+import type { Auth } from '../integrations/auth.config.js';
 import {
   type CurrentUserResponse,
   currentUserResponseSchema,

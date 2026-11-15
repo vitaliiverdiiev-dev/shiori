@@ -24,6 +24,12 @@ const maxTwoLevelsUp = {
   regex: '^(\\.\\./){3,}',
 };
 
+const maxThreeLevelsUpInApi = {
+  message:
+    'Climb at most three levels (../../../), the depth from a module area such as modules/<module>/http/ to infrastructure/. Deeper means reconsider file ownership.',
+  regex: '^(\\.\\./){4,}',
+};
+
 const index = (types) => ({
   element: { fileInternalPath: 'index.ts', type: types },
 });
@@ -46,6 +52,50 @@ const shared = [
   },
   { element: { captured: { unit: '!ui' }, type: 'web-shared' } },
 ];
+
+const moduleAreaImports = {
+  application: ['application', 'domain', 'integrations', 'persistence'],
+  cli: ['application', 'cli', 'domain', 'integrations'],
+  domain: ['domain'],
+  http: ['application', 'domain', 'http', 'integrations'],
+  integrations: ['domain', 'integrations', 'persistence'],
+  persistence: ['persistence'],
+};
+const MODULE_AREAS = Object.keys(moduleAreaImports);
+const otherModulePublicFiles = {
+  element: {
+    captured: { module: '!{{from.element.captured.module}}' },
+    fileInternalPath: ['*.module.ts', 'index.ts'],
+    type: 'api-module',
+  },
+};
+const moduleAreaPolicies = Object.entries(moduleAreaImports).map(
+  ([area, allowedAreas]) => ({
+    allow: {
+      to: [
+        {
+          element: {
+            captured: {
+              area:
+                allowedAreas.length === 1
+                  ? allowedAreas[0]
+                  : `{${allowedAreas.join(',')}}`,
+              module: '{{from.element.captured.module}}',
+            },
+            type: 'api-module-area',
+          },
+        },
+        ...(area === 'domain'
+          ? []
+          : [
+              { element: { type: 'api-infrastructure' } },
+              otherModulePublicFiles,
+            ]),
+      ],
+    },
+    from: { element: { captured: { area }, type: 'api-module-area' } },
+  }),
+);
 
 const architecture = {
   plugins: { boundaries },
@@ -138,7 +188,7 @@ const architecture = {
                 {
                   element: {
                     captured: { module: '{{from.element.captured.module}}' },
-                    type: 'api-module',
+                    type: ['api-module', 'api-module-area'],
                   },
                 },
                 { element: { type: 'api-infrastructure' } },
@@ -152,6 +202,7 @@ const architecture = {
             },
             from: { element: { type: 'api-module' } },
           },
+          ...moduleAreaPolicies,
           {
             disallow: { to: { file: { categories: 'product-config' } } },
             from: {
@@ -169,7 +220,7 @@ const architecture = {
   settings: {
     'boundaries/elements': [
       { partialMatch: false, pattern: `${WEB}/app`, type: 'web-app' },
-      // INVARIANT: boundaries assigns the first matching element, so web-model must precede web-page/web-domain.
+      // INVARIANT: boundaries assigns the first matching element, so web-model and api-module-area must precede their parent elements.
       {
         capture: ['layer', 'slice'],
         partialMatch: false,
@@ -200,6 +251,12 @@ const architecture = {
         partialMatch: false,
         pattern: `${API}/infrastructure/*`,
         type: 'api-infrastructure',
+      },
+      {
+        capture: ['module', 'area'],
+        partialMatch: false,
+        pattern: `${API}/modules/*/{${MODULE_AREAS.join(',')}}`,
+        type: 'api-module-area',
       },
       {
         capture: ['module'],
@@ -304,6 +361,39 @@ export default defineConfig([
     },
   },
   {
+    files: [`${API}/**/*.ts`],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [maxThreeLevelsUpInApi] }],
+    },
+  },
+  {
+    files: [`${API}/modules/*/domain/**/*.ts`],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            maxThreeLevelsUpInApi,
+            {
+              group: [
+                '@better-auth/*',
+                '@nestjs/*',
+                '@thallesp/*',
+                'better-auth',
+                'better-auth/*',
+                'drizzle-orm',
+                'drizzle-orm/*',
+                'pg',
+              ],
+              message:
+                'domain/ holds pure rules: no Nest, ORM, database driver or Better Auth imports.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: [`${WEB}/{pages,domain}/*/model/**/*.{ts,tsx}`],
     ignores: TESTS_AND_STORIES,
     rules: {
@@ -328,7 +418,7 @@ export default defineConfig([
   },
   {
     files: [`${WEB}/**/*.{ts,tsx}`, `${API}/**/*.ts`],
-    ignores: [...TESTS_AND_STORIES, '**/*.spec.ts'],
+    ignores: [...TESTS_AND_STORIES, '**/*.spec.ts', '**/*.db-spec.ts'],
     rules: {
       '@typescript-eslint/no-magic-numbers': [
         'error',

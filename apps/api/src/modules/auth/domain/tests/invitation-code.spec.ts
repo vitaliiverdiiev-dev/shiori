@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { invitationCodeSchema } from './invitations.js';
+import { invitationCodeSchema } from '../invitation-code.js';
 
 const CODE_LENGTH = 43;
 

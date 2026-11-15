@@ -34,11 +34,24 @@ Do not pre-create `auth/`, `users/`, `vocabulary/` or other future modules durin
 
 A module may begin with only `diagnostics.module.ts` and `diagnostics.controller.ts`. Add `service.ts`, `dto/`, `schema.ts`, `guards/`, `policies/`, or tests if there is real functionality. Do **not** require a `controller/`, `service/`, `repository/`, `interface/`, `adapter/`, `mapper/` folder for each feature. A large module can be grouped by cohesive responsibilities as it grows.
 
+When a module has distinct responsibilities, group them into these optional areas, creating only those with real code; `<module>.module.ts` and the public `index.ts` stay at the module root:
+
+| Area            | Holds                                                                    | May import (same module)                |
+| --------------- | ------------------------------------------------------------------------ | --------------------------------------- |
+| `http/`         | controllers, transport DTOs, guards                                      | `application`, `domain`, `integrations` |
+| `cli/`          | command parsing and output                                               | `application`, `domain`, `integrations` |
+| `application/`  | use cases, transaction orchestration                                     | `domain`, `persistence`, `integrations` |
+| `integrations/` | module-owned library/vendor configuration and hooks                      | `domain`, `persistence`                 |
+| `persistence/`  | ORM tables, data access when it earns its own file                       | itself                                  |
+| `domain/`       | pure rules; no infrastructure, Nest, ORM, driver or auth-library imports | itself                                  |
+
+All areas except `domain/` may use `infrastructure/` and other modules' public files. No area imports its module's root files. ESLint enforces the table (`api-module-area`).
+
 - Controller: HTTP transport and status/response mapping, minimal orchestration; no database implementation details except tiny diagnostics when justified.
 - Service/application logic: meaningful actions and domain decisions when there are any.
 - Infrastructure provider: lifecycle and access to the external system; avoid second database pool and global mutable singletons.
 - Validation: typed server boundary handling; errors must not expose private configuration.
-- Test files: follow existing backend test conventions during M01.2; preserve unit/e2e/DB integration behavior. Do not relocate all backend tests just to mimic frontend test conventions.
+- Test files: a unit spec sits next to its source when the parent directory has the source's name, otherwise in that directory's `tests/` (`domain/credentials.ts` → `domain/tests/credentials.spec.ts`). A module's DB integration specs live in `modules/<module>/tests/integrations/`; app-spanning e2e and the shared harness stay in the project-level `test/`. Any move updates runner globs and confirms both suites still discover every file.
 
 ## 4. Public contracts and imports
 
@@ -46,6 +59,7 @@ A module may begin with only `diagnostics.module.ts` and `diagnostics.controller
 - When another module consumes a module's providers, tokens, types or decorators, they go through one designated public entrypoint, `modules/<feature>/index.ts`, listing only what consumers use. A module without external consumers has none, and a module never imports its own `index.ts`. ESLint allows cross-module imports of `*.module.ts` and `index.ts` only.
 - Do not deep-import another _feature module's_ internal controllers/services/helpers from outside its module as a shortcut. Prefer Nest DI via an exported provider or an explicitly owned public contract when a real consumer appears.
 - Application composition can import module entry classes directly to wire the app. Infrastructure may be shared where genuinely generic.
+- Relative imports climb at most three levels (`../../../`), the depth from a module area to `infrastructure/`.
 - Keep runtime-only Nest decorator metadata and `.js` import specifiers where required by the project's ESM/Node configuration. Test typecheck/build after relocating files.
 - Avoid circular module imports and unnecessary `forwardRef()`; redesign a boundary when possible rather than accepting cycles as default.
 

@@ -5,7 +5,10 @@ import {
 } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { z } from 'zod';
-import { hashInvitationCode, invitationCodeSchema } from './invitations.js';
+import {
+  hashInvitationCode,
+  invitationCodeSchema,
+} from '../domain/invitation-code.js';
 
 const SIGN_UP_PATH = '/sign-up/email';
 

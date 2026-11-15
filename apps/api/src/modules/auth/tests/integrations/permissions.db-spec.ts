@@ -1,6 +1,9 @@
 import { Controller, Get, Module } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Roles } from '@thallesp/nestjs-better-auth';
+import { createTestApp, TEST_ORIGIN } from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import { Pool } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -13,10 +16,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { bootstrapFirstAdmin } from '../src/modules/auth/bootstrap-admin.js';
-import { createTestApp, TEST_ORIGIN } from './support/app.js';
-import { testDatabaseUrl } from './support/test-database.js';
-import { ALICE, createUser, getAuth } from './support/users.js';
+import { bootstrapFirstAdmin } from '../../application/bootstrap-admin.js';
 
 const ADMIN = {
   email: 'admin@example.test',

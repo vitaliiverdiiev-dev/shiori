@@ -1,4 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
+import {
+  createTestApp,
+  TEST_AUTH_ENV,
+  TEST_ORIGIN,
+} from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import { betterAuth, type BetterAuthPlugin } from 'better-auth';
 import { createAuthEndpoint } from 'better-auth/api';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -7,17 +14,14 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  type AuthSettings,
-  betterAuthOptions,
-} from '../src/modules/auth/auth.config.js';
-import { registrationResponseSchema } from '../src/modules/auth/auth.dto.js';
-import {
   createInvitation,
   revokeInvitation,
-} from '../src/modules/auth/invitations.js';
-import { createTestApp, TEST_AUTH_ENV, TEST_ORIGIN } from './support/app.js';
-import { testDatabaseUrl } from './support/test-database.js';
-import { ALICE, createUser, getAuth } from './support/users.js';
+} from '../../application/invitations.js';
+import { registrationResponseSchema } from '../../http/auth.dto.js';
+import {
+  type AuthSettings,
+  betterAuthOptions,
+} from '../../integrations/auth.config.js';
 
 const DAY_MS = 86_400_000;
 const PARALLEL_SIGN_UPS = 10;

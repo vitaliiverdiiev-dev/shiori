@@ -1,8 +1,8 @@
 import { Controller, Get, Inject } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
-import { toOpenApiSchema } from '../../infrastructure/openapi/zod-schema.js';
-import type { RegistrationMode } from './auth.config.js';
+import { toOpenApiSchema } from '../../../infrastructure/openapi/zod-schema.js';
+import type { RegistrationMode } from '../integrations/auth.config.js';
 import {
   type RegistrationResponse,
   registrationResponseSchema,

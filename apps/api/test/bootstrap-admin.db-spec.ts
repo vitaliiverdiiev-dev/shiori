@@ -38,7 +38,9 @@ async function users() {
 }
 
 afterEach(async () => {
-  await pool.query('truncate "user", verification, invitation cascade');
+  await pool.query(
+    'truncate "user", verification, invitation, admin_bootstrap cascade',
+  );
 });
 
 afterAll(async () => {
@@ -141,6 +143,32 @@ describe('bootstrapFirstAdmin', () => {
     ]);
   });
 
+  it('does not stop a later, authorized second admin', async () => {
+    await bootstrapFirstAdmin(auth, ADMIN);
+    await pool.query(
+      "insert into \"user\" (id, email, name, role) values ('second', 'second@example.test', 'Second', 'admin')",
+    );
+    const { rows } = await pool.query(
+      'select email from "user" where role = \'admin\' order by email',
+    );
+    expect(rows).toEqual([
+      { email: 'admin@example.test' },
+      { email: 'second@example.test' },
+    ]);
+  });
+
+  it('stays one-time after the first admin is demoted or deleted', async () => {
+    await bootstrapFirstAdmin(auth, ADMIN);
+    await pool.query('update "user" set role = \'user\'');
+    expect(
+      await bootstrapFirstAdmin(auth, { ...ADMIN, email: 'b@example.test' }),
+    ).toEqual({ ok: false, reason: 'already-initialized' });
+    await pool.query('delete from "user"');
+    expect(
+      await bootstrapFirstAdmin(auth, { ...ADMIN, email: 'c@example.test' }),
+    ).toEqual({ ok: false, reason: 'already-initialized' });
+  });
+
   it('leaves no partial admin when the account insert fails, and can be retried', async () => {
     const failing = betterAuth({
       ...betterAuthOptions(db, SETTINGS),
@@ -157,6 +185,8 @@ describe('bootstrapFirstAdmin', () => {
 
     await expect(bootstrapFirstAdmin(failing, ADMIN)).rejects.toThrow();
     expect(await users()).toEqual([]);
+    const { rows } = await pool.query('select 1 from admin_bootstrap');
+    expect(rows).toEqual([]);
     expect(await bootstrapFirstAdmin(auth, ADMIN)).toMatchObject({ ok: true });
   });
 

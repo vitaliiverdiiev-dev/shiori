@@ -79,7 +79,7 @@ pnpm auth:invite list
 pnpm auth:invite revoke <id>
 ```
 
-- Passwords are only read from the prompt, never from arguments or the environment, and are never printed. A second bootstrap is refused: the database allows a single admin.
+- Passwords are only read from the prompt, never from arguments or the environment, and are never printed. Bootstrap works once per installation, even across concurrent runs, and stays closed if that admin is later removed.
 - An invitation is bound to its normalized (lower-case) email, valid for 7 days and usable once; only a SHA-256 hash of the code is stored, so the code cannot be shown again. Send it to the person yourself.
 - With `REGISTRATION_MODE=invite`, the invitee signs up with email, name, password and `invitationCode`; sign-up never signs them in. `GET /api/registration` tells the web app which mode is active.
 

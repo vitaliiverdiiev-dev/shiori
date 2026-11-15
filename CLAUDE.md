@@ -14,7 +14,7 @@
 - Keep the foundation independent of Japanese domain logic; compose the domain at the bootstrap boundary.
 - Compiler flags (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) are set in the tsconfigs; the only exception is generated code in `packages/api-client` (see `docs/03-architecture.md`).
 - Inventory and Punch UI are reference ideas only; do not copy their source or architecture.
-- Machine-owned files are never hand-edited: `apps/api/openapi.json` and `packages/api-client/src/generated` (`pnpm api:generate`), and `apps/api/drizzle/` (`pnpm db:generate`). Never run `drizzle-kit push` or Better Auth's `auth migrate`.
+- Machine-owned files are never hand-edited: `apps/api/openapi.json` and `packages/api-client/src/generated` (`pnpm api:generate`), and `apps/api/drizzle/` (`pnpm db:generate`; the only hand-written SQL is the body of a data migration created with `pnpm db:generate --custom`, and an applied migration is never rewritten). Never run `drizzle-kit push` or Better Auth's `auth migrate`.
 - Better Auth and `@better-auth/core` are pinned exactly to the same version; an upgrade must follow the schema check in `docs/03-architecture.md`.
 - Comments follow KataKit `code-quality`; `pnpm lint` enforces the markers via `shiori/comment-policy`. Do not add rule exemptions without review.
 - Do **not** commit, push, deploy, publish, or install global Claude plugins without explicit permission.

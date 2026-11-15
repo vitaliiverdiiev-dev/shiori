@@ -6,8 +6,13 @@ import { user } from './auth.schema.js';
 import { invitation } from './invitation.schema.js';
 
 const CODE_BYTES = 32;
+const CODE_LENGTH = 43;
 const DAY_MS = 86_400_000;
 export const INVITATION_LIFETIME_DAYS = 7;
+export const invitationCodeSchema = z
+  .string()
+  .length(CODE_LENGTH)
+  .regex(/^[\w-]+$/);
 
 export type CreateInvitationResult =
   | { code: string; invitation: InvitationSummary; ok: true }

@@ -2,9 +2,19 @@ import { Test } from '@nestjs/testing';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import {
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Pool } from 'pg';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
   DATABASE,
   type Database,
@@ -61,7 +71,52 @@ describe('database', () => {
   });
 });
 
+const MIGRATION_COUNT = 4;
+const MIGRATIONS_BEFORE_ADMIN_BOOTSTRAP = 2;
+
+function migrationsUpTo(count: number): string {
+  const folder = mkdtempSync(join(tmpdir(), 'shiori-migrations-'));
+  cpSync(MIGRATIONS_FOLDER, folder, { recursive: true });
+  const journalFile = join(folder, 'meta/_journal.json');
+  const journal = z
+    .object({ entries: z.array(z.object({ idx: z.number() }).loose()) })
+    .loose()
+    .parse(JSON.parse(readFileSync(journalFile, 'utf8')));
+  writeFileSync(
+    journalFile,
+    JSON.stringify({
+      ...journal,
+      entries: journal.entries.filter((entry) => entry.idx < count),
+    }),
+  );
+  return folder;
+}
+
 describe('committed migrations', () => {
+  it('mark an installation that already has an admin as bootstrapped', async () => {
+    const pool = new Pool({ connectionString: testDatabaseUrl() });
+    const db = drizzle({ client: pool });
+    const olderMigrations = migrationsUpTo(MIGRATIONS_BEFORE_ADMIN_BOOTSTRAP);
+    try {
+      await pool.query(
+        'drop schema public cascade; create schema public; drop schema drizzle cascade',
+      );
+      await migrate(db, { migrationsFolder: olderMigrations });
+      await pool.query(
+        "insert into \"user\" (id, email, name, role) values ('a', 'admin@example.test', 'Admin', 'admin')",
+      );
+
+      await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+      const { rows } = await pool.query('select id from admin_bootstrap');
+      expect(rows).toEqual([{ id: 'initial' }]);
+    } finally {
+      await pool.query('truncate "user", admin_bootstrap cascade');
+      await pool.end();
+      rmSync(olderMigrations, { force: true, recursive: true });
+    }
+  });
+
   it('created the auth and invitation tables on the empty test database', async () => {
     const pool = new Pool({ connectionString: testDatabaseUrl() });
     try {
@@ -70,6 +125,7 @@ describe('committed migrations', () => {
       );
       expect(rows.map((row) => row.table_name)).toEqual([
         'account',
+        'admin_bootstrap',
         'invitation',
         'session',
         'user',
@@ -90,7 +146,7 @@ describe('committed migrations', () => {
         migrationsFolder: MIGRATIONS_FOLDER,
       });
       expect((await applied()).rows).toEqual(before.rows);
-      expect(before.rowCount).toBe(2);
+      expect(before.rowCount).toBe(MIGRATION_COUNT);
     } finally {
       await pool.end();
     }

@@ -15,6 +15,20 @@
       "when": 1794699599287,
       "tag": "0001_invitations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794738122235,
+      "tag": "0002_admin_bootstrap",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794738123061,
+      "tag": "0003_backfill_admin_bootstrap",
+      "breakpoints": true
     }
   ]
 }

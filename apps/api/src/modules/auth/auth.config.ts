@@ -2,6 +2,8 @@ import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { Env } from '../../infrastructure/config/env.js';
 import type { Database } from '../../infrastructure/database/database.module.js';
+import { adminBootstrapPlugin } from './admin-bootstrap.plugin.js';
+import { adminBootstrap } from './admin-bootstrap.schema.js';
 import * as authSchema from './auth.schema.js';
 import { invitationPlugin } from './invitation.plugin.js';
 import { invitation } from './invitation.schema.js';
@@ -44,7 +46,7 @@ export function betterAuthOptions(db: Database, settings: AuthSettings) {
     baseURL: settings.baseURL,
     database: drizzleAdapter(db, {
       provider: 'pg',
-      schema: { ...authSchema, invitation },
+      schema: { ...authSchema, adminBootstrap, invitation },
       // INVARIANT: Invitation claims share the sign-up transaction; without it a failed sign-up burns the invitation.
       transaction: true,
     }),
@@ -55,7 +57,7 @@ export function betterAuthOptions(db: Database, settings: AuthSettings) {
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       minPasswordLength: PASSWORD_MIN_LENGTH,
     },
-    plugins: [invitationPlugin],
+    plugins: [adminBootstrapPlugin, invitationPlugin],
     secret: settings.secret,
     session: {
       expiresIn: SESSION_DAYS * DAY_SECONDS,

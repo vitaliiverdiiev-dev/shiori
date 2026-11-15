@@ -1,10 +1,12 @@
 import type { AuthContext, BetterAuthOptions } from '@better-auth/core';
 import { runWithTransaction } from '@better-auth/core/context';
+import { getCurrentAdapter } from 'better-auth';
 import { isUniqueViolation } from '../../infrastructure/database/postgres-errors.js';
+import { INITIAL_ADMIN_BOOTSTRAP_ID } from './admin-bootstrap.schema.js';
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './auth.config.js';
 import { normalizeEmail } from './invitations.js';
 
-const SINGLE_ADMIN_INDEX = 'user_single_admin_idx';
+const ADMIN_BOOTSTRAP_KEY = 'admin_bootstrap_pkey';
 const USER_EMAIL_UNIQUE = 'user_email_unique';
 
 type BootstrapFailure =
@@ -39,11 +41,11 @@ export async function bootstrapFirstAdmin<Options extends BetterAuthOptions>(
   }
 
   const context = await auth.$context;
-  const existingAdmin = await context.adapter.findOne({
-    model: 'user',
-    where: [{ field: 'role', value: 'admin' }],
+  const completed = await context.adapter.findOne({
+    model: 'adminBootstrap',
+    where: [{ field: 'id', value: INITIAL_ADMIN_BOOTSTRAP_ID }],
   });
-  if (existingAdmin) return failure('already-initialized');
+  if (completed) return failure('already-initialized');
   if (await context.internalAdapter.findUserByEmail(email)) {
     return failure('email-taken');
   }
@@ -51,6 +53,12 @@ export async function bootstrapFirstAdmin<Options extends BetterAuthOptions>(
   const passwordHash = await context.password.hash(input.password);
   try {
     const userId = await runWithTransaction(context.adapter, async () => {
+      const adapter = await getCurrentAdapter(context.adapter);
+      await adapter.create({
+        data: { id: INITIAL_ADMIN_BOOTSTRAP_ID, completedAt: new Date() },
+        forceAllowId: true,
+        model: 'adminBootstrap',
+      });
       const user = await context.internalAdapter.createUser(
         { email, emailVerified: false, name, role: 'admin' },
         { method: 'email-password' },
@@ -65,7 +73,7 @@ export async function bootstrapFirstAdmin<Options extends BetterAuthOptions>(
     });
     return { ok: true, userId };
   } catch (error) {
-    if (isUniqueViolation(error, SINGLE_ADMIN_INDEX)) {
+    if (isUniqueViolation(error, ADMIN_BOOTSTRAP_KEY)) {
       return failure('already-initialized');
     }
     if (isUniqueViolation(error, USER_EMAIL_UNIQUE))

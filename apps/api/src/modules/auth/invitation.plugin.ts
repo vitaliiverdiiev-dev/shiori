@@ -5,13 +5,13 @@ import {
 } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { z } from 'zod';
-import { hashInvitationCode } from './invitations.js';
+import { hashInvitationCode, invitationCodeSchema } from './invitations.js';
 
 const SIGN_UP_PATH = '/sign-up/email';
 
 const signUpInvitationSchema = z.object({
   email: z.string(),
-  invitationCode: z.string().min(1),
+  invitationCode: invitationCodeSchema,
 });
 
 function invalidInvitation(): APIError {

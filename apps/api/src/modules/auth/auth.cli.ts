@@ -33,7 +33,8 @@ const USAGE = [
 ].join('\n');
 
 const BOOTSTRAP_FAILURES = {
-  'already-initialized': 'This installation already has an admin.',
+  'already-initialized':
+    'The first admin was already created; this can only happen once.',
   'email-taken': 'An account with this email already exists.',
   'invalid-email': 'That is not a valid email address.',
   'invalid-name': 'A name is required.',

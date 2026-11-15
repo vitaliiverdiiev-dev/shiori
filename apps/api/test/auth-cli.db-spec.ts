@@ -51,7 +51,9 @@ function scriptedIo(answers: string[]) {
 }
 
 afterEach(async () => {
-  await pool.query('truncate "user", verification, invitation cascade');
+  await pool.query(
+    'truncate "user", verification, invitation, admin_bootstrap cascade',
+  );
 });
 
 afterAll(async () => {
@@ -79,7 +81,7 @@ describe('bootstrap-admin', () => {
       ['Other', 'other@example.test', PASSWORD, PASSWORD],
     );
     expect(second.exitCode).toBe(1);
-    expect(second.text()).toMatch(/already has an admin/i);
+    expect(second.text()).toMatch(/only happen once/i);
     expect(await roles()).toHaveLength(1);
   });
 

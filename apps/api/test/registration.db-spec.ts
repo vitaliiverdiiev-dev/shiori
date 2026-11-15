@@ -85,7 +85,9 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await pool.query('truncate "user", verification, invitation cascade');
+  await pool.query(
+    'truncate "user", verification, invitation, admin_bootstrap cascade',
+  );
 });
 
 afterAll(async () => {
@@ -156,6 +158,9 @@ describe('invite-only sign-up', () => {
     ['missing', () => ({ ...INVITEE })],
     ['empty', () => ({ ...INVITEE, invitationCode: '' })],
     ['unknown', () => ({ ...INVITEE, invitationCode: 'x'.repeat(43) })],
+    ['malformed', () => ({ ...INVITEE, invitationCode: `${'x'.repeat(42)}!` })],
+    ['oversized', () => ({ ...INVITEE, invitationCode: 'x'.repeat(100_000) })],
+    ['non-string', () => ({ ...INVITEE, invitationCode: { $ne: null } })],
   ])('rejects a %s code', async (_case, body) => {
     const { invitation } = await invite();
     const response = await signUp(inviteApp, body());

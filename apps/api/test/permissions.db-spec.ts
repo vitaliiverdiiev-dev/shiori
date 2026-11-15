@@ -79,7 +79,9 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  await pool.query('truncate "user", verification, invitation cascade');
+  await pool.query(
+    'truncate "user", verification, invitation, admin_bootstrap cascade',
+  );
 });
 
 afterAll(async () => {

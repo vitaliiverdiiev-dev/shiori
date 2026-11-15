@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { Database } from '../../infrastructure/database/database.module.js';
 import { user } from './auth.schema.js';
+import { normalizeEmail } from './credentials.js';
 import { invitation } from './invitation.schema.js';
 
 const CODE_BYTES = 32;
@@ -69,11 +70,6 @@ export async function listInvitations(
     .from(invitation)
     .orderBy(desc(invitation.createdAt));
   return rows.map((row) => summarize(row, now));
-}
-
-export function normalizeEmail(raw: string): string | undefined {
-  const email = raw.trim().toLowerCase();
-  return z.email().safeParse(email).success ? email : undefined;
 }
 
 export async function revokeInvitation(

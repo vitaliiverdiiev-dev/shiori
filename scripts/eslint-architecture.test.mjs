@@ -452,6 +452,13 @@ describe('backend boundaries', () => {
       BOUNDARIES,
     ));
 
+  test("app must not import a module's public index.ts", () =>
+    rejects(
+      `${API}/app/example.ts`,
+      "import { AllowAnonymous } from '../modules/auth/index.js';\nexport const x = AllowAnonymous;\n",
+      BOUNDARIES,
+    ));
+
   test("valid: a module imports another module's public index.ts", () =>
     passes(
       `${API}/modules/other/example.ts`,

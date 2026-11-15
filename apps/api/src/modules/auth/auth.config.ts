@@ -1,20 +1,23 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import type { Env } from '../../infrastructure/config/env.js';
 import type { Database } from '../../infrastructure/database/database.module.js';
 import { adminBootstrapPlugin } from './admin-bootstrap.plugin.js';
 import { adminBootstrap } from './admin-bootstrap.schema.js';
 import * as authSchema from './auth.schema.js';
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './credentials.js';
 import { invitationPlugin } from './invitation.plugin.js';
 import { invitation } from './invitation.schema.js';
 
 const DAY_SECONDS = 86_400;
 const SESSION_DAYS = 7;
 
-export const PASSWORD_MIN_LENGTH = 15;
-export const PASSWORD_MAX_LENGTH = 128;
-
 export type Auth = ReturnType<typeof createAuth>;
+
+export interface AuthEnv {
+  BETTER_AUTH_SECRET: string;
+  BETTER_AUTH_URL: string;
+  REGISTRATION_MODE: RegistrationMode;
+}
 
 export interface AuthSettings {
   baseURL: string;
@@ -24,12 +27,7 @@ export interface AuthSettings {
 
 export type RegistrationMode = 'closed' | 'invite';
 
-export function authSettingsFromEnv(
-  env: Pick<
-    Env,
-    'BETTER_AUTH_SECRET' | 'BETTER_AUTH_URL' | 'REGISTRATION_MODE'
-  >,
-): AuthSettings {
+export function authSettingsFromEnv(env: AuthEnv): AuthSettings {
   return {
     baseURL: env.BETTER_AUTH_URL,
     registrationMode: env.REGISTRATION_MODE,

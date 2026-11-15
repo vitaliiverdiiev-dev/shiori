@@ -1,6 +1,5 @@
 import { Body, Controller, Module, Post } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { AllowAnonymous } from '@thallesp/nestjs-better-auth';
 import { Pool } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -14,6 +13,7 @@ import {
   it,
 } from 'vitest';
 import { currentUserResponseSchema } from '../src/modules/auth/auth.dto.js';
+import { AllowAnonymous } from '../src/modules/auth/index.js';
 import { createTestApp, TEST_ORIGIN } from './support/app.js';
 import { testDatabaseUrl } from './support/test-database.js';
 import { ALICE, createUser, getAuth } from './support/users.js';

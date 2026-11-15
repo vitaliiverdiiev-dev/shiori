@@ -3,8 +3,11 @@ import { runWithTransaction } from '@better-auth/core/context';
 import { getCurrentAdapter } from 'better-auth';
 import { isUniqueViolation } from '../../infrastructure/database/postgres-errors.js';
 import { INITIAL_ADMIN_BOOTSTRAP_ID } from './admin-bootstrap.schema.js';
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from './auth.config.js';
-import { normalizeEmail } from './invitations.js';
+import {
+  normalizeEmail,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from './credentials.js';
 
 const ADMIN_BOOTSTRAP_KEY = 'admin_bootstrap_pkey';
 const USER_EMAIL_UNIQUE = 'user_email_unique';

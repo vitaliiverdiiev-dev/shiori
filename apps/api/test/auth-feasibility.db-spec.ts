@@ -9,11 +9,11 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { betterAuthOptions } from '../src/modules/auth/auth.config.js';
 import {
-  betterAuthOptions,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-} from '../src/modules/auth/auth.config.js';
+} from '../src/modules/auth/credentials.js';
 import { TEST_AUTH_ENV, TEST_ORIGIN } from './support/app.js';
 import { testDatabaseUrl } from './support/test-database.js';
 

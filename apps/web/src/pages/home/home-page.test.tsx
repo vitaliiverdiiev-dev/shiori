@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { HomePage } from './home-page';
 
 const identity = {
@@ -10,11 +10,7 @@ const identity = {
 };
 
 describe('HomePage', () => {
-  it('shows the product identity it is given and the server status', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))),
-    );
+  it('shows the product identity it is given', () => {
     render(<HomePage {...identity} />);
 
     expect(
@@ -23,9 +19,5 @@ describe('HomePage', () => {
     expect(screen.getByText(identity.nameJa)).toHaveAttribute('lang', 'ja');
     expect(screen.getByText(identity.tagline)).toBeInTheDocument();
     expect(screen.getByText(identity.logoGlyph)).toBeInTheDocument();
-    expect(
-      await screen.findByRole('region', { name: 'Server status' }),
-    ).toBeInTheDocument();
-    expect(await screen.findByText('API offline')).toBeInTheDocument();
   });
 });

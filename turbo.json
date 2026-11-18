@@ -9,10 +9,17 @@
     "build-storybook": {
       "outputs": ["storybook-static/**"]
     },
-    "typecheck": {},
-    "lint": {},
-    "test": {},
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true,
       "passThroughEnv": [

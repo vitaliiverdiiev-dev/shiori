@@ -72,12 +72,12 @@ describe('frontend layers and slices', () => {
   test('pages must not deep-import a domain slice (alias or relative)', async () => {
     await rejects(
       `${WEB}/pages/home/example.ts`,
-      "import { checkStatus } from '@/domain/health/api/requests';\nexport const x = checkStatus;\n",
+      "import { healthQuery } from '@/domain/health/api/queries';\nexport const x = healthQuery;\n",
       BOUNDARIES,
     );
     await rejects(
       `${WEB}/pages/home/example.ts`,
-      "import { checkStatus } from '../../domain/health/api/requests';\nexport const x = checkStatus;\n",
+      "import { healthQuery } from '../../domain/health/api/queries';\nexport const x = healthQuery;\n",
       BOUNDARIES,
     );
   });
@@ -117,7 +117,7 @@ describe('frontend layers and slices', () => {
     const use = (line) => `${line}\nexport const x = 1;\n`;
 
     for (const [segment, target, name] of [
-      ['api', 'api/requests', 'checkStatus'],
+      ['api', 'api/queries', 'healthQuery'],
       ['helpers', 'helpers/helpers', 'isRecord'],
       ['hooks', 'hooks/use-health-status', 'useHealthStatus'],
       ['ui', 'ui/status-row', 'StatusRow'],
@@ -139,7 +139,7 @@ describe('frontend layers and slices', () => {
     test('re-exports and literal dynamic import() are covered', async () => {
       await rejects(
         domainModel,
-        "export { checkStatus } from '@/domain/health/api/requests';\n",
+        "export { healthQuery } from '@/domain/health/api/queries';\n",
         BOUNDARIES,
       );
       await rejects(

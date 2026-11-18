@@ -1,5 +1,3 @@
-import { HealthStatus } from '@/domain/health';
-
 type Props = {
   logoGlyph: string;
   name: string;
@@ -8,7 +6,7 @@ type Props = {
 };
 
 export const HomePage = ({ logoGlyph, name, nameJa, tagline }: Props) => (
-  <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 pt-[max(3rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:justify-center">
+  <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-12 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:justify-center">
     <header className="flex flex-col items-center text-center">
       <div
         aria-hidden="true"
@@ -27,9 +25,5 @@ export const HomePage = ({ logoGlyph, name, nameJa, tagline }: Props) => (
       Learn hiragana, katakana, kanji and vocabulary together — every word
       linked to its readings, meanings and the kanji inside it.
     </p>
-
-    <div className="mt-auto pt-10 sm:mt-10">
-      <HealthStatus />
-    </div>
   </main>
 );

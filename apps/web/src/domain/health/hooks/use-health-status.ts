@@ -1,26 +1,17 @@
-import { useEffect, useState } from 'react';
-import { checkStatus } from '../api/requests';
-import { CHECKING } from '../model/consts';
+import { useQuery } from '@tanstack/react-query';
+import { healthQuery, readinessQuery } from '../api/queries';
+import { getStatus, isApiHealthy } from '../helpers/helpers';
 import type { Status } from '../model/types';
 
 export function useHealthStatus(): { retry: () => void; status: Status } {
-  const [attempt, setAttempt] = useState(0);
-  const [status, setStatus] = useState<Status>(CHECKING);
-
-  useEffect(() => {
-    let active = true;
-    void checkStatus().then((next) => {
-      if (active) setStatus(next);
-    });
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
+  const health = useQuery(healthQuery);
+  const apiHealthy = health.isSuccess && isApiHealthy(health.data);
+  const readiness = useQuery({ ...readinessQuery, enabled: apiHealthy });
 
   const retry = () => {
-    setStatus(CHECKING);
-    setAttempt((n) => n + 1);
+    void health.refetch();
+    if (apiHealthy) void readiness.refetch();
   };
 
-  return { retry, status };
+  return { retry, status: getStatus(health, readiness) };
 }

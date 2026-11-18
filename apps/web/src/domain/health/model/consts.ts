@@ -1,9 +1,12 @@
 import type { Status } from './types';
 
-export const HEALTH_PATH = '/api/health';
-export const READY_PATH = '/api/ready';
 export const HEALTH_TIMEOUT_MS = 5_000;
 export const READY_TIMEOUT_MS = 8_000;
+
+export const TIMEOUT_ERROR_CODES: readonly string[] = [
+  'ECONNABORTED',
+  'ETIMEDOUT',
+];
 
 export const CHECKING: Status = { api: 'checking', database: 'checking' };
 

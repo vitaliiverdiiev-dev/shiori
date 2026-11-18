@@ -1,5 +1,3 @@
-import { TEST_AUTH_ENV, TEST_ORIGIN } from '#test/support/app.js';
-import { testDatabaseUrl } from '#test/support/test-database.js';
 import {
   betterAuth,
   type BetterAuthOptions,
@@ -11,11 +9,13 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { TEST_AUTH_ENV, TEST_ORIGIN } from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { betterAuthOptions } from '../../integrations/better-auth/config/better-auth.config.js';
 import {
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-} from '../../domain/credentials.js';
-import { betterAuthOptions } from '../../integrations/auth.config.js';
+} from '../../model/constants/password.constants.js';
 
 const pool = new Pool({ connectionString: testDatabaseUrl() });
 const db = drizzle({ client: pool });

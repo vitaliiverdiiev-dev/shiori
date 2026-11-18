@@ -3,6 +3,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "resolvePackageJsonExports": true,
+    "customConditions": ["shiori-source"],
     "esModuleInterop": true,
     "isolatedModules": true,
     "removeComments": true,

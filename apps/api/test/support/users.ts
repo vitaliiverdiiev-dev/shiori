@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { AuthService } from '@thallesp/nestjs-better-auth';
-import type { Auth } from '../../src/modules/auth/integrations/auth.config.js';
+import type { Auth } from '../../src/modules/auth/integrations/better-auth/config/better-auth.config.js';
 
 export interface TestUser {
   email: string;

@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import { defaultConditionNames } from 'eslint-import-resolver-typescript';
 import boundaries from 'eslint-plugin-boundaries';
 import perfectionist from 'eslint-plugin-perfectionist';
 import reactHooks from 'eslint-plugin-react-hooks';
@@ -26,9 +27,35 @@ const maxTwoLevelsUp = {
 
 const maxThreeLevelsUpInApi = {
   message:
-    'Climb at most three levels (../../../), the depth from a module area such as modules/<module>/http/ to infrastructure/. Deeper means reconsider file ownership.',
+    'Climb at most three levels (../../../), the depth from a capability category such as <capability>/http/controllers/ to its module root. Deeper means reconsider file ownership.',
   regex: '^(\\.\\./){4,}',
 };
+
+const infrastructureThroughAlias = {
+  message:
+    'Modules import infrastructure through the `#infrastructure/*` subpath import, not a relative path.',
+  regex: '^(\\.\\./)+infrastructure/',
+};
+
+const SOURCE_CONDITION = 'shiori-source';
+
+const technicalPackages = {
+  auth: ['@better-auth/.+', '@thallesp/.+', 'better-auth(/.+)?'],
+  betterAuth: ['@better-auth/.+', 'better-auth(/.+)?'],
+  nest: ['@nestjs/.+'],
+  orm: ['drizzle-orm(/.+)?', 'pg'],
+};
+
+const vendorImports = (packages, message, allowTypeImports) => ({
+  '@typescript-eslint/no-restricted-imports': [
+    'error',
+    {
+      patterns: [
+        { allowTypeImports, message, regex: `^(${packages.join('|')})$` },
+      ],
+    },
+  ],
+});
 
 const index = (types) => ({
   element: { fileInternalPath: 'index.ts', type: types },
@@ -53,49 +80,192 @@ const shared = [
   { element: { captured: { unit: '!ui' }, type: 'web-shared' } },
 ];
 
-const moduleAreaImports = {
-  application: ['application', 'domain', 'integrations', 'persistence'],
-  cli: ['application', 'cli', 'domain', 'integrations'],
-  domain: ['domain'],
-  http: ['application', 'domain', 'http', 'integrations'],
-  integrations: ['domain', 'integrations', 'persistence'],
-  persistence: ['persistence'],
-};
-const MODULE_AREAS = Object.keys(moduleAreaImports);
+const SAME_MODULE = '{{from.element.captured.module}}';
+const SAME_CAPABILITY = '{{from.element.captured.capability}}';
+const apiInfrastructure = { element: { type: 'api-infrastructure' } };
 const otherModulePublicFiles = {
   element: {
-    captured: { module: '!{{from.element.captured.module}}' },
+    captured: { module: `!${SAME_MODULE}` },
     fileInternalPath: ['*.module.ts', 'index.ts'],
     type: 'api-module',
   },
 };
-const moduleAreaPolicies = Object.entries(moduleAreaImports).map(
-  ([area, allowedAreas]) => ({
+const moduleArea = (area, extra = {}) => ({
+  element: {
+    captured: { area, module: SAME_MODULE },
+    type: 'api-module-area',
+    ...extra,
+  },
+});
+const capabilityArea = (area, capability = SAME_CAPABILITY, extra = {}) => ({
+  element: {
+    captured: { area, capability, module: SAME_MODULE },
+    type: 'api-capability-area',
+    ...extra,
+  },
+});
+const typeOnly = (to) => ({ dependency: { kind: 'type' }, to });
+const fromModuleArea = (area, extra = {}) => ({
+  element: { captured: { area }, type: 'api-module-area', ...extra },
+});
+const fromCapabilityArea = (area) => ({
+  element: { captured: { area }, type: 'api-capability-area' },
+});
+const technicalAllowances = [apiInfrastructure, otherModulePublicFiles];
+
+const backendPolicies = [
+  {
+    allow: {
+      to: [
+        { element: { type: ['api-app', 'api-infrastructure'] } },
+        { element: { fileInternalPath: '*.module.ts', type: 'api-module' } },
+      ],
+    },
+    from: { element: { type: 'api-app' } },
+  },
+  {
+    allow: { to: apiInfrastructure },
+    from: { element: { type: 'api-infrastructure' } },
+  },
+  {
     allow: {
       to: [
         {
           element: {
-            captured: {
-              area:
-                allowedAreas.length === 1
-                  ? allowedAreas[0]
-                  : `{${allowedAreas.join(',')}}`,
-              module: '{{from.element.captured.module}}',
-            },
-            type: 'api-module-area',
+            captured: { module: SAME_MODULE },
+            type: ['api-module', 'api-module-area', 'api-capability-area'],
           },
         },
-        ...(area === 'domain'
-          ? []
-          : [
-              { element: { type: 'api-infrastructure' } },
-              otherModulePublicFiles,
-            ]),
+        ...technicalAllowances,
       ],
     },
-    from: { element: { captured: { area }, type: 'api-module-area' } },
-  }),
-);
+    from: { element: { type: 'api-module' } },
+  },
+  {
+    allow: {
+      to: [
+        {
+          element: {
+            captured: { module: SAME_MODULE },
+            type: [
+              'api-module',
+              'api-module-area',
+              'api-capability-area',
+              'api-tests',
+            ],
+          },
+        },
+        ...technicalAllowances,
+      ],
+    },
+    from: { element: { type: 'api-tests' } },
+  },
+  { allow: { to: moduleArea('model') }, from: fromModuleArea('model') },
+  {
+    allow: {
+      to: [moduleArea('{model,persistence}'), apiInfrastructure],
+    },
+    from: fromModuleArea('persistence'),
+  },
+  {
+    allow: {
+      to: [moduleArea('{model,integrations}'), ...technicalAllowances],
+    },
+    from: fromModuleArea('integrations'),
+  },
+  {
+    allow: {
+      to: [
+        moduleArea('persistence', { fileInternalPath: 'schemas/*.schema.ts' }),
+        capabilityArea('persistence', '*', {
+          fileInternalPath: 'schemas/*.schema.ts',
+        }),
+      ],
+    },
+    from: fromModuleArea('integrations', {
+      fileInternalPath: 'better-auth/config/better-auth.config.ts',
+    }),
+  },
+  {
+    allow: { to: capabilityArea('application', '*') },
+    from: fromModuleArea('integrations', { fileInternalPath: '*/hooks/*' }),
+  },
+  {
+    allow: [
+      {
+        to: [
+          moduleArea('{model,cli}'),
+          capabilityArea('application', '*'),
+          ...technicalAllowances,
+        ],
+      },
+      typeOnly(moduleArea('integrations')),
+    ],
+    from: fromModuleArea('cli'),
+  },
+  {
+    allow: [
+      {
+        to: [moduleArea('{model,http,application}'), ...technicalAllowances],
+      },
+      typeOnly(moduleArea('integrations')),
+    ],
+    from: fromModuleArea('http'),
+  },
+  {
+    allow: {
+      to: [
+        moduleArea('{model,application,persistence,integrations}'),
+        ...technicalAllowances,
+      ],
+    },
+    from: fromModuleArea('application'),
+  },
+  {
+    allow: [
+      {
+        to: [
+          moduleArea('model'),
+          capabilityArea('{http,application}'),
+          ...technicalAllowances,
+        ],
+      },
+      typeOnly([moduleArea('integrations'), capabilityArea('integrations')]),
+    ],
+    from: fromCapabilityArea('http'),
+  },
+  {
+    allow: {
+      to: [
+        moduleArea('{model,persistence,integrations}'),
+        capabilityArea('{application,persistence,integrations}'),
+        capabilityArea('application', '*'),
+        ...technicalAllowances,
+      ],
+    },
+    from: fromCapabilityArea('application'),
+  },
+  {
+    allow: {
+      to: [
+        moduleArea('model'),
+        capabilityArea('persistence'),
+        apiInfrastructure,
+      ],
+    },
+    from: fromCapabilityArea('persistence'),
+  },
+  {
+    allow: {
+      to: [
+        moduleArea('model'),
+        capabilityArea('{integrations,application}'),
+        ...technicalAllowances,
+      ],
+    },
+    from: fromCapabilityArea('integrations'),
+  },
+];
 
 const architecture = {
   plugins: { boundaries },
@@ -164,45 +334,7 @@ const architecture = {
             allow: { to: { element: { type: 'web-shared' } } },
             from: { element: { type: 'web-shared' } },
           },
-          {
-            allow: {
-              to: [
-                { element: { type: ['api-app', 'api-infrastructure'] } },
-                {
-                  element: {
-                    fileInternalPath: '*.module.ts',
-                    type: 'api-module',
-                  },
-                },
-              ],
-            },
-            from: { element: { type: 'api-app' } },
-          },
-          {
-            allow: { to: { element: { type: 'api-infrastructure' } } },
-            from: { element: { type: 'api-infrastructure' } },
-          },
-          {
-            allow: {
-              to: [
-                {
-                  element: {
-                    captured: { module: '{{from.element.captured.module}}' },
-                    type: ['api-module', 'api-module-area'],
-                  },
-                },
-                { element: { type: 'api-infrastructure' } },
-                {
-                  element: {
-                    fileInternalPath: ['*.module.ts', 'index.ts'],
-                    type: 'api-module',
-                  },
-                },
-              ],
-            },
-            from: { element: { type: 'api-module' } },
-          },
-          ...moduleAreaPolicies,
+          ...backendPolicies,
           {
             disallow: { to: { file: { categories: 'product-config' } } },
             from: {
@@ -220,7 +352,7 @@ const architecture = {
   settings: {
     'boundaries/elements': [
       { partialMatch: false, pattern: `${WEB}/app`, type: 'web-app' },
-      // INVARIANT: boundaries assigns the first matching element, so web-model and api-module-area must precede their parent elements.
+      // INVARIANT: boundaries assigns the first matching element, so web-model, api-tests and the API areas must precede their parent elements.
       {
         capture: ['layer', 'slice'],
         partialMatch: false,
@@ -253,10 +385,22 @@ const architecture = {
         type: 'api-infrastructure',
       },
       {
+        capture: ['module'],
+        partialMatch: false,
+        pattern: `${API}/modules/*/**/tests`,
+        type: 'api-tests',
+      },
+      {
         capture: ['module', 'area'],
         partialMatch: false,
-        pattern: `${API}/modules/*/{${MODULE_AREAS.join(',')}}`,
+        pattern: `${API}/modules/*/{model,persistence,integrations,cli,http,application}`,
         type: 'api-module-area',
+      },
+      {
+        capture: ['module', 'capability', 'area'],
+        partialMatch: false,
+        pattern: `${API}/modules/*/*/{http,application,persistence,integrations}`,
+        type: 'api-capability-area',
       },
       {
         capture: ['module'],
@@ -272,6 +416,7 @@ const architecture = {
     'import/resolver': {
       typescript: {
         alwaysTryTypes: true,
+        conditionNames: [SOURCE_CONDITION, ...defaultConditionNames],
         noWarnOnMultipleProjects: true,
         project: ['apps/web/tsconfig.app.json', 'apps/api/tsconfig.json'],
       },
@@ -326,7 +471,7 @@ export default defineConfig([
             ['parent', 'sibling', 'index'],
             'unknown',
           ],
-          internalPattern: ['^@/'],
+          internalPattern: ['^@/', '^#'],
           newlinesBetween: 0,
           type: 'alphabetical',
         },
@@ -367,31 +512,62 @@ export default defineConfig([
     },
   },
   {
-    files: [`${API}/modules/*/domain/**/*.ts`],
+    files: [`${API}/modules/**/*.ts`],
     rules: {
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            maxThreeLevelsUpInApi,
-            {
-              group: [
-                '@better-auth/*',
-                '@nestjs/*',
-                '@thallesp/*',
-                'better-auth',
-                'better-auth/*',
-                'drizzle-orm',
-                'drizzle-orm/*',
-                'pg',
-              ],
-              message:
-                'domain/ holds pure rules: no Nest, ORM, database driver or Better Auth imports.',
-            },
-          ],
-        },
+        { patterns: [maxThreeLevelsUpInApi, infrastructureThroughAlias] },
       ],
     },
+  },
+  {
+    files: [`${API}/modules/*/model/**/*.ts`],
+    ignores: ['**/tests/**'],
+    rules: vendorImports(
+      [
+        ...technicalPackages.auth,
+        ...technicalPackages.nest,
+        ...technicalPackages.orm,
+      ],
+      'model/ holds pure business contracts and rules: no Nest, ORM, database driver or Better Auth imports.',
+      false,
+    ),
+  },
+  {
+    files: [
+      `${API}/modules/*/{http,cli}/**/*.ts`,
+      `${API}/modules/*/*/http/**/*.ts`,
+    ],
+    ignores: ['**/tests/**'],
+    rules: vendorImports(
+      [...technicalPackages.orm, ...technicalPackages.betterAuth],
+      'Transports call application/; vendor and ORM contracts are type-only here.',
+      true,
+    ),
+  },
+  {
+    files: [
+      `${API}/modules/*/application/**/*.ts`,
+      `${API}/modules/*/*/application/**/*.ts`,
+    ],
+    ignores: ['**/tests/**'],
+    rules: vendorImports(
+      [...technicalPackages.auth, ...technicalPackages.orm],
+      'application/ orchestrates; queries belong in persistence/ and vendor calls in integrations/ (type-only imports allowed).',
+      true,
+    ),
+  },
+  {
+    files: [
+      `${API}/modules/*/persistence/**/*.ts`,
+      `${API}/modules/*/*/persistence/**/*.ts`,
+    ],
+    ignores: ['**/tests/**'],
+    rules: vendorImports(
+      [...technicalPackages.auth, ...technicalPackages.nest],
+      'persistence/ holds tables, queries and row mappers: no Nest or Better Auth imports.',
+      false,
+    ),
   },
   {
     files: [`${WEB}/{pages,domain}/*/model/**/*.{ts,tsx}`],

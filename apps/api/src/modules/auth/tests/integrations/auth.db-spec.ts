@@ -1,8 +1,5 @@
 import { Body, Controller, Module, Post } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
-import { createTestApp, TEST_ORIGIN } from '#test/support/app.js';
-import { testDatabaseUrl } from '#test/support/test-database.js';
-import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import { Pool } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
@@ -15,8 +12,11 @@ import {
   expect,
   it,
 } from 'vitest';
-import { currentUserResponseSchema } from '../../http/auth.dto.js';
+import { createTestApp, TEST_ORIGIN } from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import { AllowAnonymous } from '../../index.js';
+import { currentUserResponseSchema } from '../../sessions/http/dto/get-current-user.dto.js';
 
 const SESSION_COOKIE = 'better-auth.session_token';
 const DAY_MS = 86_400_000;

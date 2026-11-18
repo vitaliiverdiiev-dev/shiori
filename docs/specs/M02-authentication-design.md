@@ -5,7 +5,7 @@ Owner: Shiori repository. Applies to milestones M02.1–M02.4. This is the **Shi
 
 ## 0. Read-first and authority
 
-Before implementation, inspect the **current** repository, `CLAUDE.md`, `docs/01-product.md` through `docs/05-roadmap.md`, `docs/standards/{frontend-architecture-v1,backend-architecture-v1,code-quality-v1}.md`, and the active M02 task. Apply the installed KataKit skills as relevant: `frontend-architecture`, `backend-architecture`, `code-quality`, `testing`, `ui-design`, and final `quality-gate`. Prefer current source files over outdated examples. These tasks authorize **only their explicitly requested phase**, not the full roadmap, commit or deployment.
+Before implementation, inspect the **current** repository, `CLAUDE.md`, `docs/01-product.md` through `docs/05-roadmap.md`, `docs/standards/{frontend-architecture-v1,backend-architecture-v2,code-quality-v1}.md`, and the active M02 task. Apply the installed KataKit skills as relevant: `frontend-architecture`, `backend-architecture`, `code-quality`, `testing`, `ui-design`, and final `quality-gate`. Prefer current source files over outdated examples. These tasks authorize **only their explicitly requested phase**, not the full roadmap, commit or deployment.
 
 Repository baseline checked: `https://github.com/vitaliiverdiiev-dev/shiori` on 14 Nov 2026. Node 26, pnpm/Turbo, React 19/Vite SPA, NestJS modular monolith, PostgreSQL 18, Drizzle, root `pnpm dev` that migrates before starting services, `/api/health` and `/api/ready`, Storybook, architecture lint checks. **No auth implementation assumed already present**. Existing roadmap marks M02 as next, and the first substantive SQL migration belongs here. Do not silently overwrite current repo changes if it has advanced.
 

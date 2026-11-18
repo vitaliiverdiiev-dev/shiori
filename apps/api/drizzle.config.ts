@@ -14,6 +14,9 @@ export const connection = {
 export default defineConfig({
   ...connection,
   out: './drizzle',
-  schema: './src/**/*.schema.ts',
+  schema: [
+    './src/modules/*/persistence/schemas/*.schema.ts',
+    './src/modules/*/*/persistence/schemas/*.schema.ts',
+  ],
   strict: true,
 });

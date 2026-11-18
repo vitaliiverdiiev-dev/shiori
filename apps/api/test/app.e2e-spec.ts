@@ -5,12 +5,12 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createOpenApiDocument } from '../src/app/openapi.js';
-import { unauthorizedResponseSchema } from '../src/modules/auth/http/auth.dto.js';
+import { unauthorizedResponseSchema } from '../src/modules/auth/sessions/http/dto/get-current-user.dto.js';
+import { healthResponseSchema } from '../src/modules/diagnostics/http/dto/get-health.dto.js';
 import {
-  healthResponseSchema,
   notReadyResponseSchema,
   readyResponseSchema,
-} from '../src/modules/diagnostics/diagnostics.dto.js';
+} from '../src/modules/diagnostics/http/dto/get-readiness.dto.js';
 import { createTestApp, TEST_AUTH_ENV } from './support/app.js';
 
 const UNREACHABLE_DATABASE_URL = 'postgres://unused@127.0.0.1:1/unused';

@@ -64,7 +64,7 @@ pnpm db:down           # stop; data is kept in the shiori_postgres-data volume
 - **Drizzle Studio** is optional and not started by `pnpm dev`. Its server listens only on `127.0.0.1:4983`; the UI opens at `https://local.drizzle.studio`, a page served by Drizzle that talks to that local server from your browser.
 
 - The API reads `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and optional `PORT`, `REGISTRATION_MODE`) from the environment or the root `.env`, validates them at startup and exits with an error naming the variable (never its value). Outside loopback, `BETTER_AUTH_URL` must be https and the example secret is refused (generate a 32+ character secret, e.g. `openssl rand -base64 32`); `REGISTRATION_MODE` is `closed` (default, no sign-up) or `invite`; `open` is refused until email verification exists. Drizzle commands need only `DATABASE_URL`. `/api/health` is liveness only and does not touch the database.
-- Schemas live in their owning module as `apps/api/src/modules/<module>/*.schema.ts` (Drizzle globs `src/**/*.schema.ts`); the first migration, `0000_auth`, creates the Better Auth tables. Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
+- Schemas live with their owner as `apps/api/src/modules/<module>/[<capability>/]persistence/schemas/*.schema.ts` (Drizzle Kit discovers only those); the first migration, `0000_auth`, creates the Better Auth tables. Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
 - `pnpm test:db` refuses to run unless `TEST_DATABASE_URL` points to a local database whose name ends in `_test`; each run drops that database's schemas and applies the committed migrations from scratch. The `shiori_test` database is created by `infra/docker/postgres/init/` when the volume is first initialised. `pnpm test` stays Docker-free.
 - To wipe all local data deliberately: `docker compose down -v`.
 
@@ -95,11 +95,11 @@ Writes `../shiori-review-<timestamp>.zip` (next to the repository folder) and pr
 
 ## Architecture
 
-`apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storybook) and `apps/api` (NestJS + Drizzle) follow **Architecture v1**: [frontend](docs/standards/frontend-architecture-v1.md), [backend](docs/standards/backend-architecture-v1.md), [code quality](docs/standards/code-quality-v1.md). Shiori's map and exceptions: [docs/03-architecture.md](docs/03-architecture.md).
+`apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storybook) and `apps/api` (NestJS + Drizzle) follow the architecture standards: [frontend v1](docs/standards/frontend-architecture-v1.md), [backend v2](docs/standards/backend-architecture-v2.md), [code quality v1](docs/standards/code-quality-v1.md). Shiori's map and exceptions: [docs/03-architecture.md](docs/03-architecture.md).
 
 ```text
 apps/web/src/  main.tsx · app/ (composition, styles) · pages/home · domain/health · shared/{ui,helpers} · test/
-apps/api/src/  main.ts · openapi.ts · app/ (module, app.config, openapi) · infrastructure/{config,database,openapi} · modules/{auth,diagnostics}
+apps/api/src/  main.ts · cli.ts · openapi.ts · app/ (module, app.config, openapi) · infrastructure/{config,database,openapi,terminal} · modules/{auth,diagnostics}
 packages/      api-client (generated from apps/api/openapi.json)
 ```
 

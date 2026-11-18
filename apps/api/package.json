@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "imports": {
+    "#infrastructure/*": {
+      "shiori-source": "./src/infrastructure/*",
+      "default": "./dist/infrastructure/*"
+    },
     "#test/*": "./test/*"
   },
   "scripts": {

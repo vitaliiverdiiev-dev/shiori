@@ -5,7 +5,7 @@
 ## Sources of truth
 
 - **Engineering standards:** the KataKit skills (`backend-architecture`, `frontend-architecture`, `code-quality`, `testing`, `quality-gate`, `ui-design`) are canonical for generic TypeScript, architecture, testing and verification rules. Load the relevant ones for the task; do not substitute project docs for a skill that failed to load. Never edit KataKit.
-- **Shiori specifics:** `docs/03-architecture.md` (current map, Shiori decisions and justified exceptions), active `docs/specs/` and `docs/tasks/` documents, `docs/02-tech-stack.md` decision statuses. `docs/standards/` is the Architecture v1 snapshot that `eslint.config.js` enforces.
+- **Shiori specifics:** `docs/03-architecture.md` (current map, Shiori decisions and justified exceptions), active `docs/specs/` and `docs/tasks/` documents, `docs/02-tech-stack.md` decision statuses. `docs/standards/` is the snapshot that `eslint.config.js` enforces (frontend and code quality v1, backend v2).
 - **Product identity:** `product.config.json` is canonical. Read title/tagline/glyph from it; never duplicate them in components or another config.
 
 ## Project constraints

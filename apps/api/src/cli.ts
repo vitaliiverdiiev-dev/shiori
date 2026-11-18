@@ -10,7 +10,7 @@ import { runAuthCli } from './modules/auth/cli/auth.cli.js';
 import {
   authSettingsFromEnv,
   createAuth,
-} from './modules/auth/integrations/auth.config.js';
+} from './modules/auth/integrations/better-auth/config/better-auth.config.js';
 
 loadRootEnvFile();
 const env = loadEnv();

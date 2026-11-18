@@ -1,0 +1,3 @@
+export const INVITATION_CODE_BYTES = 32;
+export const INVITATION_CODE_LENGTH = 43;
+export const INVITATION_LIFETIME_DAYS = 7;

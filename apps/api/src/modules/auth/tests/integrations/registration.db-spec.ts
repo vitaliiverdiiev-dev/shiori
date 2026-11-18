@@ -1,11 +1,4 @@
 import type { INestApplication } from '@nestjs/common';
-import {
-  createTestApp,
-  TEST_AUTH_ENV,
-  TEST_ORIGIN,
-} from '#test/support/app.js';
-import { testDatabaseUrl } from '#test/support/test-database.js';
-import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import { betterAuth, type BetterAuthPlugin } from 'better-auth';
 import { createAuthEndpoint } from 'better-auth/api';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -14,14 +7,19 @@ import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
-  createInvitation,
-  revokeInvitation,
-} from '../../application/invitations.js';
-import { registrationResponseSchema } from '../../http/auth.dto.js';
+  createTestApp,
+  TEST_AUTH_ENV,
+  TEST_ORIGIN,
+} from '#test/support/app.js';
+import { testDatabaseUrl } from '#test/support/test-database.js';
+import { ALICE, createUser, getAuth } from '#test/support/users.js';
 import {
   type AuthSettings,
   betterAuthOptions,
-} from '../../integrations/auth.config.js';
+} from '../../integrations/better-auth/config/better-auth.config.js';
+import { createInvitation } from '../../invitations/application/create-invitation.js';
+import { revokeInvitation } from '../../invitations/application/revoke-invitation.js';
+import { registrationResponseSchema } from '../../registration/http/dto/get-registration.dto.js';
 
 const DAY_MS = 86_400_000;
 const PARALLEL_SIGN_UPS = 10;

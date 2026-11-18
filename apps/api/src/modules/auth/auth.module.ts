@@ -4,25 +4,25 @@ import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 import {
   DATABASE,
   type Database,
-} from '../../infrastructure/database/database.module.js';
-import { MeController } from './http/me.controller.js';
-import {
-  REGISTRATION_MODE,
-  RegistrationController,
-} from './http/registration.controller.js';
-import { SessionGuard } from './http/session.guard.js';
+} from '#infrastructure/database/database.module.js';
 import {
   type AuthEnv,
   authSettingsFromEnv,
   createAuth,
-} from './integrations/auth.config.js';
+} from './integrations/better-auth/config/better-auth.config.js';
+import {
+  REGISTRATION_MODE,
+  RegistrationController,
+} from './registration/http/controllers/registration.controller.js';
+import { SessionsController } from './sessions/http/controllers/sessions.controller.js';
+import { SessionGuard } from './sessions/http/guards/session.guard.js';
 
 @Module({})
 export class AuthModule {
   static forRoot(env: AuthEnv): DynamicModule {
     const settings = authSettingsFromEnv(env);
     return {
-      controllers: [MeController, RegistrationController],
+      controllers: [SessionsController, RegistrationController],
       imports: [
         BetterAuthModule.forRootAsync({
           disableGlobalAuthGuard: true,

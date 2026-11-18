@@ -2,7 +2,7 @@
 
 **Your Guide to Japanese** · Logo glyph: **栞** · Repository: **`shiori`**
 
-Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00–M02.1 complete; M02.2 implemented, awaiting review** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics, Architecture v1 with lint enforcement, Better Auth email/password backend, first-admin and invitation CLI, invite-only registration, typed API client pipeline; no sign-in UI or learning features yet); **M02.3 (web sign-in experience) is next**.
+Shiori is a self-hosted Japanese vocabulary, kana and kanji learning application. Status: **M00–M01.2 complete; M02 (identity) implemented through M02.4, awaiting independent review** (web + API shell, local PostgreSQL with Drizzle, one-command dev, health/readiness diagnostics, architecture lint enforcement, Better Auth email/password with database sessions, first-admin and invitation CLI, invite-only registration, sign-in/sign-up/account/security pages, typed API client pipeline). No learning features, setup wizard, admin UI, SMTP or production deployment yet; local checks passing does not make it production-ready.
 
 ## Getting started
 
@@ -10,7 +10,7 @@ Requirements: [pnpm](https://pnpm.io/installation) 12+ and [Docker Desktop](http
 
 ```sh
 pnpm install
-pnpm dev            # web on http://localhost:5173, API on http://localhost:3000/api
+pnpm dev            # web on http://localhost:5173, API on http://127.0.0.1:3000/api (loopback only)
 ```
 
 `pnpm dev` runs `scripts/dev-setup.mjs` first, then the apps:
@@ -63,7 +63,8 @@ pnpm db:down           # stop; data is kept in the shiori_postgres-data volume
 
 - **Drizzle Studio** is optional and not started by `pnpm dev`. Its server listens only on `127.0.0.1:4983`; the UI opens at `https://local.drizzle.studio`, a page served by Drizzle that talks to that local server from your browser.
 
-- The API reads `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and optional `PORT`, `REGISTRATION_MODE`) from the environment or the root `.env`, validates them at startup and exits with an error naming the variable (never its value). Outside loopback, `BETTER_AUTH_URL` must be https and the example secret is refused (generate a 32+ character secret, e.g. `openssl rand -base64 32`); `REGISTRATION_MODE` is `closed` (default, no sign-up) or `invite`; `open` is refused until email verification exists. Drizzle commands need only `DATABASE_URL`. `/api/health` is liveness only and does not touch the database.
+- The API reads `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (and optional `PORT`, `API_HOST`, `REGISTRATION_MODE`) from the environment or the root `.env`, validates them at startup and exits with an error naming the variable (never its value). Outside loopback, `BETTER_AUTH_URL` must be https and the example secret is refused (generate a 32+ character secret, e.g. `openssl rand -base64 32`); `REGISTRATION_MODE` is `closed` (default, no sign-up) or `invite`; `open` is refused until email verification exists. Drizzle commands need only `DATABASE_URL`. `/api/health` is liveness only and does not touch the database.
+- The API listens on `127.0.0.1` only (`API_HOST`, default `127.0.0.1`), so other devices on your network cannot reach it; the web dev server proxies to `http://127.0.0.1:3000`. `API_HOST` takes an IP literal, not a host name. Setting a non-loopback address such as `0.0.0.0` or `::` exposes the API to the network; do that only behind a reverse proxy you control (see "Auth: deferred beyond M02" in `docs/03-architecture.md`).
 - Schemas live with their owner as `apps/api/src/modules/<module>/[<capability>/]persistence/schemas/*.schema.ts` (Drizzle Kit discovers only those); the first migration, `0000_auth`, creates the Better Auth tables. Change a schema, then `pnpm db:generate` writes a reviewable SQL migration to `apps/api/drizzle/`; commit it and run `pnpm db:migrate`. Never use `drizzle-kit push` for real databases.
 - `pnpm test:db` refuses to run unless `TEST_DATABASE_URL` points to a local database whose name ends in `_test`; each run drops that database's schemas and applies the committed migrations from scratch. The `shiori_test` database is created by `infra/docker/postgres/init/` when the volume is first initialised. `pnpm test` stays Docker-free.
 - To wipe all local data deliberately: `docker compose down -v`.
@@ -81,7 +82,13 @@ pnpm auth:invite revoke <id>
 
 - Passwords are only read from the prompt, never from arguments or the environment, and are never printed. Bootstrap works once per installation, even across concurrent runs, and stays closed if that admin is later removed.
 - An invitation is bound to its normalized (lower-case) email, valid for 7 days and usable once; only a SHA-256 hash of the code is stored, so the code cannot be shown again. Send it to the person yourself.
-- With `REGISTRATION_MODE=invite`, the invitee signs up with email, name, password and `invitationCode`; sign-up never signs them in. `GET /api/registration` tells the web app which mode is active.
+- With `REGISTRATION_MODE=invite`, the invitee opens `/sign-up` and enters name, email, password and the invitation code; sign-up never signs them in, so they sign in at `/sign-in` afterwards. `GET /api/registration` tells the web app which mode is active.
+- Passwords (sign-up, password change, first admin) must be 15–128 characters; any language, spaces and emoji are fine. A small offline list of very common passwords and single repeated characters is refused. This is not a breached-password check.
+- Sign-in, sign-up and password change are rate-limited (3 attempts per 10 seconds per path). Forwarded-IP headers are ignored, so all clients share that limit; this is the safe choice while the API is loopback-only. A deployment behind a reverse proxy must configure trusted client-IP handling; see "Auth: deferred beyond M02" in `docs/03-architecture.md`.
+
+## Web app
+
+Signed out: `/sign-in` and `/sign-up` (form only in invite mode). Signed in: `/` (home), `/status` (API and database status), `/settings/account` (name; email is read-only) and `/settings/security` (change password, which signs out other devices; sign out other devices). Unknown paths show a not-found page. If the session cannot be verified (API or database down), the app shows a retry screen with the server status instead of signing you out.
 
 ## Sharing source for review
 
@@ -98,7 +105,7 @@ Writes `../shiori-review-<timestamp>.zip` (next to the repository folder) and pr
 `apps/web` (React + Vite + Tailwind v4 + shadcn/ui on Base UI + Storybook) and `apps/api` (NestJS + Drizzle) follow the architecture standards: [frontend v1](docs/standards/frontend-architecture-v1.md), [backend v2](docs/standards/backend-architecture-v2.md), [code quality v1](docs/standards/code-quality-v1.md). Shiori's map and exceptions: [docs/03-architecture.md](docs/03-architecture.md).
 
 ```text
-apps/web/src/  main.tsx · app/ (composition, styles) · pages/home · domain/health · shared/{ui,helpers} · test/
+apps/web/src/  main.tsx · app/ (routes, layouts, query client, styles) · pages/{home,status,sign-in,sign-up,account-settings,security-settings,not-found} · domain/{auth,health} · shared/{api,ui,helpers} · test/
 apps/api/src/  main.ts · cli.ts · openapi.ts · app/ (module, app.config, openapi) · infrastructure/{config,database,openapi,terminal} · modules/{auth,diagnostics}
 packages/      api-client (generated from apps/api/openapi.json)
 ```
@@ -132,6 +139,8 @@ Tests sit next to the main component (`health-status.test.tsx`) or in a local `t
 | `docs/tasks/M01-database-foundation.md`          | M01 task (complete)                                                 |
 | `docs/tasks/M01.1-infrastructure-diagnostics.md` | M01.1 task (complete)                                               |
 | `docs/tasks/M01.2-architecture-baseline.md`      | M01.2 task (complete)                                               |
+| `docs/specs/M02-authentication-design.md`        | M02 authentication decisions (source of truth)                      |
+| `docs/tasks/M02*.md`                             | M02 execution map and phases M02.1–M02.4 (awaiting review)          |
 | `docs/standards/*.md`                            | Architecture v1: frontend, backend, code quality (portable)         |
 
 Do not implement features from later milestones just because they are mentioned in the docs.

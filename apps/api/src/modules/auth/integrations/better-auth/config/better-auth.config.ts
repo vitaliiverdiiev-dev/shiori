@@ -1,3 +1,4 @@
+import { isTest } from '@better-auth/core/env';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import type { Database } from '#infrastructure/database/database.module.js';
@@ -11,6 +12,7 @@ import type { RegistrationMode } from '../../../model/types/registration.types.j
 import * as authSchema from '../../../persistence/schemas/auth.schema.js';
 import { adminBootstrapPlugin } from '../plugins/admin-bootstrap.plugin.js';
 import { invitationPlugin } from '../plugins/invitation.plugin.js';
+import { passwordScreeningPlugin } from '../plugins/password-screening.plugin.js';
 
 const DAY_SECONDS = 86_400;
 const SESSION_DAYS = 7;
@@ -25,6 +27,7 @@ export interface AuthEnv {
 
 export interface AuthSettings {
   baseURL: string;
+  rateLimit: boolean;
   registrationMode: RegistrationMode;
   secret: string;
 }
@@ -32,6 +35,8 @@ export interface AuthSettings {
 export function authSettingsFromEnv(env: AuthEnv): AuthSettings {
   return {
     baseURL: env.BETTER_AUTH_URL,
+    // COMPAT(better-auth@1.7.23): Rate limiting defaults to on only when NODE_ENV=production; the test runner opts out.
+    rateLimit: !isTest(),
     registrationMode: env.REGISTRATION_MODE,
     secret: env.BETTER_AUTH_SECRET,
   };
@@ -40,7 +45,11 @@ export function authSettingsFromEnv(env: AuthEnv): AuthSettings {
 export function betterAuthOptions(db: Database, settings: AuthSettings) {
   return {
     // COMPAT(better-auth@1.7.23): Origin checks default to off when NODE_ENV=test or TEST is set.
-    advanced: { disableOriginCheck: false },
+    advanced: {
+      disableOriginCheck: false,
+      // INVARIANT: No trusted proxy sets a client IP yet; Better Auth must not read client-supplied forwarded headers.
+      ipAddress: { ipAddressHeaders: [] },
+    },
     // COMPAT(@thallesp/nestjs-better-auth@2.8.0): The Nest global prefix is not applied to Better Auth routes.
     basePath: '/api/auth',
     baseURL: settings.baseURL,
@@ -57,7 +66,8 @@ export function betterAuthOptions(db: Database, settings: AuthSettings) {
       maxPasswordLength: PASSWORD_MAX_LENGTH,
       minPasswordLength: PASSWORD_MIN_LENGTH,
     },
-    plugins: [adminBootstrapPlugin, invitationPlugin],
+    plugins: [adminBootstrapPlugin, invitationPlugin, passwordScreeningPlugin],
+    rateLimit: { enabled: settings.rateLimit },
     secret: settings.secret,
     session: {
       expiresIn: SESSION_DAYS * DAY_SECONDS,

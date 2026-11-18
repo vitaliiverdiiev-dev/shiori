@@ -14,8 +14,15 @@ const bob = { id: 'bob', name: 'Bob' };
 const signedOut = () => Response.json(null);
 
 const LocationProbe = () => {
-  const { pathname, search } = useLocation();
-  return <output aria-label="location">{`${pathname}${search}`}</output>;
+  const { pathname, search, ...location } = useLocation();
+  return (
+    <>
+      <output aria-label="location">{`${pathname}${search}`}</output>
+      <output aria-label="navigation state">
+        {JSON.stringify(location.state)}
+      </output>
+    </>
+  );
 };
 
 const Private = () => (
@@ -64,6 +71,8 @@ async function renderRoutes(path: string) {
 }
 
 const location = () => screen.getByRole('status', { name: 'location' });
+const navigationState = () =>
+  screen.getByRole('status', { name: 'navigation state' });
 
 describe('AuthRoute', () => {
   beforeEach(() => {
@@ -92,6 +101,7 @@ describe('AuthRoute', () => {
     expect(location()).toHaveTextContent(
       '/sign-in?redirect=%2Fprivate%3Ftab%3D1',
     );
+    expect(navigationState()).toHaveTextContent('null');
     expect(screen.queryByText('Private content')).not.toBeInTheDocument();
   });
 
@@ -107,7 +117,11 @@ describe('AuthRoute', () => {
 
   it.each([
     ['the network fails', unreachable],
-    ['the server errors', () => Response.json({}, { status: 503 })],
+    ['the server errors', () => Response.json({}, { status: 500 })],
+    [
+      'the proxy cannot reach the API',
+      () => new Response(null, { status: 502 }),
+    ],
   ])(
     'shows a retry state instead of signing out when %s',
     async (_case, failure) => {
@@ -119,8 +133,11 @@ describe('AuthRoute', () => {
       await renderRoutes('/private');
 
       expect(
-        await screen.findByRole('heading', { name: 'Can’t reach Shiori' }),
+        await screen.findByRole('heading', {
+          name: 'Can’t verify your session',
+        }),
       ).toBeVisible();
+      expect(screen.getByText(/You have not been signed out/)).toBeVisible();
       expect(location()).toHaveTextContent('/private');
       expect(screen.queryByText('Private content')).not.toBeInTheDocument();
 
@@ -164,6 +181,7 @@ describe('AuthRoute', () => {
 
     expect(await screen.findByLabelText('Email')).toBeVisible();
     expect(screen.queryByText('Private content')).not.toBeInTheDocument();
+    expect(navigationState()).toHaveTextContent('{"signedOut":true}');
   });
 
   it('discards the previous user’s page state when the account changes', async () => {

@@ -13,6 +13,7 @@ const pool = new Pool({ connectionString: testDatabaseUrl() });
 const db = drizzle({ client: pool });
 const auth = createAuth(db, {
   baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
+  rateLimit: false,
   registrationMode: 'closed',
   secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
 });

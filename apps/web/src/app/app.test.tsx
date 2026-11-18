@@ -206,7 +206,7 @@ describe('App routes', () => {
     await renderAt('/settings/account');
 
     expect(
-      await screen.findByRole('heading', { name: 'Can’t reach Shiori' }),
+      await screen.findByRole('heading', { name: 'Can’t verify your session' }),
     ).toBeVisible();
     expect(await screen.findByText('Database unavailable')).toBeVisible();
     expect(screen.getByText('API online')).toBeVisible();

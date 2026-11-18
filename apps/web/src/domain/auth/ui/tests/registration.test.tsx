@@ -183,6 +183,26 @@ describe('Registration', () => {
     },
   );
 
+  it('explains a password that is too common', async () => {
+    server.use(registrationMode('invite'));
+    stubApi({
+      [SIGN_UP]: () =>
+        Response.json(
+          { code: 'PASSWORD_TOO_COMMON', message: 'Too common' },
+          { status: 400 },
+        ),
+    });
+    const { user } = await renderRegistration();
+    await screen.findByLabelText('Name');
+
+    await fillForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This password is too common. Choose a less predictable passphrase.',
+    );
+  });
+
   it('keeps the form and explains a rejected invitation', async () => {
     server.use(registrationMode('invite'));
     stubApi({

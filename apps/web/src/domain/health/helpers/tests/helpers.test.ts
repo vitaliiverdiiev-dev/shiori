@@ -14,8 +14,16 @@ describe('describeApiFailure', () => {
     [{ code: 'ETIMEDOUT' }, 'API did not respond in time'],
     [{ code: 'ERR_NETWORK' }, 'API is unreachable'],
     [
-      { code: 'ERR_BAD_RESPONSE', response: { status: 503 } },
-      'API responded 503',
+      { code: 'ERR_BAD_RESPONSE', response: { status: 500 } },
+      'API responded 500',
+    ],
+    [
+      { code: 'ERR_BAD_RESPONSE', response: { status: 502 } },
+      'API unreachable behind the proxy (HTTP 502)',
+    ],
+    [
+      { code: 'ERR_BAD_RESPONSE', response: { status: 504 } },
+      'API unreachable behind the proxy (HTTP 504)',
     ],
   ])('describes %o as "%s"', (failure, text) => {
     expect(describeApiFailure(failure)).toBe(text);

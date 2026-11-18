@@ -1,7 +1,14 @@
-import { CHECKING, TIMEOUT_ERROR_CODES } from '../model/consts';
+import {
+  CHECKING,
+  GATEWAY_ERROR_STATUSES,
+  TIMEOUT_ERROR_CODES,
+} from '../model/consts';
 import type { ProbeResult, RequestFailure, Status } from '../model/types';
 
 export function describeApiFailure({ code, response }: RequestFailure): string {
+  if (response && GATEWAY_ERROR_STATUSES.includes(response.status)) {
+    return `API unreachable behind the proxy (HTTP ${String(response.status)})`;
+  }
   if (response) return `API responded ${String(response.status)}`;
   if (code && TIMEOUT_ERROR_CODES.includes(code)) {
     return 'API did not respond in time';

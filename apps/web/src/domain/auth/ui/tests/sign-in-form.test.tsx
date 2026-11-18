@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { stubApi, unreachable } from '@/test/api-stub';
 import { renderWithProviders } from '@/test/render';
@@ -14,6 +15,28 @@ async function renderForm() {
 describe('SignInForm', () => {
   beforeEach(() => {
     stubApi({});
+  });
+
+  it('explains that a previous session ended when sent here after sign-out', async () => {
+    vi.resetModules();
+    const { SignInForm } = await import('../sign-in-form');
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/sign-in', state: { signedOut: true } }]}
+      >
+        <SignInForm />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'You have been signed out. Sign in again to continue.',
+    );
+  });
+
+  it('shows no sign-out notice on a direct visit', async () => {
+    await renderForm();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('supports password managers with standard autocomplete fields', async () => {
@@ -103,8 +126,13 @@ describe('SignInForm', () => {
     ],
     [
       'a server error',
-      () => Response.json({}, { status: 503 }),
+      () => Response.json({}, { status: 500 }),
       'Something went wrong on the server. Try again in a moment.',
+    ],
+    [
+      'an unreachable API behind the proxy',
+      () => new Response(null, { status: 502 }),
+      'Shiori’s server can’t be reached right now. Try again in a moment.',
     ],
     [
       'a network failure',

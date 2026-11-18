@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router';
 import { getSafeRedirect, getSignInPath } from './helpers/redirect';
 import { useSessionStatus } from './hooks/use-session-status';
-import { REDIRECT_PARAM } from './model/consts';
+import { REDIRECT_PARAM, SIGNED_OUT_STATE } from './model/consts';
 import type { RouteAccess } from './model/types';
 import { SessionChecking } from './ui/session-checking';
 import { SessionUnavailable } from './ui/session-unavailable';
@@ -16,6 +16,10 @@ export const AuthRoute = ({ access, unavailableDetails }: Props) => {
   const { retry, state, userId } = useSessionStatus();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const [wasAuthenticated, setWasAuthenticated] = useState(false);
+  if (state === 'authenticated' && !wasAuthenticated) {
+    setWasAuthenticated(true);
+  }
 
   if (state === 'checking') return <SessionChecking />;
   if (state === 'unavailable')
@@ -25,7 +29,11 @@ export const AuthRoute = ({ access, unavailableDetails }: Props) => {
     return state === 'authenticated' ? (
       <Outlet key={userId} />
     ) : (
-      <Navigate replace to={getSignInPath(location)} />
+      <Navigate
+        replace
+        state={wasAuthenticated ? SIGNED_OUT_STATE : undefined}
+        to={getSignInPath(location)}
+      />
     );
   }
 

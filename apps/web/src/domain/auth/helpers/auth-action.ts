@@ -1,6 +1,7 @@
 import { authClient } from '../config/auth-client';
 import {
   commonMessages,
+  GATEWAY_ERROR_STATUSES,
   SERVER_ERROR_STATUS,
   TOO_MANY_REQUESTS_STATUS,
   UNAUTHORIZED_STATUS,
@@ -20,6 +21,9 @@ export function describeAuthError(
   }
   if (error.status === TOO_MANY_REQUESTS_STATUS) {
     return commonMessages.tooManyRequests;
+  }
+  if (GATEWAY_ERROR_STATUSES.includes(error.status)) {
+    return commonMessages.apiUnreachable;
   }
   if (error.status >= SERVER_ERROR_STATUS) return commonMessages.serverError;
   if (error.status === 0) return commonMessages.network;

@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
+import { useLocation } from 'react-router';
 import { Button } from '@/shared/ui';
 import { authClient } from '../config/auth-client';
 import { runAuthAction } from '../helpers/auth-action';
-import { signInMessages } from '../model/consts';
+import { hasSignedOutNotice } from '../helpers/signed-out-notice';
+import { commonMessages, signInMessages } from '../model/consts';
 import { signInSchema } from '../model/schemas';
 import { FormMessage } from './form-message';
 import { PasswordField } from './password-field';
 import { TextField } from './text-field';
 
 export const SignInForm = () => {
+  const location = useLocation();
   const [failure, setFailure] = useState<string>();
   const [signedIn, setSignedIn] = useState(false);
   const {
@@ -40,6 +43,11 @@ export const SignInForm = () => {
       noValidate
       onSubmit={(event) => void onSubmit(event)}
     >
+      {hasSignedOutNotice(location.state) && (
+        <p className="text-sm text-muted-foreground" role="status">
+          {commonMessages.signedOut}
+        </p>
+      )}
       <TextField
         autoCapitalize="none"
         autoComplete="username"

@@ -5,11 +5,11 @@ import {
   hasUserWithEmail,
   isAdminBootstrapCompleted,
 } from '../../integrations/better-auth/adapters/admin-bootstrap.adapter.js';
-import {
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-} from '../../model/constants/password.constants.js';
 import { normalizeEmail } from '../../model/helpers/email.js';
+import {
+  hasAllowedPasswordLength,
+  isCommonPassword,
+} from '../../model/helpers/password.policy.js';
 import type {
   BootstrapResult,
   FirstAdminInput,
@@ -23,11 +23,11 @@ export async function bootstrapFirstAdmin<Options extends BetterAuthOptions>(
   const name = input.name.trim();
   if (!email) return { ok: false, reason: 'invalid-email' };
   if (!name) return { ok: false, reason: 'invalid-name' };
-  if (
-    input.password.length < PASSWORD_MIN_LENGTH ||
-    input.password.length > PASSWORD_MAX_LENGTH
-  ) {
+  if (!hasAllowedPasswordLength(input.password)) {
     return { ok: false, reason: 'invalid-password' };
+  }
+  if (isCommonPassword(input.password)) {
+    return { ok: false, reason: 'common-password' };
   }
   if (await isAdminBootstrapCompleted(auth)) {
     return { ok: false, reason: 'already-initialized' };

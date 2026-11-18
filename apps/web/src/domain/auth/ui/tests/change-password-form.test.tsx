@@ -46,6 +46,24 @@ describe('ChangePasswordForm', () => {
     expect(screen.getByLabelText('New password')).toHaveValue('');
   });
 
+  it('explains a password that is too common', async () => {
+    stubApi({
+      [CHANGE]: () =>
+        Response.json(
+          { code: 'PASSWORD_TOO_COMMON', message: 'Too common' },
+          { status: 400 },
+        ),
+      [SESSION]: session,
+    });
+    const { user } = await renderForm();
+
+    await fill(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This password is too common. Choose a less predictable passphrase.',
+    );
+  });
+
   it('explains an incorrect current password', async () => {
     stubApi({
       [CHANGE]: () =>

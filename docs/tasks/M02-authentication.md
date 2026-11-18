@@ -1,6 +1,6 @@
 # M02 — Authentication (execution map)
 
-Status: **Ready to begin M02.1 upon explicit authorization**. No subphase is implicitly authorized by this document alone.
+Status: **M02.1–M02.4 implemented; awaiting independent review of M02.4**. No later milestone is authorized by this document.
 
 ## Purpose
 

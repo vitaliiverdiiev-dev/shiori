@@ -9,11 +9,12 @@ type Props = {
 export const SessionUnavailable = ({ details, onRetry }: Props) => (
   <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 px-5">
     <h1 className="text-2xl font-semibold tracking-tight">
-      Can’t reach Shiori
+      Can’t verify your session
     </h1>
     <p className="text-muted-foreground">
-      Your session could not be checked because the server is not responding.
-      Check your connection and try again.
+      Shiori couldn’t confirm whether you are signed in. You have not been
+      signed out. Try again in a moment; the status below shows what is
+      unavailable.
     </p>
     <Button className="w-full sm:w-auto" onClick={onRetry} size="lg">
       Try again

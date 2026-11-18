@@ -1,6 +1,6 @@
 # Claude Code — Shiori
 
-**Status:** M00–M02.1 complete. **M02 (identity) in progress:** M02.2 (first-admin CLI, invite-only registration) implemented and awaiting manual review; M02.3–M02.4 not authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
+**Status:** M00–M01.2 complete. **M02 (identity):** M02.1–M02.3 accepted; M02.4 (integration, security, verification) implemented and awaiting independent review. No later milestone is authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
 
 ## Sources of truth
 

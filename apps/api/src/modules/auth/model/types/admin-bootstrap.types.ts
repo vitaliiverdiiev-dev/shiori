@@ -1,5 +1,6 @@
 export type BootstrapFailure =
   | 'already-initialized'
+  | 'common-password'
   | 'email-taken'
   | 'invalid-email'
   | 'invalid-name'

@@ -77,11 +77,13 @@ describe('HealthStatus', () => {
     expect(calls.readiness).toBe(0);
   });
 
-  it('reports the status code of a failing health endpoint', async () => {
+  it('reports a proxy error as an unreachable API with its status code', async () => {
     mockApi(() => HttpResponse.json({}, { status: 502 }));
     renderWithProviders(<HealthStatus />);
 
-    expect(await screen.findByText('API responded 502')).toBeInTheDocument();
+    expect(
+      await screen.findByText('API unreachable behind the proxy (HTTP 502)'),
+    ).toBeInTheDocument();
   });
 
   it('makes one health and one readiness request under StrictMode', async () => {

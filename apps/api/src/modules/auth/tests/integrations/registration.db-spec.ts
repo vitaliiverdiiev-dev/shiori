@@ -33,6 +33,7 @@ const INVITEE = {
 const INVALID_INVITATION = { code: 'INVALID_INVITATION' };
 const INVITE_SETTINGS: AuthSettings = {
   baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
+  rateLimit: false,
   registrationMode: 'invite',
   secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
 };
@@ -279,6 +280,31 @@ describe('invite-only sign-up', () => {
     expect(existing.status).toBe(400);
     expect(unknown.status).toBe(400);
     expect(existing.body).toEqual(unknown.body);
+  });
+
+  it('rejects a common password for a new and an existing email identically, keeping the invitation', async () => {
+    const { code, invitation } = await invite();
+    const fresh = await signUp(inviteApp, {
+      ...INVITEE,
+      invitationCode: code,
+      password: 'Correct Horse Battery Staple',
+    });
+    expect(fresh.status).toBe(400);
+    expect(fresh.body).toMatchObject({ code: 'PASSWORD_TOO_COMMON' });
+    expect(await count('user')).toBe(0);
+    expect(await invitationState(invitation.id)).toEqual({
+      revoked: false,
+      used: false,
+    });
+
+    await createUser(getAuth(inviteApp), { ...INVITEE });
+    const existing = await signUp(inviteApp, {
+      ...INVITEE,
+      invitationCode: code,
+      password: 'Correct Horse Battery Staple',
+    });
+    expect(existing.status).toBe(fresh.status);
+    expect(existing.body).toEqual(fresh.body);
   });
 
   it('creates at most one account when the same invitation is redeemed concurrently', async () => {

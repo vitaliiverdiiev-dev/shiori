@@ -1,10 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { connect } from 'node:net';
+import { networkInterfaces } from 'node:os';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { listen } from '../src/app/app.config.js';
 import { createOpenApiDocument } from '../src/app/openapi.js';
+import { loadEnv } from '../src/infrastructure/config/env.js';
 import { unauthorizedResponseSchema } from '../src/modules/auth/sessions/http/dto/get-current-user.dto.js';
 import { healthResponseSchema } from '../src/modules/diagnostics/http/dto/get-health.dto.js';
 import {
@@ -22,6 +26,62 @@ function signedSessionCookie(token: string): string {
     .digest('base64');
   return `better-auth.session_token=${encodeURIComponent(`${token}.${signature}`)}`;
 }
+
+const EPHEMERAL_PORT = 0;
+const LAN_ADDRESS = Object.values(networkInterfaces())
+  .flat()
+  .find((entry) => entry?.family === 'IPv4' && !entry.internal)?.address;
+
+function canConnect(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect({ host, port });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', () => {
+      resolve(false);
+    });
+  });
+}
+
+describe('default listener', () => {
+  let app: INestApplication<App>;
+  let listening: URL;
+
+  beforeAll(async () => {
+    const { API_HOST } = loadEnv({
+      ...TEST_AUTH_ENV,
+      DATABASE_URL: UNREACHABLE_DATABASE_URL,
+    });
+    app = await createTestApp(UNREACHABLE_DATABASE_URL);
+    await listen(app, { API_HOST, PORT: EPHEMERAL_PORT });
+    listening = new URL(await app.getUrl());
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('binds only to IPv4 loopback', () => {
+    expect(listening.hostname).toBe('127.0.0.1');
+  });
+
+  it('answers on 127.0.0.1', async () => {
+    await expect(canConnect('127.0.0.1', Number(listening.port))).resolves.toBe(
+      true,
+    );
+  });
+
+  it.skipIf(LAN_ADDRESS === undefined)(
+    'refuses connections on the machine’s LAN address',
+    async () => {
+      await expect(
+        canConnect(LAN_ADDRESS ?? '', Number(listening.port)),
+      ).resolves.toBe(false);
+    },
+  );
+});
 
 describe('with an unreachable database', () => {
   let app: INestApplication<App>;

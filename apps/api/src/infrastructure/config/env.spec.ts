@@ -13,10 +13,18 @@ describe('loadEnv', () => {
   it('parses valid config with defaults', () => {
     expect(loadEnv(valid)).toEqual({
       ...valid,
+      API_HOST: '127.0.0.1',
       PORT: 3000,
       REGISTRATION_MODE: 'closed',
     });
   });
+
+  it.each(['0.0.0.0', '::', '::1', '192.168.1.20'])(
+    'accepts the explicit bind address %s',
+    (host) => {
+      expect(loadEnv({ ...valid, API_HOST: host }).API_HOST).toBe(host);
+    },
+  );
 
   it('accepts invite-only registration', () => {
     expect(
@@ -39,6 +47,9 @@ describe('loadEnv', () => {
     [{}, 'DATABASE_URL'],
     [{ ...valid, DATABASE_URL: 'mysql://u:p@127.0.0.1/x' }, 'DATABASE_URL'],
     [{ ...valid, PORT: 'abc' }, 'PORT'],
+    [{ ...valid, API_HOST: 'localhost' }, 'API_HOST'],
+    [{ ...valid, API_HOST: 'shiori.example.com' }, 'API_HOST'],
+    [{ ...valid, API_HOST: '0.0.0.0:3000' }, 'API_HOST'],
     [{ ...valid, BETTER_AUTH_SECRET: undefined }, 'BETTER_AUTH_SECRET'],
     [{ ...valid, BETTER_AUTH_SECRET: 'short' }, 'BETTER_AUTH_SECRET'],
     [{ ...valid, BETTER_AUTH_URL: 'ftp://localhost' }, 'BETTER_AUTH_URL'],

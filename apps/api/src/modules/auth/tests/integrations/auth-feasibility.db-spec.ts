@@ -54,6 +54,7 @@ function signUpAuth(
 ) {
   const base = betterAuthOptions(db, {
     baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
+    rateLimit: false,
     registrationMode: 'invite',
     secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
   });

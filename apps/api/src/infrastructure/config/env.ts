@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { isLocalUrl } from '../database/local-url.js';
 
+const DEFAULT_API_HOST = '127.0.0.1';
 const DEFAULT_PORT = 3_000;
 const MAX_PORT = 65_535;
 const MIN_AUTH_SECRET_LENGTH = 32;
@@ -15,6 +16,7 @@ const databaseEnvSchema = z.object({
 
 const envSchema = databaseEnvSchema
   .extend({
+    API_HOST: z.union([z.ipv4(), z.ipv6()]).default(DEFAULT_API_HOST),
     BETTER_AUTH_SECRET: z.string().min(MIN_AUTH_SECRET_LENGTH),
     BETTER_AUTH_URL: z.url({ protocol: /^https?$/ }),
     PORT: z.coerce.number().int().min(1).max(MAX_PORT).default(DEFAULT_PORT),

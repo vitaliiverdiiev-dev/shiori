@@ -3,6 +3,15 @@ import type { Status } from './types';
 export const HEALTH_TIMEOUT_MS = 5_000;
 export const READY_TIMEOUT_MS = 8_000;
 
+const BAD_GATEWAY_STATUS = 502;
+const SERVICE_UNAVAILABLE_STATUS = 503;
+const GATEWAY_TIMEOUT_STATUS = 504;
+export const GATEWAY_ERROR_STATUSES: readonly number[] = [
+  BAD_GATEWAY_STATUS,
+  SERVICE_UNAVAILABLE_STATUS,
+  GATEWAY_TIMEOUT_STATUS,
+];
+
 export const TIMEOUT_ERROR_CODES: readonly string[] = [
   'ECONNABORTED',
   'ETIMEDOUT',

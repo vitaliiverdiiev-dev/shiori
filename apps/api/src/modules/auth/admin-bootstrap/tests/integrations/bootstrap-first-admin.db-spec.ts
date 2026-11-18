@@ -21,6 +21,7 @@ import { bootstrapFirstAdmin } from '../../application/bootstrap-first-admin.js'
 const PARALLEL_BOOTSTRAPS = 5;
 const SETTINGS: AuthSettings = {
   baseURL: TEST_AUTH_ENV.BETTER_AUTH_URL,
+  rateLimit: false,
   registrationMode: 'closed',
   secret: TEST_AUTH_ENV.BETTER_AUTH_SECRET,
 };
@@ -52,6 +53,18 @@ afterAll(async () => {
 });
 
 describe('bootstrapFirstAdmin', () => {
+  it('refuses a common password with the same policy as sign-up and creates nothing', async () => {
+    const result = await bootstrapFirstAdmin(auth, {
+      ...ADMIN,
+      password: 'Correct Horse Battery Staple',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'common-password' });
+    expect(await users()).toEqual([]);
+    const { rows } = await pool.query('select id from admin_bootstrap');
+    expect(rows).toEqual([]);
+  });
+
   it('creates the first admin, who can then sign in normally', async () => {
     const result = await bootstrapFirstAdmin(auth, ADMIN);
 

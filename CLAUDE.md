@@ -30,3 +30,11 @@
 3. Run the applicable checks (`quality-gate`), fix errors, report the outcome and only meaningful unresolved items, then stop where the task says to stop.
 
 `.claude/settings.json` only disables commit/PR attribution; no project agents, skills or rules beyond this file.
+
+## Technical communication
+
+Use the KataKit Technical Communication Standard for plans, reviews, explanations,
+subagent handoffs, and implementation reports. KataKit injects the canonical standard
+at session and subagent start. Do not duplicate the standard in this repository.
+If KataKit is disabled or the standard was not loaded, say so rather than claiming
+that the communication standard was applied.

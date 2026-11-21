@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router';
-import { ThemeControl } from '@/shared/theme/theme-control';
+import { ThemeControl } from '@/shared/theme';
 import { AppLogo } from '../branding/app-logo';
 import { RouteBoundary } from '../routing/route-boundary';
 

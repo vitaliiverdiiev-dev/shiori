@@ -6,20 +6,18 @@ type Props = {
   onRetry: () => void;
 };
 
-const moduleLoadCopy = {
-  description: 'Check your connection, then reload the page.',
-  title: 'This page couldn’t load',
-};
-
-const renderErrorCopy = {
-  description:
-    'Something stopped this page from working. Try again, or reload the page if the problem continues.',
-  title: 'Something went wrong',
-};
-
 export const ErrorFallback = ({ error, onRetry }: Props) => {
   const moduleFailed = error instanceof ModuleLoadError;
-  const copy = moduleFailed ? moduleLoadCopy : renderErrorCopy;
+  const copy = moduleFailed
+    ? {
+        description: 'Check your connection, then reload the page.',
+        title: 'This page couldn’t load',
+      }
+    : {
+        description:
+          'Something stopped this page from working. Try again, or reload the page if the problem continues.',
+        title: 'Something went wrong',
+      };
 
   return (
     <div className="flex flex-col gap-4" role="alert">

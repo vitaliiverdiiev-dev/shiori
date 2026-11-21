@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
 import { BrowserRouter } from 'react-router';
-import { ThemeProvider } from '@/shared/theme/theme-provider';
+import { ThemeProvider } from '@/shared/theme';
 import { ErrorFallback } from '@/shared/ui';
 import { themeConfig } from '../theme-config';
 import { queryClient } from './query-client';

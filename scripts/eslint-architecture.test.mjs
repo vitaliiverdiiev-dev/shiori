@@ -215,12 +215,67 @@ describe('frontend layers and slices', () => {
       ));
   });
 
-  test('no internal index.ts barrels', () =>
-    rejects(
+  test('no internal index.ts barrels', async () => {
+    await rejects(
       `${WEB}/domain/health/model/index.ts`,
       "export { CHECKING } from './consts';\n",
       SYNTAX,
+    );
+    await rejects(
+      `${WEB}/shared/theme/ui/index.ts`,
+      "export { ThemeControl } from './theme-control';\n",
+      SYNTAX,
+    );
+    await rejects(
+      `${WEB}/shared/ui/composites/logo/index.ts`,
+      "export { Logo } from './logo';\n",
+      SYNTAX,
+    );
+  });
+
+  test('valid: shared/theme exposes its public API through index.ts', () =>
+    passes(
+      `${WEB}/shared/theme/index.ts`,
+      "export { ThemeControl } from './ui/theme-control';\n",
     ));
+
+  test('shared/theme is consumed through its index.ts only', async () => {
+    await rejects(
+      `${WEB}/app/layouts/example.ts`,
+      "import { ThemeControl } from '@/shared/theme/ui/theme-control';\nexport const x = ThemeControl;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${WEB}/pages/home/example.ts`,
+      "import { isTheme } from '@/shared/theme/helpers/theme';\nexport const x = isTheme;\n",
+      BOUNDARIES,
+    );
+    await passes(
+      `${WEB}/app/layouts/example.ts`,
+      "import { ThemeControl } from '@/shared/theme';\nexport const x = ThemeControl;\n",
+    );
+  });
+
+  test('only the Vite-loaded app files reach theme helpers and types directly', async () => {
+    await passes(
+      `${WEB}/app/startup/startup-shell.ts`,
+      "import { createThemeScript } from '../../shared/theme/helpers/theme.ts';\nimport type { ThemeConfig } from '../../shared/theme/model/types.ts';\nexport const x = (config: ThemeConfig) => createThemeScript(config);\n",
+    );
+    await passes(
+      `${WEB}/app/theme-config.ts`,
+      "import type { ThemeConfig } from '../shared/theme/model/types.ts';\nexport const x: ThemeConfig | null = null;\n",
+    );
+    await rejects(
+      `${WEB}/app/startup/startup-shell.ts`,
+      "import { ThemeMenu } from '../../shared/theme/ui/theme-menu.tsx';\nexport const x = ThemeMenu;\n",
+      BOUNDARIES,
+    );
+    await rejects(
+      `${WEB}/app/layouts/example.ts`,
+      "import { createThemeScript } from '../../shared/theme/helpers/theme.ts';\nexport const x = createThemeScript;\n",
+      BOUNDARIES,
+    );
+  });
 
   test('valid: pages use public slice APIs, app reads the product config', async () => {
     await passes(
@@ -289,17 +344,64 @@ describe('main component file contract', () => {
       SYNTAX,
     ));
 
-  test('applies to app/app.tsx; not to ui/, stories, tests or primitives', async () => {
-    await rejects(
+  describe('also covers composites, ui/ components and app components', () => {
+    const component = [
+      "import { cn } from '@/shared/helpers/cn';",
+      'type Props = {',
+      '  className?: string;',
+      '};',
+      'export const Row = ({ className }: Props) => <span className={cn(className)} />;',
+      '',
+    ].join('\n');
+    const locations = [
+      `${WEB}/shared/ui/composites/example/example.tsx`,
+      `${WEB}/shared/ui/composites/example/ui/example-mark.tsx`,
+      `${WEB}/shared/theme/ui/example.tsx`,
+      `${WEB}/domain/example/ui/row.tsx`,
+      `${WEB}/pages/example/ui/row.tsx`,
+      `${WEB}/app/layouts/example-layout.tsx`,
       `${WEB}/app/app.tsx`,
-      'const x = 1;\nexport const App = () => x;\n',
-      SYNTAX,
-    );
+    ];
+
+    for (const file of locations) {
+      test(`${file.slice(WEB.length + 1)}: valid shape passes, extras are rejected`, async () => {
+        await passes(file, component);
+        await rejects(
+          file,
+          `${component}const SIZES = { sm: 'size-8' };\n`,
+          SYNTAX,
+        );
+        await rejects(
+          file,
+          `${component}function helper() {\n  return 1;\n}\n`,
+          SYNTAX,
+        );
+        await rejects(
+          file,
+          `${component}export const Other = () => <span />;\n`,
+          SYNTAX,
+        );
+      });
+    }
+  });
+
+  test('not stories, tests, variants, routing config or primitives', async () => {
     const helperFile =
       "const LABEL = 'x';\nexport const Row = () => <span>{LABEL}</span>;\n";
-    await passes(`${WEB}/domain/example/ui/row.tsx`, helperFile);
     await passes(`${WEB}/domain/example/example.test.tsx`, helperFile);
     await passes(`${WEB}/domain/example/example.stories.tsx`, helperFile);
+    await passes(
+      `${WEB}/shared/ui/composites/logo/logo.test.tsx`,
+      'const Probe = () => <span />;\nexport const x = Probe;\n',
+    );
+    await passes(
+      `${WEB}/shared/ui/composites/example/ui/example-variants.ts`,
+      "import { cva } from 'class-variance-authority';\nexport const exampleVariants = cva('flex');\n",
+    );
+    await passes(
+      `${WEB}/app/routing/app-routes.tsx`,
+      `${helperFile}export const AppRoutes = () => <Row />;\n`,
+    );
   });
 
   test('valid: the shadcn primitive with CVA variants', async () => {

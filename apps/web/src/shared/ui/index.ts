@@ -3,10 +3,12 @@ export { Logo } from './composites/logo/logo';
 export { Button } from './primitives/button/button';
 export {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './primitives/dropdown-menu/dropdown-menu';
 export { Input } from './primitives/input/input';

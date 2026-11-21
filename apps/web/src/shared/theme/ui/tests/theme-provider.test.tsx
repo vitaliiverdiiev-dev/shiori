@@ -2,20 +2,29 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { stubColorScheme } from '@/test/match-media';
-import type { ThemeConfig } from '../theme';
+import { useTheme } from '../../hooks/use-theme';
+import type { ThemeConfig } from '../../model/types';
 import { ThemeProvider } from '../theme-provider';
-import { useTheme } from '../use-theme';
 
 const config: ThemeConfig = {
   colors: { dark: '#000000', light: '#ffffff' },
+  shortcutStorageKey: 'test-theme-shortcut',
   storageKey: 'test-theme',
 };
 
 const ThemeProbe = () => {
-  const { setTheme, theme } = useTheme();
+  const { setShortcutEnabled, setTheme, shortcutEnabled, theme } = useTheme();
   return (
     <>
       <output aria-label="theme">{theme}</output>
+      <input aria-label="Note" />
+      <button
+        onClick={() => {
+          setShortcutEnabled(!shortcutEnabled);
+        }}
+      >
+        {shortcutEnabled ? 'Disable shortcut' : 'Enable shortcut'}
+      </button>
       <button
         onClick={() => {
           setTheme('light');
@@ -148,5 +157,80 @@ describe('ThemeProvider', () => {
     expect(() => render(<ThemeProbe />)).toThrow(
       'useTheme must be used inside ThemeProvider',
     );
+  });
+
+  describe('D shortcut', () => {
+    it('switches between Light and Dark', async () => {
+      localStorage.setItem(config.storageKey, 'dark');
+      renderProvider();
+      const user = userEvent.setup();
+
+      await user.keyboard('d');
+      expect(currentTheme()).toHaveTextContent('light');
+      expect(isDark()).toBe(false);
+      expect(localStorage.getItem(config.storageKey)).toBe('light');
+
+      await user.keyboard('d');
+      expect(currentTheme()).toHaveTextContent('dark');
+    });
+
+    it.each([
+      [false, 'dark'],
+      [true, 'light'],
+    ])(
+      'leaves System for the opposite of the resolved theme (system dark: %s)',
+      async (prefersDark, expected) => {
+        stubColorScheme(prefersDark);
+        renderProvider();
+        const user = userEvent.setup();
+
+        await user.keyboard('d');
+
+        expect(currentTheme()).toHaveTextContent(expected);
+      },
+    );
+
+    it('ignores typing in a text field and a held key', async () => {
+      renderProvider();
+      const user = userEvent.setup();
+
+      await user.type(screen.getByRole('textbox', { name: 'Note' }), 'dd');
+      expect(currentTheme()).toHaveTextContent('system');
+
+      await user.click(document.body);
+      await user.keyboard('{d>2/}');
+      expect(currentTheme()).toHaveTextContent('dark');
+    });
+
+    it('can be turned off, and stays off after a reload', async () => {
+      const { unmount } = renderProvider();
+      const user = userEvent.setup();
+
+      await user.click(
+        screen.getByRole('button', { name: 'Disable shortcut' }),
+      );
+      await user.keyboard('d');
+      expect(currentTheme()).toHaveTextContent('system');
+      expect(localStorage.getItem(config.shortcutStorageKey)).toBe('off');
+
+      unmount();
+      renderProvider();
+      await user.keyboard('d');
+      expect(currentTheme()).toHaveTextContent('system');
+
+      await user.click(screen.getByRole('button', { name: 'Enable shortcut' }));
+      await user.keyboard('d');
+      expect(currentTheme()).toHaveTextContent('dark');
+    });
+
+    it('stops listening after unmount', async () => {
+      const { unmount } = renderProvider();
+      const user = userEvent.setup();
+
+      unmount();
+      await user.keyboard('d');
+
+      expect(localStorage.getItem(config.storageKey)).toBeNull();
+    });
   });
 });

@@ -1,12 +1,16 @@
 import { type ReactNode, useEffect, useLayoutEffect, useState } from 'react';
 import {
   applyThemePreference,
+  readShortcutEnabled,
   readThemePreference,
-  type Theme,
-  type ThemeConfig,
+  resolveTheme,
+  writeShortcutEnabled,
   writeThemePreference,
-} from './theme';
-import { ThemeContext } from './theme-context';
+} from '../helpers/theme';
+import { ThemeContext } from '../hooks/theme-context';
+import { useThemeShortcut } from '../hooks/use-theme-shortcut';
+import { DARK_SCHEME_QUERY } from '../model/consts';
+import type { Theme, ThemeConfig } from '../model/types';
 
 type Props = {
   children: ReactNode;
@@ -17,12 +21,15 @@ export const ThemeProvider = ({ children, config }: Props) => {
   const [theme, setThemeState] = useState(() =>
     readThemePreference(config.storageKey),
   );
+  const [shortcutEnabled, setShortcutState] = useState(() =>
+    readShortcutEnabled(config.shortcutStorageKey),
+  );
 
   useLayoutEffect(() => {
     applyThemePreference(theme, config);
     if (theme !== 'system') return;
 
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const media = window.matchMedia(DARK_SCHEME_QUERY);
     const followSystem = () => {
       applyThemePreference('system', config);
     };
@@ -37,17 +44,35 @@ export const ThemeProvider = ({ children, config }: Props) => {
       if (event.key === null || event.key === config.storageKey) {
         setThemeState(readThemePreference(config.storageKey));
       }
+      if (event.key === null || event.key === config.shortcutStorageKey) {
+        setShortcutState(readShortcutEnabled(config.shortcutStorageKey));
+      }
     };
     window.addEventListener('storage', followOtherTabs);
     return () => {
       window.removeEventListener('storage', followOtherTabs);
     };
-  }, [config.storageKey]);
+  }, [config.shortcutStorageKey, config.storageKey]);
 
   const setTheme = (next: Theme) => {
     writeThemePreference(config.storageKey, next);
     setThemeState(next);
   };
 
-  return <ThemeContext value={{ setTheme, theme }}>{children}</ThemeContext>;
+  const setShortcutEnabled = (enabled: boolean) => {
+    writeShortcutEnabled(config.shortcutStorageKey, enabled);
+    setShortcutState(enabled);
+  };
+
+  useThemeShortcut(shortcutEnabled, () => {
+    setTheme(resolveTheme(theme) === 'dark' ? 'light' : 'dark');
+  });
+
+  return (
+    <ThemeContext
+      value={{ setShortcutEnabled, setTheme, shortcutEnabled, theme }}
+    >
+      {children}
+    </ThemeContext>
+  );
 };

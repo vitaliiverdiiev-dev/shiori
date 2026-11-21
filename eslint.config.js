@@ -69,15 +69,21 @@ const ownModel = (layer) => ({
     type: 'web-model',
   },
 });
+const PUBLIC_SHARED_UNITS = '{theme,ui}';
 const shared = [
   {
     element: {
-      captured: { unit: 'ui' },
+      captured: { unit: PUBLIC_SHARED_UNITS },
       fileInternalPath: 'index.ts',
       type: 'web-shared',
     },
   },
-  { element: { captured: { unit: '!ui' }, type: 'web-shared' } },
+  {
+    element: {
+      captured: { unit: `!${PUBLIC_SHARED_UNITS}` },
+      type: 'web-shared',
+    },
+  },
 ];
 
 const SAME_MODULE = '{{from.element.captured.module}}';
@@ -285,6 +291,27 @@ const architecture = {
               ],
             },
             from: { element: { type: 'web-app' } },
+          },
+          {
+            // INVARIANT: vite.config.ts loads these app files in Node; importing the shared/theme index would pull React components into the config bundle.
+            allow: {
+              to: {
+                element: {
+                  captured: { unit: 'theme' },
+                  fileInternalPath: ['helpers/theme.ts', 'model/types.ts'],
+                  type: 'web-shared',
+                },
+              },
+            },
+            from: {
+              element: {
+                fileInternalPath: [
+                  'startup/startup-shell.ts',
+                  'theme-config.ts',
+                ],
+                type: 'web-app',
+              },
+            },
           },
           {
             allow: {
@@ -613,14 +640,22 @@ export default defineConfig([
     },
   },
   {
-    files: [`${WEB}/app/app.tsx`, `${WEB}/{pages,domain}/*/*.tsx`],
-    ignores: TESTS_AND_STORIES,
+    files: [
+      `${WEB}/app/**/*.tsx`,
+      `${WEB}/{pages,domain}/*/*.tsx`,
+      `${WEB}/**/ui/**/*.tsx`,
+    ],
+    ignores: [
+      ...TESTS_AND_STORIES,
+      `${WEB}/app/routing/{app-routes,routes}.tsx`,
+      `${WEB}/shared/ui/primitives/**`,
+    ],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
           message:
-            'Main component file: only imports, `type Props` and one `export const Component`. Move other declarations to model/, helpers/, hooks/ or ui/.',
+            'Main component file: only imports, `type Props` and one `export const Component`. Move other declarations to model/, helpers/, hooks/ or ui/ (variants to ui/<component>-variants.ts).',
           selector:
             "Program > :not(ImportDeclaration, TSTypeAliasDeclaration[id.name='Props'], ExportNamedDeclaration[declaration.type='VariableDeclaration'][declaration.kind='const'])",
         },
@@ -644,13 +679,13 @@ export default defineConfig([
       `${WEB}/shared/**/index.{ts,tsx}`,
       `${WEB}/app/**/index.{ts,tsx}`,
     ],
-    ignores: [`${WEB}/shared/ui/index.ts`],
+    ignores: [`${WEB}/shared/{theme,ui}/index.ts`],
     rules: {
       'no-restricted-syntax': [
         'error',
         {
           message:
-            'No internal index.ts barrels: only pages/<slice>, domain/<slice> and shared/ui expose an index.ts.',
+            'No internal index.ts barrels: only pages/<slice>, domain/<slice>, shared/ui and shared/theme expose an index.ts.',
           selector: 'Program',
         },
       ],

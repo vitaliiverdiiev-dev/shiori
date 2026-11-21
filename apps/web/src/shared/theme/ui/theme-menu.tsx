@@ -2,24 +2,23 @@ import { MoonIcon, SunIcon } from 'lucide-react';
 import {
   Button,
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui';
-import { isTheme, themeLabels, themes } from './theme';
-import { useTheme } from './use-theme';
+import { isTheme } from '../helpers/theme';
+import { useTheme } from '../hooks/use-theme';
+import { THEME_SHORTCUT_KEY, themeLabels, themes } from '../model/consts';
 
-type Props = {
-  defaultOpen?: boolean;
-};
-
-export const ModeToggle = ({ defaultOpen = false }: Props) => {
-  const { setTheme, theme } = useTheme();
+export const ThemeMenu = () => {
+  const { setShortcutEnabled, setTheme, shortcutEnabled, theme } = useTheme();
 
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
+    <DropdownMenu defaultOpen>
       <DropdownMenuTrigger
         render={
           <Button
@@ -32,7 +31,7 @@ export const ModeToggle = ({ defaultOpen = false }: Props) => {
         <SunIcon aria-hidden="true" className="dark:hidden" />
         <MoonIcon aria-hidden="true" className="hidden dark:block" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-36">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuRadioGroup
           onValueChange={(value: unknown) => {
             if (isTheme(value)) setTheme(value);
@@ -46,6 +45,13 @@ export const ModeToggle = ({ defaultOpen = false }: Props) => {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={shortcutEnabled}
+          onCheckedChange={setShortcutEnabled}
+        >
+          {`Switch with ${THEME_SHORTCUT_KEY.toUpperCase()} key`}
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

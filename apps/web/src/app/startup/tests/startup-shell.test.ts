@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ThemeConfig } from '@/shared/theme/theme';
+import type { ThemeConfig } from '@/shared/theme';
 import { STARTUP_ATTRIBUTE } from '../consts';
 import { createFaviconHref, renderStartupHtml } from '../startup-shell';
 
@@ -11,6 +11,7 @@ const product = {
 };
 const theme: ThemeConfig = {
   colors: { dark: '#0a0a0a', light: '#ffffff' },
+  shortcutStorageKey: 'theme-shortcut',
   storageKey: 'theme',
 };
 

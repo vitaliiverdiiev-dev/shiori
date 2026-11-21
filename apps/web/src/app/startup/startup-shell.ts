@@ -1,8 +1,6 @@
 import type { Plugin } from 'vite';
-import {
-  createThemeScript,
-  type ThemeConfig,
-} from '../../shared/theme/theme.ts';
+import { createThemeScript } from '../../shared/theme/helpers/theme.ts';
+import type { ThemeConfig } from '../../shared/theme/model/types.ts';
 import { STARTUP_ATTRIBUTE } from './consts.ts';
 
 type ProductIdentity = {

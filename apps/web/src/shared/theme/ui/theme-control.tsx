@@ -1,21 +1,17 @@
 import { Suspense, useState } from 'react';
 import { MoonIcon, SunIcon } from 'lucide-react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { lazyComponent } from '@/shared/helpers/lazy-component';
 import { Button } from '@/shared/ui';
-import { themeLabels } from './theme';
-import { useTheme } from './use-theme';
-
-const loadModeToggle = () =>
-  import('./mode-toggle').then((module) => module.ModeToggle);
-const ModeToggle = lazyComponent(loadModeToggle);
+import { useTheme } from '../hooks/use-theme';
+import { themeLabels } from '../model/consts';
+import { LazyThemeMenu, loadThemeMenu } from './theme-menu-loader';
 
 export const ThemeControl = () => {
   const { theme } = useTheme();
   const [menuRequested, setMenuRequested] = useState(false);
 
   const preload = () => {
-    loadModeToggle().catch(() => undefined);
+    loadThemeMenu().catch(() => undefined);
   };
 
   const trigger = (unavailable: boolean) => (
@@ -28,7 +24,6 @@ export const ThemeControl = () => {
       }}
       onFocus={preload}
       onPointerEnter={preload}
-      onTouchStart={preload}
       size="icon"
       variant="ghost"
     >
@@ -42,7 +37,7 @@ export const ThemeControl = () => {
   return (
     <ErrorBoundary fallback={trigger(true)}>
       <Suspense fallback={trigger(false)}>
-        <ModeToggle defaultOpen />
+        <LazyThemeMenu />
       </Suspense>
     </ErrorBoundary>
   );

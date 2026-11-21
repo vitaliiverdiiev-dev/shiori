@@ -41,4 +41,13 @@ describe('Logo', () => {
     rerender(<Logo glyph="栞" name="Shiori" size="lg" variant="symbol" />);
     expect(screen.getByRole('img')).toHaveClass('size-16');
   });
+
+  it('defaults to the medium size and sizes the lockup mark with it', () => {
+    const { rerender } = render(<Logo glyph="栞" name="Shiori" />);
+    expect(screen.getByText('栞')).toHaveClass('size-11');
+
+    rerender(<Logo glyph="栞" name="Shiori" size="xl" />);
+    expect(screen.getByText('栞')).toHaveClass('size-28');
+    expect(screen.getByText('Shiori')).toHaveClass('text-4xl');
+  });
 });

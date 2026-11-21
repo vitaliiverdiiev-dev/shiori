@@ -1,14 +1,13 @@
 import { Link, NavLink, Outlet } from 'react-router';
 import { AccountMenu, authPaths } from '@/domain/auth';
 import { cn } from '@/shared/helpers/cn';
-import { ThemeControl } from '@/shared/theme/theme-control';
+import { ThemeControl } from '@/shared/theme';
 import { AppLogo } from '../branding/app-logo';
 import { RouteBoundary } from '../routing/route-boundary';
 import { getMainNavigation } from '../routing/route-metadata';
 
-const mainNavigation = getMainNavigation();
-
 export const AppLayout = () => {
+  const mainNavigation = getMainNavigation();
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     cn(
       'flex min-h-11 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap text-muted-foreground hover:text-foreground',

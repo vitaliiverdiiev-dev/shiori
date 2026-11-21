@@ -18,14 +18,17 @@ Code structure, dependency direction and lint enforcement follow the portable st
 apps/web/src/
   main.tsx                    # bootstrap: StrictMode + app/app.tsx + global CSS
   app/app.tsx                 # composition: <AppProviders> + <DocumentHead> + <AppRoutes>
-  app/document-head.tsx       # <title> from the route registry, glyph favicon
+  app/document-head.tsx       # <title> from the route registry; removes the static startup <title> after mount
+  app/theme-config.ts         # theme storage key + theme-color values (mirror the --background tokens)
+  app/startup/startup-shell.ts  # Vite transformIndexHtml plugin: static title, favicon, theme-color, inline theme script, startup shell
+  app/branding/app-logo.tsx   # binds product.config.json to the shared Logo
   app/routing/routes.tsx      # route registry: id, path, title, access, layout, main-navigation flag, lazy page element
   app/routing/route-metadata.ts  # projections: findRoute, getDocumentTitle, getMainNavigation
   app/routing/app-routes.tsx  # declarative <Routes> built from the registry; AuthRoute per access level; lazy HealthStatus
   app/routing/route-boundary.tsx  # ErrorBoundary (reset on pathname) + Suspense around route content
   app/layouts/app-layout.tsx  # signed-in shell: header, registry navigation, AccountMenu, RouteBoundary > <Outlet>
   app/layouts/guest-layout.tsx  # sign-in/sign-up shell: brand + RouteBoundary > <Outlet>
-  app/providers/app-providers.tsx  # root ErrorBoundary > QueryClientProvider > BrowserRouter
+  app/providers/app-providers.tsx  # root ErrorBoundary > ThemeProvider > QueryClientProvider > BrowserRouter
   app/providers/query-client.ts  # the single TanStack QueryClient (no automatic query retries)
   app/styles/index.css        # Tailwind v4 + semantic tokens (light/dark, Japanese fonts)
   pages/home/                 # HomePage (identity via props)
@@ -35,7 +38,8 @@ apps/web/src/
   domain/auth/                # AuthRoute, AccountMenu, forms (ui/), RHF+Zod schemas (model/), config/auth-client.ts, api/queries.ts (registration mode)
   domain/health/              # HealthStatus: api/queries.ts (generated SDK + TanStack Query), model/, helpers/, hooks/, ui/
   shared/api/query-access.ts  # PUBLIC_QUERY_META / isPublicQuery: queries are private unless marked public
-  shared/ui/                  # index.ts + primitives/{button,input,label} (shadcn on Base UI, stories) + composites/error-fallback
+  shared/ui/                  # index.ts + primitives/{button,dropdown-menu,input,label} (shadcn on Base UI, stories) + composites/{error-fallback,logo}
+  shared/theme/               # theme model + DOM functions (theme.ts), ThemeProvider, useTheme, ThemeControl (intent-loaded), ModeToggle (Base UI menu)
   shared/helpers/cn.ts        # `cn`
   shared/helpers/lazy-component.ts  # React.lazy for named exports; import failures become ModuleLoadError
   test/setup.ts               # Vitest/RTL setup
@@ -125,6 +129,19 @@ Manual review only: a "main component file" is recognised by location (slice-roo
 - **Lazy loading:** every page is a `React.lazy` chunk. `HealthStatus` (the generated SDK and Axios) is lazy inside the session-unavailable screen, with its own boundary so a failed download keeps the recovery screen. Layouts stay eager: they are about 2 kB, and a lazy layout would add a layout → page request waterfall after the session check.
 - **Barrels and tree shaking:** `apps/web/package.json` declares `"sideEffects": ["**/*.css"]`, so Rolldown can drop unused re-exports from slice `index.ts` barrels (for example the auth forms, Zod, RHF and Axios behind `@/domain/auth`). Consequence: a source module must never be imported only for its side effects; CSS is the only exception. A module whose exports are used still runs its top-level code (e.g. `query-client.ts` subscribes to session changes).
 - **Recovery:** `react-error-boundary` provides the root boundary in `AppProviders` and one `RouteBoundary` per layout (reset on pathname change). A failed chunk download surfaces as `ModuleLoadError` and offers only **Reload page**, because `React.lazy` caches the rejection. Render errors offer **Try again** and **Reload page**. Nothing reloads automatically, so there is no reload loop.
+
+### Startup, theme and branding (F02)
+
+- **Static shell:** `index.html` holds only `<!--startup-head-->` and `<!--startup-shell-->`. The `startupShell` Vite plugin (`app/startup/startup-shell.ts`, used by `vite.config.ts` for `/index.html` only, so Storybook's iframe is untouched) fills them at dev and build time from `product.config.json`:
+  - a static `<title data-startup>`, the glyph favicon and one `theme-color` meta;
+  - the inline theme script and a startup-error listener, which reveals a reload message if a startup script or stylesheet fails before React mounts;
+  - about 1 kB of critical CSS using the tokens, with system-colour fallbacks;
+  - the shell (logo mark plus "Loading…", with a `<noscript>` message).
+    `createRoot` replaces the shell; `DocumentHead` removes the static title once React's route `<title>` exists, because React inserts its title before existing ones.
+- **Theme:** `'light' | 'dark' | 'system'`, default system, stored under `localStorage['theme']`; a missing or invalid value means system. `readThemePreference` and `applyThemePreference` are serialised into the inline script (`createThemeScript`), so the script and `ThemeProvider` run the same code. The provider tracks `prefers-color-scheme` only while System is selected, follows other tabs through `storage` events, and keeps an in-memory choice when storage is unavailable. `applyThemePreference` sets the `.dark` class, `color-scheme` and the single `theme-color` meta. That meta is managed imperatively rather than rendered by React, because a React `<meta>` would duplicate the static one. The Tailwind dark variant is `&:where(.dark, .dark *)` (official form).
+- **Theme selector:** `ThemeControl` renders a light trigger (Button plus Lucide Sun/Moon icons). The Base UI menu chunk (`ModeToggle`, about 43 kB gzip) loads on hover, focus or touch and opens on click. Deviation from the shadcn example: a radio group with a checked indicator instead of plain items, and no rotate/scale icon animation.
+- **Logo:** `shared/ui` `Logo` takes `glyph` and `name` props (no product import), with variants `lockup | symbol`, sizes `sm | md | lg | xl` and `decorative` for symbols next to a visible name. `app/branding/app-logo.tsx` binds `product.config.json`; `AuthRoute` receives it as `brand` for the session-checking screen.
+- **Build-time imports:** `vite.config.ts` imports `app/startup/startup-shell.ts`, `app/theme-config.ts` and `shared/theme/theme.ts` with explicit `.ts` extensions (Node resolution). These files must keep relative imports, and `tsconfig.node.json` includes the DOM library for them.
 
 ## Responsibilities and dependency direction
 

@@ -1,9 +1,16 @@
-export const SessionChecking = () => (
+import type { ReactNode } from 'react';
+
+type Props = {
+  brand?: ReactNode;
+};
+
+export const SessionChecking = ({ brand }: Props) => (
   <main
     aria-busy="true"
-    className="flex min-h-dvh items-center justify-center px-5"
+    className="flex min-h-dvh flex-col items-center justify-center gap-4 px-5 text-center"
   >
-    <p className="text-muted-foreground" role="status">
+    {brand}
+    <p className="text-sm text-muted-foreground" role="status">
       Checking your session…
     </p>
   </main>

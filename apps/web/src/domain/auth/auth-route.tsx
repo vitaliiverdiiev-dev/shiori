@@ -9,10 +9,11 @@ import { SessionUnavailable } from './ui/session-unavailable';
 
 type Props = {
   access: RouteAccess;
+  brand?: ReactNode;
   unavailableDetails?: ReactNode;
 };
 
-export const AuthRoute = ({ access, unavailableDetails }: Props) => {
+export const AuthRoute = ({ access, brand, unavailableDetails }: Props) => {
   const { retry, state, userId } = useSessionStatus();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -21,7 +22,7 @@ export const AuthRoute = ({ access, unavailableDetails }: Props) => {
     setWasAuthenticated(true);
   }
 
-  if (state === 'checking') return <SessionChecking />;
+  if (state === 'checking') return <SessionChecking brand={brand} />;
   if (state === 'unavailable')
     return <SessionUnavailable details={unavailableDetails} onRetry={retry} />;
 

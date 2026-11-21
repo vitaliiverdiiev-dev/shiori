@@ -2,7 +2,9 @@ import type { ReactNode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from 'react-error-boundary';
 import { BrowserRouter } from 'react-router';
+import { ThemeProvider } from '@/shared/theme/theme-provider';
 import { ErrorFallback } from '@/shared/ui';
+import { themeConfig } from '../theme-config';
 import { queryClient } from './query-client';
 
 type Props = {
@@ -17,8 +19,10 @@ export const AppProviders = ({ children }: Props) => (
       </main>
     )}
   >
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>{children}</BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider config={themeConfig}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>{children}</BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   </ErrorBoundary>
 );

@@ -1,6 +1,6 @@
 # Claude Code — Shiori
 
-**Status:** M00–M01.2 complete. **M02 (identity):** M02.1–M02.3 accepted; M02.4 (integration, security, verification) implemented and awaiting independent review. **F01 (routing & application foundation, `docs/tasks/F01-routing-foundation.md`)** implemented and awaiting independent review. No later milestone or phase is authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
+**Status:** M00–M01.2 complete. **M02 (identity):** M02.1–M02.3 accepted; M02.4 (integration, security, verification) implemented and awaiting independent review. **F01** (routing & application foundation) accepted. **F02 (startup, theme & branding, `docs/tasks/F02-startup-theme-branding.md`)** implemented and awaiting independent review. No later milestone or phase is authorized. Start a milestone or phase only after its task document exists under `docs/tasks/` and the user explicitly asks for it. Task documents and `docs/01`–`05` describe intended product and future decisions; they do **not** authorize implementing everything.
 
 ## Sources of truth
 

@@ -3,6 +3,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Outlet, Route, Routes } from 'react-router';
 import { AuthRoute } from '@/domain/auth';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
+import { AppLogo } from '../branding/app-logo';
 import { AppLayout } from '../layouts/app-layout';
 import { GuestLayout } from '../layouts/guest-layout';
 import { RouteBoundary } from './route-boundary';
@@ -11,6 +12,8 @@ import { type RouteLayout, routes } from './routes';
 const HealthStatus = lazyComponent(() =>
   import('@/domain/health').then((module) => module.HealthStatus),
 );
+
+const sessionBrand = <AppLogo size="lg" variant="symbol" />;
 
 const serverStatus = (
   <ErrorBoundary
@@ -44,13 +47,23 @@ export const AppRoutes = () => (
   <Routes>
     <Route
       element={
-        <AuthRoute access="protected" unavailableDetails={serverStatus} />
+        <AuthRoute
+          access="protected"
+          brand={sessionBrand}
+          unavailableDetails={serverStatus}
+        />
       }
     >
       <Route element={<AppLayout />}>{pageRoutes('app')}</Route>
     </Route>
     <Route
-      element={<AuthRoute access="guest" unavailableDetails={serverStatus} />}
+      element={
+        <AuthRoute
+          access="guest"
+          brand={sessionBrand}
+          unavailableDetails={serverStatus}
+        />
+      }
     >
       <Route element={<GuestLayout />}>{pageRoutes('guest')}</Route>
     </Route>

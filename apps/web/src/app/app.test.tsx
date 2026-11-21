@@ -312,6 +312,44 @@ describe('App routes', () => {
     }
   });
 
+  it('replaces the static startup shell and title with a branded session check', async () => {
+    stubApi({ [SESSION]: () => new Promise<Response>(() => undefined) });
+    const staticTitle = document.createElement('title');
+    staticTitle.setAttribute('data-startup', '');
+    staticTitle.textContent = 'Static title';
+    document.head.append(staticTitle);
+    const container = document.createElement('div');
+    container.innerHTML =
+      '<div class="startup-shell"><p role="status">Loading…</p></div>';
+    document.body.append(container);
+    window.history.replaceState(null, '', '/settings/account');
+    vi.resetModules();
+    const { App } = await import('./app');
+
+    render(<App />, { container });
+
+    expect(await screen.findByText('Checking your session…')).toBeVisible();
+    expect(screen.getByRole('img', { name: product.name })).toBeVisible();
+    expect(container.querySelector('.startup-shell')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(document.head.querySelectorAll('title')).toHaveLength(1);
+    });
+    expect(document.title).toBe(`Account — ${product.name}`);
+  });
+
+  it.each([
+    ['/sign-in', signedOut],
+    ['/', signedIn],
+  ])('offers theme selection on %s', async (path, session) => {
+    stubApi({ [SESSION]: session });
+    await renderAt(path);
+
+    expect(
+      await screen.findByRole('button', { name: 'Theme: System' }),
+    ).toBeVisible();
+  });
+
   it('shows the not-found page without waiting for the session', async () => {
     stubApi({ [SESSION]: () => new Promise<Response>(() => undefined) });
     await renderAt('/no-such-page');

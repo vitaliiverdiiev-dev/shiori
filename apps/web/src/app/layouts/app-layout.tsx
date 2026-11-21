@@ -1,7 +1,8 @@
 import { Link, NavLink, Outlet } from 'react-router';
 import { AccountMenu, authPaths } from '@/domain/auth';
-import product from '@/product-config';
 import { cn } from '@/shared/helpers/cn';
+import { ThemeControl } from '@/shared/theme/theme-control';
+import { AppLogo } from '../branding/app-logo';
 import { RouteBoundary } from '../routing/route-boundary';
 import { getMainNavigation } from '../routing/route-metadata';
 
@@ -19,18 +20,15 @@ export const AppLayout = () => {
       <header className="border-b pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-5 py-2">
           <Link
-            className="flex min-h-11 shrink-0 items-center gap-2 font-semibold"
+            className="flex min-h-11 shrink-0 items-center"
             to={authPaths.home}
           >
-            <span
-              aria-hidden="true"
-              className="font-display text-xl text-primary"
-            >
-              {product.logoGlyph}
-            </span>
-            {product.name}
+            <AppLogo size="sm" />
           </Link>
-          <AccountMenu />
+          <div className="flex min-w-0 items-center gap-1">
+            <ThemeControl />
+            <AccountMenu />
+          </div>
         </div>
         <nav
           aria-label="Main"

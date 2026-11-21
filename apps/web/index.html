@@ -7,17 +7,10 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="color-scheme" content="light dark" />
-    <title>Loading…</title>
-    <script>
-      const media = matchMedia('(prefers-color-scheme: dark)');
-      const applyTheme = () =>
-        document.documentElement.classList.toggle('dark', media.matches);
-      applyTheme();
-      media.addEventListener('change', applyTheme);
-    </script>
+    <!--startup-head-->
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--startup-shell--></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

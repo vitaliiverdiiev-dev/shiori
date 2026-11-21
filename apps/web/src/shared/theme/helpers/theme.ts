@@ -23,11 +23,14 @@ const SHORTCUT_IGNORED_TARGETS = [
 export function applyThemePreference(theme: Theme, config: ThemeConfig): void {
   const dark = resolveTheme(theme) === 'dark';
   const root = document.documentElement;
+  const restoreTransitions =
+    root.classList.contains('dark') === dark ? null : suppressTransitions();
   root.classList.toggle('dark', dark);
   root.style.colorScheme = dark ? 'dark' : 'light';
   document
     .querySelector('meta[name="theme-color"]')
     ?.setAttribute('content', dark ? config.colors.dark : config.colors.light);
+  restoreTransitions?.();
 }
 
 export function createThemeScript({ colors, storageKey }: ThemeConfig): string {
@@ -80,6 +83,17 @@ export function readThemePreference(storageKey: string): Theme {
 export function resolveTheme(theme: Theme): ResolvedTheme {
   if (theme !== 'system') return theme;
   return window.matchMedia(DARK_SCHEME_QUERY).matches ? 'dark' : 'light';
+}
+
+function suppressTransitions(): () => void {
+  const style = document.createElement('style');
+  style.textContent = '*,*::before,*::after{transition:none!important}';
+  document.head.append(style);
+  return () => {
+    // INVARIANT: Reading a computed style flushes the new theme colours while transitions are off; removing the style before that flush would animate them.
+    window.getComputedStyle(document.body).getPropertyValue('color');
+    style.remove();
+  };
 }
 
 export function writeShortcutEnabled(

@@ -142,6 +142,49 @@ describe('applyThemePreference', () => {
   );
 });
 
+describe('transition suppression', () => {
+  const suppression = () =>
+    [...document.head.querySelectorAll('style')].filter((style) =>
+      style.textContent.includes('transition:none'),
+    );
+
+  it('disables transitions while the theme class changes, then restores them', () => {
+    stubColorScheme(false);
+    const toggle = vi.spyOn(root.classList, 'toggle');
+    let suppressedDuringToggle = false;
+    toggle.mockImplementation((token, force) => {
+      suppressedDuringToggle = suppression().length === 1;
+      return DOMTokenList.prototype.toggle.call(root.classList, token, force);
+    });
+
+    applyThemePreference('dark', config);
+
+    expect(suppressedDuringToggle).toBe(true);
+    expect(root.classList.contains('dark')).toBe(true);
+    expect(suppression()).toHaveLength(0);
+  });
+
+  it('leaves transitions alone when the resolved theme does not change', () => {
+    stubColorScheme(true);
+    root.classList.add('dark');
+    const append = vi.spyOn(document.head, 'append');
+
+    applyThemePreference('system', config);
+    applyThemePreference('dark', config);
+
+    expect(append).not.toHaveBeenCalled();
+  });
+
+  it('restores transitions after repeated switching', () => {
+    for (const theme of ['dark', 'light', 'dark', 'light'] as const) {
+      applyThemePreference(theme, config);
+    }
+
+    expect(suppression()).toHaveLength(0);
+    expect(root.classList.contains('dark')).toBe(false);
+  });
+});
+
 describe('createThemeScript', () => {
   function runScript(script: string) {
     const element = document.createElement('script');

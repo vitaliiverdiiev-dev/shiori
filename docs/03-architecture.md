@@ -17,9 +17,15 @@ Code structure, dependency direction and lint enforcement follow the portable st
 ```text
 apps/web/src/
   main.tsx                    # bootstrap: StrictMode + app/app.tsx + global CSS
-  app/app.tsx                 # composition: <title>, favicon, React Router 7 declarative route table
-  app/layouts/app-layout.tsx  # signed-in shell: header, main navigation, AccountMenu, <Outlet>
-  app/layouts/guest-layout.tsx  # sign-in/sign-up shell: brand + <Outlet>
+  app/app.tsx                 # composition: <AppProviders> + <DocumentHead> + <AppRoutes>
+  app/document-head.tsx       # <title> from the route registry, glyph favicon
+  app/routing/routes.tsx      # route registry: id, path, title, access, layout, main-navigation flag, lazy page element
+  app/routing/route-metadata.ts  # projections: findRoute, getDocumentTitle, getMainNavigation
+  app/routing/app-routes.tsx  # declarative <Routes> built from the registry; AuthRoute per access level; lazy HealthStatus
+  app/routing/route-boundary.tsx  # ErrorBoundary (reset on pathname) + Suspense around route content
+  app/layouts/app-layout.tsx  # signed-in shell: header, registry navigation, AccountMenu, RouteBoundary > <Outlet>
+  app/layouts/guest-layout.tsx  # sign-in/sign-up shell: brand + RouteBoundary > <Outlet>
+  app/providers/app-providers.tsx  # root ErrorBoundary > QueryClientProvider > BrowserRouter
   app/providers/query-client.ts  # the single TanStack QueryClient (no automatic query retries)
   app/styles/index.css        # Tailwind v4 + semantic tokens (light/dark, Japanese fonts)
   pages/home/                 # HomePage (identity via props)
@@ -29,8 +35,9 @@ apps/web/src/
   domain/auth/                # AuthRoute, AccountMenu, forms (ui/), RHF+Zod schemas (model/), config/auth-client.ts, api/queries.ts (registration mode)
   domain/health/              # HealthStatus: api/queries.ts (generated SDK + TanStack Query), model/, helpers/, hooks/, ui/
   shared/api/query-access.ts  # PUBLIC_QUERY_META / isPublicQuery: queries are private unless marked public
-  shared/ui/                  # index.ts + primitives/{button,input,label} (shadcn on Base UI, stories)
+  shared/ui/                  # index.ts + primitives/{button,input,label} (shadcn on Base UI, stories) + composites/error-fallback
   shared/helpers/cn.ts        # `cn`
+  shared/helpers/lazy-component.ts  # React.lazy for named exports; import failures become ModuleLoadError
   test/setup.ts               # Vitest/RTL setup
   test/api-stub.ts            # fetch stub (Better Auth) and session fixtures for tests
   test/msw.ts, test/render.tsx  # MSW server for Axios/generated-SDK requests; providers + user-event render helper
@@ -111,6 +118,13 @@ Enforced by `pnpm lint` (`eslint.config.js`) and proven by `scripts/eslint-archi
 Justified exceptions: shadcn primitives skip `sort-objects` (cva key order decides class precedence) and `react-refresh/only-export-components`; `main.tsx` and API `main.ts`/`cli.ts`/`openapi.ts` are bootstrap files (process entry points and composition roots) outside the layer graph; `cli.ts` composes the env, pool, Better Auth instance and terminal I/O and imports `modules/auth/cli/auth.cli.ts` and `modules/auth/integrations/better-auth/config/better-auth.config.ts` directly; the Better Auth config's table registration (above) is the only exception inside a module. `packages/api-client` compiles its generated code with `exactOptionalPropertyTypes: false` because Hey API's generated Axios runtime (0.99.0) does not compile with it; the exception is limited to that package's own build, the generated directory is excluded from ESLint and Prettier, and consumers keep the flag (verified by compiling against the emitted declarations with `exactOptionalPropertyTypes: true` and `skipLibCheck: false`).
 
 Manual review only: a "main component file" is recognised by location (slice-root `.tsx`), not by content; exported Nest providers consumed across modules need an explicit contract when the first real consumer appears; one-component-per-file in `ui/`, WHAT/HOW placement and test placement are conventions, not lint gates.
+
+### Routing and code splitting (F01)
+
+- **Route registry:** `app/routing/routes.tsx` is the single source for route metadata. Its array order is navigation order and match precedence, and the `*` route stays last. Numeric `order` fields would violate `no-magic-numbers`, and keyed objects are alphabetised by Perfectionist. The `access`/`layout` pairs form a typed union, so an unsupported combination (or navigation on a non-protected route) does not compile. `domain/auth` keeps owning `authPaths`; the registry and links reuse them.
+- **Lazy loading:** every page is a `React.lazy` chunk. `HealthStatus` (the generated SDK and Axios) is lazy inside the session-unavailable screen, with its own boundary so a failed download keeps the recovery screen. Layouts stay eager: they are about 2 kB, and a lazy layout would add a layout → page request waterfall after the session check.
+- **Barrels and tree shaking:** `apps/web/package.json` declares `"sideEffects": ["**/*.css"]`, so Rolldown can drop unused re-exports from slice `index.ts` barrels (for example the auth forms, Zod, RHF and Axios behind `@/domain/auth`). Consequence: a source module must never be imported only for its side effects; CSS is the only exception. A module whose exports are used still runs its top-level code (e.g. `query-client.ts` subscribes to session changes).
+- **Recovery:** `react-error-boundary` provides the root boundary in `AppProviders` and one `RouteBoundary` per layout (reset on pathname change). A failed chunk download surfaces as `ModuleLoadError` and offers only **Reload page**, because `React.lazy` caches the rejection. Render errors offer **Try again** and **Reload page**. Nothing reloads automatically, so there is no reload loop.
 
 ## Responsibilities and dependency direction
 

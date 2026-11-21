@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import product from '@/product-config';
 import { sessionResponse, stubApi } from '@/test/api-stub';
 import { registrationMode, server } from '@/test/msw';
+import { getMainNavigation } from './routing/route-metadata';
+import { routes } from './routing/routes';
 
 const SESSION = '/api/auth/get-session';
 const alice = { id: 'alice', name: 'Alice' };
@@ -24,6 +26,14 @@ const protectedRoutes = [
   ['/settings/account', 'Account'],
   ['/settings/security', 'Security'],
 ] as const;
+
+const guestRoutes = [
+  ['/sign-in', 'Sign in'],
+  ['/sign-up', 'Create account'],
+] as const;
+
+const registryPaths = (access: string) =>
+  routes.filter((route) => route.access === access).map(({ path }) => path);
 
 describe('App routes', () => {
   beforeEach(() => {
@@ -52,7 +62,9 @@ describe('App routes', () => {
         await screen.findByRole('heading', { level: 1, name: heading }),
       ).toBeVisible();
       const nav = screen.getByRole('navigation', { name: 'Main' });
-      expect(within(nav).getAllByRole('link')).toHaveLength(4);
+      expect(within(nav).getAllByRole('link')).toHaveLength(
+        getMainNavigation().length,
+      );
       expect(screen.getByText(alice.name)).toBeVisible();
     },
   );
@@ -70,10 +82,14 @@ describe('App routes', () => {
     },
   );
 
-  it.each([
-    ['/sign-in', 'Sign in'],
-    ['/sign-up', 'Create account'],
-  ])(
+  it('exercises every protected and guest route in the registry', () => {
+    expect(protectedRoutes.map(([path]) => path)).toEqual(
+      registryPaths('protected'),
+    );
+    expect(guestRoutes.map(([path]) => path)).toEqual(registryPaths('guest'));
+  });
+
+  it.each(guestRoutes)(
     'shows the guest page %s to a signed-out visitor',
     async (path, heading) => {
       stubApi({ [SESSION]: signedOut });
@@ -85,7 +101,7 @@ describe('App routes', () => {
     },
   );
 
-  it.each(['/sign-in', '/sign-up'])(
+  it.each(guestRoutes.map(([path]) => path))(
     'sends a signed-in user from %s home',
     async (path) => {
       stubApi({ [SESSION]: signedIn });
@@ -214,12 +230,94 @@ describe('App routes', () => {
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
   });
 
+  it('navigates between signed-in pages with the registry navigation', async () => {
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/');
+    const user = userEvent.setup();
+
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')]),
+    ).toEqual(getMainNavigation().map(({ label, path }) => [label, path]));
+
+    await user.click(within(nav).getByRole('link', { name: 'Security' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Security' }),
+    ).toBeVisible();
+    expect(within(nav).getByRole('link', { name: 'Security' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(document.title).toBe(`Security — ${product.name}`);
+  });
+
+  it('moves between the guest pages', async () => {
+    stubApi({ [SESSION]: signedOut });
+    await renderAt('/sign-in');
+    const user = userEvent.setup();
+
+    await user.click(
+      await screen.findByRole('link', { name: 'Create an account' }),
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Create account' }),
+    ).toBeVisible();
+    expect(document.title).toBe(`Create account — ${product.name}`);
+
+    await user.click(screen.getByRole('link', { name: 'Sign in' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Sign in' }),
+    ).toBeVisible();
+  });
+
+  it('opens the requested page once a failed session check succeeds on retry', async () => {
+    let session = () => Response.json({}, { status: 500 });
+    stubApi({ [SESSION]: () => session() });
+    await renderAt('/settings/security');
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Can’t verify your session' }),
+    ).toBeVisible();
+    session = signedIn;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Security' }),
+    ).toBeVisible();
+  });
+
+  it('keeps the session recovery screen when the diagnostics bundle cannot load', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.doMock('@/domain/health', () => {
+      throw new Error('Failed to fetch dynamically imported module');
+    });
+    try {
+      stubApi({ [SESSION]: () => Response.json({}, { status: 500 }) });
+      await renderAt('/');
+
+      expect(
+        await screen.findByText('Server status details could not be loaded.'),
+      ).toBeVisible();
+      expect(
+        screen.getByRole('heading', { name: 'Can’t verify your session' }),
+      ).toBeVisible();
+      expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    } finally {
+      vi.doUnmock('@/domain/health');
+      vi.restoreAllMocks();
+    }
+  });
+
   it('shows the not-found page without waiting for the session', async () => {
     stubApi({ [SESSION]: () => new Promise<Response>(() => undefined) });
     await renderAt('/no-such-page');
 
     expect(
-      screen.getByRole('heading', { name: 'Page not found' }),
+      await screen.findByRole('heading', { name: 'Page not found' }),
     ).toBeVisible();
   });
 

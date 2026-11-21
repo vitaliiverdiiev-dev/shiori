@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { authPaths } from '@/domain/auth';
 
 export const NotFoundPage = () => (
   <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-3 px-5">
@@ -8,7 +9,7 @@ export const NotFoundPage = () => (
     </p>
     <Link
       className="flex min-h-11 items-center self-start font-medium text-primary underline-offset-4 hover:underline"
-      to="/"
+      to={authPaths.home}
     >
       Go to home
     </Link>

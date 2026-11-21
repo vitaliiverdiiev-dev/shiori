@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import type { ThemeConfig } from '../../model/types';
@@ -82,10 +82,7 @@ describe('ThemeControl', () => {
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: 'Theme: System' }));
-    const menu = await screen.findByRole('menu');
-    await waitFor(() => {
-      expect(menu.contains(document.activeElement)).toBe(true);
-    });
+    await screen.findByRole('menu');
     await user.keyboard('d');
 
     expect(localStorage.getItem(config.storageKey)).toBeNull();

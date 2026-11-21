@@ -317,6 +317,8 @@ describe('isThemeShortcut', () => {
     '<div role="combobox" data-target></div>',
     '<div role="menu"><div role="menuitemradio" data-target>Dark</div></div>',
     '<div role="dialog"><button data-target>Close</button></div>',
+    '<button aria-busy="true" data-target>Theme</button>',
+    '<button aria-expanded="true" aria-haspopup="menu" data-target>Theme</button>',
   ])('ignores keys typed in %s', (html) => {
     expect(keydown({ key: 'd' }, inside(html))).toBe(false);
   });

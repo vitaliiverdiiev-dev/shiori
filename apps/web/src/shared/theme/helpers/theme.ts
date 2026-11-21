@@ -6,6 +6,8 @@ const SHORTCUT_IGNORED_TARGETS = [
   'select',
   'textarea',
   '[contenteditable]:not([contenteditable="false"])',
+  '[aria-busy="true"]',
+  '[aria-expanded="true"]',
   ...[
     'alertdialog',
     'combobox',

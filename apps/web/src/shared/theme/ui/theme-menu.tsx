@@ -23,6 +23,7 @@ export const ThemeMenu = () => {
         render={
           <Button
             aria-label={`Theme: ${themeLabels[theme]}`}
+            autoFocus
             size="icon"
             variant="ghost"
           />

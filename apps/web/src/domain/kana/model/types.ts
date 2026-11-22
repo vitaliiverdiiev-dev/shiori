@@ -11,9 +11,47 @@ export type Kana = {
   soundId: string;
 };
 
+export type KanaAttempt = {
+  answer: string;
+  kanaId: KanaId;
+  outcome: KanaOutcome;
+};
+
 export type KanaGroupState = 'all' | 'none' | 'some';
 
 export type KanaId = `${KanaScript}:${string}`;
+
+export type KanaOutcome = 'correct' | 'incorrect' | 'skipped';
+
+export type KanaPaths = {
+  practice: string;
+  selection: string;
+};
+
+export type KanaPracticeAction =
+  | { session: KanaPracticeSession; type: 'start' }
+  | { type: 'input'; value: string }
+  | { type: 'next' }
+  | { type: 'skip' }
+  | { type: 'submit' };
+
+export type KanaPracticePhase = 'answering' | 'complete' | 'feedback';
+
+export type KanaPracticeSession = {
+  attempts: readonly KanaAttempt[];
+  input: string;
+  order: readonly KanaId[];
+  position: number;
+  selection: readonly KanaId[];
+};
+
+export type KanaPracticeSummary = {
+  correct: number;
+  incorrect: number;
+  missed: readonly KanaId[];
+  skipped: number;
+  total: number;
+};
 
 export type KanaRow = {
   id: string;
@@ -56,4 +94,9 @@ export type KanaSoundDefinition = {
   hiragana: string;
   katakana: string;
   romaji: string;
+};
+
+export type StoredKanaState = {
+  selection: readonly KanaId[];
+  session: KanaPracticeSession | null;
 };

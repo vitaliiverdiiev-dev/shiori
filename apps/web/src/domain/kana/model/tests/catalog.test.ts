@@ -28,7 +28,6 @@ const nihonShikiToHepburn: Record<string, string> = {
   si: 'shi',
   ti: 'chi',
   tu: 'tsu',
-  wo: 'o',
   zi: 'ji',
 };
 
@@ -126,10 +125,14 @@ describe('kana catalog', () => {
     );
   });
 
-  it('uses modern Hepburn as the canonical reading', () => {
+  it('uses modern Hepburn as the canonical reading, with wo for を', () => {
     for (const { id, romaji } of sounds) {
       expect(romaji).toBe(toHepburn(id));
     }
+    expect(sounds.find(({ id }) => id === 'wo')).toMatchObject({
+      alternatives: ['o'],
+      romaji: 'wo',
+    });
   });
 
   it('accepts the Nihon-shiki/Kunrei-shiki spelling where Hepburn differs', () => {
@@ -141,6 +144,29 @@ describe('kana catalog', () => {
       'nn',
       "n'",
     ]);
+  });
+
+  it.each([
+    ['tya', ['tya', 'cya']],
+    ['tyu', ['tyu', 'cyu']],
+    ['tyo', ['tyo', 'cyo']],
+    ['zya', ['zya', 'jya']],
+    ['zyu', ['zyu', 'jyu']],
+    ['zyo', ['zyo', 'jyo']],
+  ])('also accepts the common IME spellings for %s', (id, alternatives) => {
+    expect(sounds.find((sound) => sound.id === id)?.alternatives).toEqual(
+      alternatives,
+    );
+  });
+
+  it('lets an alternative match another kana’s reading only for を → o', () => {
+    const readings = new Set(sounds.map(({ romaji }) => romaji));
+    const overlaps = sounds.flatMap(({ id, alternatives = [] }) =>
+      alternatives
+        .filter((alternative) => readings.has(alternative))
+        .map((alternative) => [id, alternative]),
+    );
+    expect(overlaps).toEqual([['wo', 'o']]);
   });
 
   it('shares a reading only between distinct kana that sound alike', () => {
@@ -159,7 +185,6 @@ describe('kana catalog', () => {
       ]);
 
     expect(shared).toEqual([
-      ['o', ['お', 'を']],
       ['ji', ['じ', 'ぢ']],
       ['zu', ['ず', 'づ']],
     ]);

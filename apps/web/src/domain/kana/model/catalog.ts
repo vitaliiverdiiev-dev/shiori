@@ -167,10 +167,10 @@ export const kanaRows: readonly KanaRowDefinition[] = [
       null,
       {
         id: 'wo',
-        alternatives: ['wo'],
+        alternatives: ['o'],
         hiragana: 'を',
         katakana: 'ヲ',
-        romaji: 'o',
+        romaji: 'wo',
       },
     ],
   },
@@ -306,21 +306,21 @@ export const kanaRows: readonly KanaRowDefinition[] = [
     sounds: [
       {
         id: 'tya',
-        alternatives: ['tya'],
+        alternatives: ['tya', 'cya'],
         hiragana: 'ちゃ',
         katakana: 'チャ',
         romaji: 'cha',
       },
       {
         id: 'tyu',
-        alternatives: ['tyu'],
+        alternatives: ['tyu', 'cyu'],
         hiragana: 'ちゅ',
         katakana: 'チュ',
         romaji: 'chu',
       },
       {
         id: 'tyo',
-        alternatives: ['tyo'],
+        alternatives: ['tyo', 'cyo'],
         hiragana: 'ちょ',
         katakana: 'チョ',
         romaji: 'cho',
@@ -378,21 +378,21 @@ export const kanaRows: readonly KanaRowDefinition[] = [
     sounds: [
       {
         id: 'zya',
-        alternatives: ['zya'],
+        alternatives: ['zya', 'jya'],
         hiragana: 'じゃ',
         katakana: 'ジャ',
         romaji: 'ja',
       },
       {
         id: 'zyu',
-        alternatives: ['zyu'],
+        alternatives: ['zyu', 'jyu'],
         hiragana: 'じゅ',
         katakana: 'ジュ',
         romaji: 'ju',
       },
       {
         id: 'zyo',
-        alternatives: ['zyo'],
+        alternatives: ['zyo', 'jyo'],
         hiragana: 'じょ',
         katakana: 'ジョ',
         romaji: 'jo',

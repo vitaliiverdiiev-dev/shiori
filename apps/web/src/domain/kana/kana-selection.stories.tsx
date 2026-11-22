@@ -1,13 +1,19 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { MemoryRouter } from 'react-router';
 import { KanaSelection } from './kana-selection';
 
 const meta = {
-  args: { script: 'hiragana' },
+  args: { script: 'hiragana', userId: 'storybook' },
+  beforeEach: () => {
+    window.sessionStorage.clear();
+  },
   component: KanaSelection,
   render: (args) => (
-    <div className="max-w-2xl p-4">
-      <KanaSelection {...args} />
-    </div>
+    <MemoryRouter>
+      <div className="max-w-2xl p-4">
+        <KanaSelection {...args} />
+      </div>
+    </MemoryRouter>
   ),
   title: 'Kana/KanaSelection',
 } satisfies Meta<typeof KanaSelection>;

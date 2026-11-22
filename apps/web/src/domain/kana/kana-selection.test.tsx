@@ -1,11 +1,16 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { KanaSelection } from './kana-selection';
 
 function setup(script: 'hiragana' | 'katakana' = 'hiragana') {
   const user = userEvent.setup();
-  render(<KanaSelection script={script} />);
+  render(
+    <MemoryRouter>
+      <KanaSelection script={script} userId="alice" />
+    </MemoryRouter>,
+  );
   return { user };
 }
 

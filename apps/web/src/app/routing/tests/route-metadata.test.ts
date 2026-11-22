@@ -19,14 +19,20 @@ describe('route registry', () => {
     expect(routes.at(-1)?.path).toBe('*');
   });
 
-  it('places each access level in its own layout', () => {
+  it('places each access level in its own layouts', () => {
     for (const route of routes) {
-      const expectedLayout = {
-        guest: 'guest',
-        protected: 'app',
-        public: 'none',
+      const expectedLayouts = {
+        guest: ['guest'],
+        protected: ['app', 'focus'],
+        public: ['none'],
       }[route.access];
-      expect(route.layout).toBe(expectedLayout);
+      expect(expectedLayouts).toContain(route.layout);
+    }
+  });
+
+  it('keeps focus-layout routes out of the navigation', () => {
+    for (const route of routes.filter(({ layout }) => layout === 'focus')) {
+      expect('navigation' in route).toBe(false);
     }
   });
 });

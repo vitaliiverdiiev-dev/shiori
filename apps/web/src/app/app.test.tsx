@@ -1,4 +1,5 @@
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -33,6 +34,11 @@ const protectedRoutes = [
   ['/settings/account', 'Account'],
   ['/settings/security', 'Security'],
   ['/status', 'Status'],
+] as const;
+
+const practiceRoutes = [
+  ['/kana/hiragana/practice', 'Hiragana'],
+  ['/kana/katakana/practice', 'Katakana'],
 ] as const;
 
 const guestRoutes = [
@@ -96,9 +102,9 @@ describe('App routes', () => {
   );
 
   it('exercises every protected and guest route in the registry', () => {
-    expect(protectedRoutes.map(([path]) => path)).toEqual(
-      registryPaths('protected'),
-    );
+    expect(
+      [...protectedRoutes, ...practiceRoutes].map(([path]) => path).sort(),
+    ).toEqual(registryPaths('protected').sort());
     expect(guestRoutes.map(([path]) => path)).toEqual(registryPaths('guest'));
   });
 
@@ -509,5 +515,87 @@ describe('App routes', () => {
       'Could not sign out. Try again.',
     );
     expect(screen.getByRole('heading', { name: product.name })).toBeVisible();
+  });
+});
+
+describe('Kana practice', () => {
+  it.each(practiceRoutes)(
+    'sends a signed-in user without a round from %s to %s selection',
+    async (path, heading) => {
+      stubApi({ [SESSION]: signedIn });
+      await renderAt(path);
+
+      expect(
+        await screen.findByRole('heading', { level: 1, name: heading }),
+      ).toBeVisible();
+      expect(
+        screen.getByRole('button', { name: 'Start practice' }),
+      ).toHaveAttribute('aria-disabled', 'true');
+    },
+  );
+
+  it.each(practiceRoutes)(
+    'sends a signed-out visitor from %s to sign-in',
+    async (path) => {
+      stubApi({ [SESSION]: signedOut });
+      await renderAt(path);
+
+      expect(
+        await screen.findByRole('heading', { name: 'Sign in' }),
+      ).toBeVisible();
+    },
+  );
+
+  it('starts a round, keeps it while away and resumes it after a reload', async () => {
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/kana/hiragana');
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole('button', { name: 'か ka' }));
+    await user.click(screen.getByRole('button', { name: 'Start practice' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Hiragana practice' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(screen.getByText('Question 1 of 1')).toBeVisible();
+    await user.type(screen.getByRole('textbox'), 'ka{Enter}');
+    expect(screen.getByRole('status')).toHaveTextContent('Correct: ka');
+
+    await user.click(screen.getByRole('link', { name: 'Leave' }));
+    expect(
+      await screen.findByRole('button', { name: 'か ka' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+
+    cleanup();
+    await renderAt('/kana/hiragana/practice');
+    expect(await screen.findByText('Question 1 of 1')).toBeVisible();
+    expect(screen.getByRole('textbox')).toHaveValue('ka');
+    expect(screen.getByRole('status')).toHaveTextContent('Correct: ka');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Next' }));
+    expect(
+      screen.getByRole('heading', { name: 'Round complete' }),
+    ).toBeVisible();
+  });
+
+  it('does not show one account’s selection or round to the next', async () => {
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/kana/katakana');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'カ ka' }));
+    await user.click(screen.getByRole('button', { name: 'Start practice' }));
+    expect(await screen.findByText('Question 1 of 1')).toBeVisible();
+
+    cleanup();
+    stubApi({ [SESSION]: () => sessionResponse({ id: 'bob', name: 'Bob' }) });
+    await renderAt('/kana/katakana/practice');
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Katakana' }),
+    ).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 104 selected');
+    expect(
+      screen.queryByRole('link', { name: /Resume practice/ }),
+    ).not.toBeInTheDocument();
   });
 });

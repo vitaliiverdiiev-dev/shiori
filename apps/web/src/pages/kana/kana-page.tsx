@@ -1,3 +1,4 @@
+import { useSessionUserId } from '@/domain/auth';
 import { type KanaScript, kanaScripts, KanaSelection } from '@/domain/kana';
 
 type Props = {
@@ -6,6 +7,7 @@ type Props = {
 
 export const KanaPage = ({ script }: Props) => {
   const { label, nativeLabel } = kanaScripts[script];
+  const userId = useSessionUserId();
 
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4">
@@ -21,7 +23,7 @@ export const KanaPage = ({ script }: Props) => {
           or a whole section.
         </p>
       </header>
-      <KanaSelection key={script} script={script} />
+      <KanaSelection key={script} script={script} userId={userId} />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import {
   UserRoundIcon,
 } from 'lucide-react';
 import { authPaths } from '@/domain/auth';
+import { kanaPaths } from '@/domain/kana';
 import product from '@/product-config';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
 import { NavigationGlyph } from '../layouts/ui/navigation-glyph';
@@ -20,6 +21,9 @@ const HomePage = lazyComponent(() =>
 );
 const KanaPage = lazyComponent(() =>
   import('@/pages/kana').then((module) => module.KanaPage),
+);
+const KanaPracticePage = lazyComponent(() =>
+  import('@/pages/kana-practice').then((module) => module.KanaPracticePage),
 );
 const NotFoundPage = lazyComponent(() =>
   import('@/pages/not-found').then((module) => module.NotFoundPage),
@@ -59,6 +63,7 @@ type RouteNavigation = {
 type RouteShell =
   | { access: 'guest'; layout: 'guest' }
   | { access: 'protected'; layout: 'app'; navigation?: RouteNavigation }
+  | { access: 'protected'; layout: 'focus' }
   | { access: 'public'; layout: 'none' };
 
 // INVARIANT: Declaration order is navigation order and match precedence; the `*` route stays last.
@@ -86,7 +91,7 @@ const routeDefinitions = [
     element: <KanaPage script="hiragana" />,
     layout: 'app',
     navigation: { group: 'kana', icon: <NavigationGlyph glyph="あ" /> },
-    path: '/kana/hiragana',
+    path: kanaPaths.hiragana.selection,
     title: 'Hiragana',
   },
   {
@@ -95,8 +100,24 @@ const routeDefinitions = [
     element: <KanaPage script="katakana" />,
     layout: 'app',
     navigation: { group: 'kana', icon: <NavigationGlyph glyph="ア" /> },
-    path: '/kana/katakana',
+    path: kanaPaths.katakana.selection,
     title: 'Katakana',
+  },
+  {
+    id: 'hiraganaPractice',
+    access: 'protected',
+    element: <KanaPracticePage script="hiragana" />,
+    layout: 'focus',
+    path: kanaPaths.hiragana.practice,
+    title: 'Hiragana practice',
+  },
+  {
+    id: 'katakanaPractice',
+    access: 'protected',
+    element: <KanaPracticePage script="katakana" />,
+    layout: 'focus',
+    path: kanaPaths.katakana.practice,
+    title: 'Katakana practice',
   },
   {
     id: 'accountSettings',

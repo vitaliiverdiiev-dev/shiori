@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/shared/ui';
 import { getKanaCatalog, getKanaSections } from './helpers/catalog';
 import {
@@ -6,17 +5,18 @@ import {
   setGroupSelected,
   setRowSelection,
 } from './helpers/selection';
-import type { Kana, KanaId, KanaScript } from './model/types';
+import { useStoredSelection } from './hooks/use-stored-selection';
+import type { Kana, KanaScript } from './model/types';
 import { KanaSection } from './ui/kana-section';
+import { PracticeLauncher } from './ui/practice-launcher';
 
 type Props = {
   script: KanaScript;
+  userId: string | undefined;
 };
 
-export const KanaSelection = ({ script }: Props) => {
-  const [selection, setSelection] = useState<ReadonlySet<KanaId>>(
-    () => new Set(),
-  );
+export const KanaSelection = ({ script, userId }: Props) => {
+  const [selection, setSelection] = useStoredSelection(script, userId);
   const catalog = getKanaCatalog(script);
   const selectedCount = countSelected(selection, catalog);
   const selectGroup = (kana: readonly Kana[], selected: boolean) => {
@@ -55,6 +55,13 @@ export const KanaSelection = ({ script }: Props) => {
             Clear
           </Button>
         </div>
+        <PracticeLauncher
+          script={script}
+          selectedIds={catalog
+            .filter(({ id }) => selection.has(id))
+            .map(({ id }) => id)}
+          userId={userId}
+        />
       </div>
       {getKanaSections(script).map((section) => (
         <KanaSection

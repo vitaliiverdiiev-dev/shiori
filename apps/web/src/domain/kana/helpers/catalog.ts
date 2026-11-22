@@ -48,6 +48,16 @@ function buildSections(script: KanaScript): KanaSectionGroup[] {
   });
 }
 
+const kanaById = new Map<string, Kana>(
+  [...sectionsByScript.hiragana, ...sectionsByScript.katakana].flatMap(
+    ({ kana }) => kana.map((entry) => [entry.id, entry] as const),
+  ),
+);
+
+export function findKana(id: string): Kana | undefined {
+  return kanaById.get(id);
+}
+
 export function getKanaCatalog(script: KanaScript): readonly Kana[] {
   return getKanaSections(script).flatMap(({ kana }) => kana);
 }

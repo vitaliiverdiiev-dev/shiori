@@ -1,5 +1,6 @@
 export { AuthRoute } from './auth-route';
 export { subscribeToSessionUser } from './helpers/session-user';
+export { useSessionUserId } from './hooks/use-session-user-id';
 export { authPaths } from './model/consts';
 export { AccountControls } from './ui/account-controls';
 export { AccountForm } from './ui/account-form';

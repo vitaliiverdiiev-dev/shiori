@@ -5,6 +5,7 @@ import { AuthRoute } from '@/domain/auth';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
 import { LoadingScreen } from '@/shared/ui';
 import { AppLogo } from '../branding/app-logo';
+import { FocusLayout } from '../layouts/focus-layout';
 import { GuestLayout } from '../layouts/guest-layout';
 import { RouteBoundary } from './route-boundary';
 import { type RouteLayout, routes } from './routes';
@@ -59,6 +60,7 @@ export const AppRoutes = () => (
         }
       >
         <Route element={<AppLayout />}>{pageRoutes('app')}</Route>
+        <Route element={<FocusLayout />}>{pageRoutes('focus')}</Route>
       </Route>
       <Route
         element={

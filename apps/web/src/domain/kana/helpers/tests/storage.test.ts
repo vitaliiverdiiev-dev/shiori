@@ -1,0 +1,149 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { KanaPracticeSession } from '../../model/types';
+import { getKanaCatalog } from '../catalog';
+import { createSession } from '../session';
+import { readKanaState, writeKanaState } from '../storage';
+
+const KEY = 'shiori:kana:hiragana';
+const session: KanaPracticeSession = {
+  attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
+  input: '',
+  order: ['hiragana:a', 'hiragana:ka'],
+  position: 1,
+  selection: ['hiragana:a', 'hiragana:ka'],
+};
+
+function storeRaw(value: unknown) {
+  window.sessionStorage.setItem(KEY, JSON.stringify(value));
+}
+
+const record = (overrides: Record<string, unknown> = {}) => ({
+  selection: ['hiragana:a', 'hiragana:ka'],
+  session,
+  userId: 'alice',
+  version: 1,
+  ...overrides,
+});
+
+describe('kana state storage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('round-trips the selection and the session for the same user', () => {
+    writeKanaState('hiragana', 'alice', {
+      selection: ['hiragana:ka'],
+      session,
+    });
+    writeKanaState('hiragana', 'alice', { selection: ['hiragana:a'] });
+
+    expect(readKanaState('hiragana', 'alice')).toEqual({
+      selection: ['hiragana:a'],
+      session,
+    });
+    expect(readKanaState('katakana', 'alice').session).toBeNull();
+  });
+
+  it('ignores another user’s data and replaces it on the next write', () => {
+    writeKanaState('hiragana', 'alice', { selection: ['hiragana:a'], session });
+
+    expect(readKanaState('hiragana', 'bob')).toEqual({
+      selection: [],
+      session: null,
+    });
+    writeKanaState('hiragana', 'bob', { selection: ['hiragana:ka'] });
+    expect(readKanaState('hiragana', 'alice').selection).toEqual([]);
+  });
+
+  it('stores nothing without a signed-in user', () => {
+    writeKanaState('hiragana', undefined, { selection: ['hiragana:a'] });
+    expect(window.sessionStorage.getItem(KEY)).toBeNull();
+    expect(readKanaState('hiragana', undefined).selection).toEqual([]);
+  });
+
+  it.each([
+    ['malformed JSON', '{'],
+    ['an unknown version', JSON.stringify(record({ version: 2 }))],
+    ['a wrong shape', JSON.stringify(record({ selection: 'hiragana:a' }))],
+  ])('starts empty after %s', (_, raw) => {
+    window.sessionStorage.setItem(KEY, raw);
+    expect(readKanaState('hiragana', 'alice')).toEqual({
+      selection: [],
+      session: null,
+    });
+  });
+
+  it('drops selected ids that are not in the catalog of the script', () => {
+    storeRaw(
+      record({
+        selection: ['hiragana:a', 'katakana:a', 'hiragana:wi', 'hiragana:a'],
+      }),
+    );
+    expect(readKanaState('hiragana', 'alice').selection).toEqual([
+      'hiragana:a',
+      'hiragana:a',
+    ]);
+  });
+
+  it.each([
+    [
+      'an unknown kana id',
+      { ...session, order: ['hiragana:a', 'hiragana:wi'] },
+    ],
+    [
+      'a duplicated question',
+      { ...session, order: ['hiragana:a', 'hiragana:a'] },
+    ],
+    [
+      'a question outside the selection',
+      { ...session, selection: ['hiragana:a'] },
+    ],
+    ['an empty round', { ...session, attempts: [], order: [], position: 0 }],
+    ['a position past the end', { ...session, position: 3 }],
+    ['missing attempts', { ...session, attempts: [] }],
+    [
+      'an attempt for another question',
+      {
+        ...session,
+        attempts: [{ answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' }],
+      },
+    ],
+    [
+      'a skip waiting for Next',
+      {
+        ...session,
+        attempts: [{ answer: '', kanaId: 'hiragana:a', outcome: 'skipped' }],
+        position: 0,
+      },
+    ],
+  ])('discards a session with %s but keeps the selection', (_, stored) => {
+    storeRaw(record({ session: stored }));
+    expect(readKanaState('hiragana', 'alice')).toEqual({
+      selection: ['hiragana:a', 'hiragana:ka'],
+      session: null,
+    });
+  });
+
+  it('restores a complete catalog round mid-way', () => {
+    const round = {
+      ...createSession(getKanaCatalog('hiragana').map(({ id }) => id)),
+      input: 'ts',
+    };
+    writeKanaState('hiragana', 'alice', { session: round });
+    expect(readKanaState('hiragana', 'alice').session).toEqual(round);
+  });
+
+  it('fails safely when storage is unavailable', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+
+    expect(() => {
+      writeKanaState('hiragana', 'alice', { session });
+    }).not.toThrow();
+    expect(readKanaState('hiragana', 'alice').session).toBeNull();
+  });
+});

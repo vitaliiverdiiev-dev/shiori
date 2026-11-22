@@ -1,11 +1,24 @@
+import type { LucideIcon } from 'lucide-react';
 import { matchPath } from 'react-router';
 import product from '@/product-config';
-import { type RouteDefinition, routes } from './routes';
+import { type NavigationGroup, type RouteDefinition, routes } from './routes';
 
 export type NavigationItem = {
   end: boolean;
+  icon: LucideIcon;
   label: string;
   path: string;
+};
+
+export type NavigationSection = {
+  group: NavigationGroup;
+  items: NavigationItem[];
+  label: string | undefined;
+};
+
+const navigationGroupLabels: Record<NavigationGroup, string | undefined> = {
+  main: undefined,
+  settings: 'Settings',
 };
 
 export function findRoute(pathname: string): RouteDefinition | undefined {
@@ -18,12 +31,26 @@ export function getDocumentTitle(pathname: string): string {
   return route.documentTitle ?? `${route.title} — ${product.name}`;
 }
 
-export function getMainNavigation(): NavigationItem[] {
-  return routes
-    .filter((route) => 'inMainNavigation' in route && route.inMainNavigation)
-    .map(({ path, title }) => ({
-      end: path === '/',
-      label: title,
-      path,
-    }));
+export function getNavigation(): NavigationSection[] {
+  const sections = new Map<NavigationGroup, NavigationItem[]>();
+  for (const route of routes) {
+    if (!('navigation' in route)) continue;
+    const { group, icon } = route.navigation;
+    sections.set(group, [
+      ...(sections.get(group) ?? []),
+      { end: route.path === '/', icon, label: route.title, path: route.path },
+    ]);
+  }
+  return Array.from(sections, ([group, items]) => ({
+    group,
+    items,
+    label: navigationGroupLabels[group],
+  }));
+}
+
+export function isNavigationItemActive(
+  { end, path }: NavigationItem,
+  pathname: string,
+): boolean {
+  return matchPath({ end, path }, pathname) !== null;
 }

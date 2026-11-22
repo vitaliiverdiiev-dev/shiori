@@ -1,4 +1,11 @@
 import type { ReactNode } from 'react';
+import {
+  ActivityIcon,
+  HouseIcon,
+  type LucideIcon,
+  ShieldIcon,
+  UserRoundIcon,
+} from 'lucide-react';
 import { authPaths } from '@/domain/auth';
 import product from '@/product-config';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
@@ -29,6 +36,8 @@ const StatusPage = lazyComponent(() =>
   import('@/pages/status').then((module) => module.StatusPage),
 );
 
+export type NavigationGroup = 'main' | 'settings';
+
 export type RouteDefinition = RouteShell & {
   id: string;
   documentTitle?: string;
@@ -39,9 +48,14 @@ export type RouteDefinition = RouteShell & {
 
 export type RouteLayout = RouteDefinition['layout'];
 
+type RouteNavigation = {
+  group: NavigationGroup;
+  icon: LucideIcon;
+};
+
 type RouteShell =
   | { access: 'guest'; layout: 'guest' }
-  | { access: 'protected'; inMainNavigation?: boolean; layout: 'app' }
+  | { access: 'protected'; layout: 'app'; navigation?: RouteNavigation }
   | { access: 'public'; layout: 'none' };
 
 // INVARIANT: Declaration order is navigation order and match precedence; the `*` route stays last.
@@ -58,8 +72,8 @@ const routeDefinitions = [
         tagline={product.tagline}
       />
     ),
-    inMainNavigation: true,
     layout: 'app',
+    navigation: { group: 'main', icon: HouseIcon },
     path: authPaths.home,
     title: 'Home',
   },
@@ -67,8 +81,8 @@ const routeDefinitions = [
     id: 'status',
     access: 'protected',
     element: <StatusPage />,
-    inMainNavigation: true,
     layout: 'app',
+    navigation: { group: 'main', icon: ActivityIcon },
     path: '/status',
     title: 'Status',
   },
@@ -76,8 +90,8 @@ const routeDefinitions = [
     id: 'accountSettings',
     access: 'protected',
     element: <AccountSettingsPage />,
-    inMainNavigation: true,
     layout: 'app',
+    navigation: { group: 'settings', icon: UserRoundIcon },
     path: '/settings/account',
     title: 'Account',
   },
@@ -85,8 +99,8 @@ const routeDefinitions = [
     id: 'securitySettings',
     access: 'protected',
     element: <SecuritySettingsPage />,
-    inMainNavigation: true,
     layout: 'app',
+    navigation: { group: 'settings', icon: ShieldIcon },
     path: '/settings/security',
     title: 'Security',
   },

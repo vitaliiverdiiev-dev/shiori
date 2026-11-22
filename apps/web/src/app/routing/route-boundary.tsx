@@ -5,28 +5,23 @@ import { ErrorFallback } from '@/shared/ui';
 
 type Props = {
   children: ReactNode;
-  fallbackClassName: string;
 };
 
-export const RouteBoundary = ({ children, fallbackClassName }: Props) => {
+export const RouteBoundary = ({ children }: Props) => {
   const { pathname } = useLocation();
 
   return (
     <ErrorBoundary
       fallbackRender={({ error, resetErrorBoundary }) => (
-        <main className={fallbackClassName}>
-          <ErrorFallback error={error} onRetry={resetErrorBoundary} />
-        </main>
+        <ErrorFallback error={error} onRetry={resetErrorBoundary} />
       )}
       resetKeys={[pathname]}
     >
       <Suspense
         fallback={
-          <main aria-busy="true" className={fallbackClassName}>
-            <p className="text-muted-foreground" role="status">
-              Loading…
-            </p>
-          </main>
+          <p aria-busy="true" className="text-muted-foreground" role="status">
+            Loading…
+          </p>
         }
       >
         {children}

@@ -1,52 +1,32 @@
-import { Link, NavLink, Outlet } from 'react-router';
-import { AccountMenu, authPaths } from '@/domain/auth';
-import { cn } from '@/shared/helpers/cn';
+import { Link, Outlet } from 'react-router';
+import { authPaths } from '@/domain/auth';
 import { ThemeControl } from '@/shared/theme';
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/shared/ui';
 import { AppLogo } from '../branding/app-logo';
 import { RouteBoundary } from '../routing/route-boundary';
-import { getMainNavigation } from '../routing/route-metadata';
+import { AppSidebar } from './ui/app-sidebar';
 
-export const AppLayout = () => {
-  const mainNavigation = getMainNavigation();
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
-    cn(
-      'flex min-h-11 items-center rounded-md px-3 text-sm font-medium whitespace-nowrap text-muted-foreground hover:text-foreground',
-      isActive && 'bg-muted text-foreground',
-    );
-
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b pt-[env(safe-area-inset-top)]">
-        <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-3 px-5 py-2">
-          <Link
-            className="flex min-h-11 shrink-0 items-center"
-            to={authPaths.home}
-          >
-            <AppLogo size="sm" />
-          </Link>
-          <div className="flex min-w-0 items-center gap-1">
-            <ThemeControl />
-            <AccountMenu />
-          </div>
-        </div>
-        <nav
-          aria-label="Main"
-          className="mx-auto w-full max-w-lg overflow-x-auto px-3 pb-2"
+export const AppLayout = () => (
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset className="min-w-0 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
+      <header className="box-content flex h-14 items-center gap-2 border-b px-3 pt-[env(safe-area-inset-top)] sm:px-4">
+        <SidebarTrigger size="icon" />
+        <Link
+          className="flex min-h-11 items-center rounded-md md:hidden"
+          to={authPaths.home}
         >
-          <ul className="flex gap-1">
-            {mainNavigation.map(({ end, label, path }) => (
-              <li key={path}>
-                <NavLink className={linkClass} end={end} to={path}>
-                  {label}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
-        </nav>
+          <AppLogo size="sm" />
+        </Link>
+        <div className="ml-auto">
+          <ThemeControl />
+        </div>
       </header>
-      <RouteBoundary fallbackClassName="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-8">
-        <Outlet />
-      </RouteBoundary>
-    </div>
-  );
-};
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8 md:pt-8">
+        <RouteBoundary>
+          <Outlet />
+        </RouteBoundary>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
+);

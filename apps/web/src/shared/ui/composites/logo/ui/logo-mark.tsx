@@ -15,6 +15,6 @@ export const LogoMark = ({ className, glyph, label, size }: Props) => (
     className={cn(logoMarkVariants({ size }), className)}
     role={label === undefined ? undefined : 'img'}
   >
-    {glyph}
+    <span lang="ja">{glyph}</span>
   </span>
 );

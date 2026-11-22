@@ -58,7 +58,7 @@ export function renderStartupHtml(
   ].join('\n    ');
   const shell = [
     '<div class="startup-shell">',
-    `<span class="startup-shell__mark" role="img" aria-label="${name}">${escapeHtml(product.logoGlyph)}</span>`,
+    `<span class="startup-shell__mark" role="img" aria-label="${name}"><span lang="ja">${escapeHtml(product.logoGlyph)}</span></span>`,
     '<p class="startup-shell__status" id="startup-loading" role="status">Loading…</p>',
     `<p class="startup-shell__status" id="startup-error" role="alert" hidden>${name} couldn’t start. Check your connection, then <a href="">reload the page</a>.</p>`,
     `<noscript><p class="startup-shell__status">${name} needs JavaScript to run.</p></noscript>`,

@@ -3,7 +3,8 @@ import product from '@/product-config';
 import {
   findRoute,
   getDocumentTitle,
-  getMainNavigation,
+  getNavigation,
+  isNavigationItemActive,
 } from '../route-metadata';
 import { routes } from '../routes';
 
@@ -30,34 +31,50 @@ describe('route registry', () => {
   });
 });
 
-describe('getMainNavigation', () => {
-  it('lists the protected routes marked for main navigation, in registry order', () => {
-    const marked = routes.filter(
-      (route) => 'inMainNavigation' in route && route.inMainNavigation,
-    );
+describe('getNavigation', () => {
+  it('groups the protected routes that declare navigation, in registry order', () => {
+    const navigable = routes.filter((route) => 'navigation' in route);
 
-    expect(getMainNavigation()).toEqual(
-      marked.map(({ path, title }) => ({
-        end: path === '/',
-        label: title,
-        path,
-      })),
-    );
-    expect(marked.every(({ access }) => access === 'protected')).toBe(true);
-    expect(getMainNavigation().map(({ label }) => label)).toEqual([
-      'Home',
-      'Status',
-      'Account',
-      'Security',
+    expect(navigable.every(({ access }) => access === 'protected')).toBe(true);
+    expect(
+      getNavigation().map(({ items, label }) => [
+        label,
+        items.map((item) => item.label),
+      ]),
+    ).toEqual([
+      [undefined, ['Home', 'Status']],
+      ['Settings', ['Account', 'Security']],
     ]);
+    expect(
+      getNavigation().flatMap(({ items }) => items.map(({ path }) => path)),
+    ).toEqual(navigable.map(({ path }) => path));
   });
 
   it('matches only the home link exactly', () => {
     expect(
-      getMainNavigation()
+      getNavigation()
+        .flatMap(({ items }) => items)
         .filter(({ end }) => end)
         .map(({ path }) => path),
     ).toEqual(['/']);
+  });
+});
+
+describe('isNavigationItemActive', () => {
+  const items = getNavigation().flatMap((section) => section.items);
+  const activeAt = (pathname: string) =>
+    items
+      .filter((item) => isNavigationItemActive(item, pathname))
+      .map(({ label }) => label);
+
+  it.each([
+    ['/', ['Home']],
+    ['/status', ['Status']],
+    ['/settings/security/', ['Security']],
+    ['/settings', []],
+    ['/no-such-page', []],
+  ])('marks %s as %j', (pathname, labels) => {
+    expect(activeAt(pathname)).toEqual(labels);
   });
 });
 

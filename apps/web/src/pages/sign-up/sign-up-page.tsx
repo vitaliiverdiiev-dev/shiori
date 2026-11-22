@@ -2,7 +2,7 @@ import { Link } from 'react-router';
 import { authPaths, Registration } from '@/domain/auth';
 
 export const SignUpPage = () => (
-  <main className="flex flex-col gap-8">
+  <div className="flex flex-col gap-8">
     <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
     <Registration />
     <p className="flex flex-wrap items-center gap-x-1 text-sm text-muted-foreground">
@@ -14,5 +14,5 @@ export const SignUpPage = () => (
         Sign in
       </Link>
     </p>
-  </main>
+  </div>
 );

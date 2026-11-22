@@ -18,6 +18,7 @@ describe('Logo', () => {
     render(<Logo glyph="栞" name="Shiori" variant="symbol" />);
 
     expect(screen.getByRole('img', { name: 'Shiori' })).toHaveTextContent('栞');
+    expect(screen.getByText('栞')).toHaveAttribute('lang', 'ja');
   });
 
   it('hides a decorative symbol from assistive technology', () => {
@@ -29,7 +30,9 @@ describe('Logo', () => {
     );
 
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(screen.getByText('栞')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('栞').closest('[aria-hidden="true"]')).not.toBe(
+      null,
+    );
   });
 
   it('scales with the size option', () => {
@@ -44,10 +47,10 @@ describe('Logo', () => {
 
   it('defaults to the medium size and sizes the lockup mark with it', () => {
     const { rerender } = render(<Logo glyph="栞" name="Shiori" />);
-    expect(screen.getByText('栞')).toHaveClass('size-11');
+    expect(screen.getByText('栞').parentElement).toHaveClass('size-11');
 
     rerender(<Logo glyph="栞" name="Shiori" size="xl" />);
-    expect(screen.getByText('栞')).toHaveClass('size-28');
+    expect(screen.getByText('栞').parentElement).toHaveClass('size-28');
     expect(screen.getByText('Shiori')).toHaveClass('text-4xl');
   });
 });

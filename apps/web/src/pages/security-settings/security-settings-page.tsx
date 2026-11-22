@@ -1,7 +1,7 @@
 import { ChangePasswordForm, RevokeOtherSessions } from '@/domain/auth';
 
 export const SecuritySettingsPage = () => (
-  <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-10 px-5 py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+  <div className="flex w-full max-w-lg flex-col gap-10">
     <h1 className="text-2xl font-semibold tracking-tight">Security</h1>
     <section aria-labelledby="change-password" className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
@@ -29,5 +29,5 @@ export const SecuritySettingsPage = () => (
       </div>
       <RevokeOtherSessions />
     </section>
-  </main>
+  </div>
 );

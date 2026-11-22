@@ -1,10 +1,10 @@
 import { type ReactNode, useState } from 'react';
 import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router';
+import { LoadingScreen } from '@/shared/ui';
 import { getSafeRedirect, getSignInPath } from './helpers/redirect';
 import { useSessionStatus } from './hooks/use-session-status';
 import { REDIRECT_PARAM, SIGNED_OUT_STATE } from './model/consts';
 import type { RouteAccess } from './model/types';
-import { SessionChecking } from './ui/session-checking';
 import { SessionUnavailable } from './ui/session-unavailable';
 
 type Props = {
@@ -22,7 +22,9 @@ export const AuthRoute = ({ access, brand, unavailableDetails }: Props) => {
     setWasAuthenticated(true);
   }
 
-  if (state === 'checking') return <SessionChecking brand={brand} />;
+  if (state === 'checking') {
+    return <LoadingScreen brand={brand} label="Checking your session…" />;
+  }
   if (state === 'unavailable')
     return <SessionUnavailable details={unavailableDetails} onRetry={retry} />;
 

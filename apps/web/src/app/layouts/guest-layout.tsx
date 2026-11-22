@@ -9,8 +9,10 @@ export const GuestLayout = () => (
       <AppLogo size="md" />
       <ThemeControl />
     </header>
-    <RouteBoundary fallbackClassName="flex flex-col gap-4">
-      <Outlet />
-    </RouteBoundary>
+    <main>
+      <RouteBoundary>
+        <Outlet />
+      </RouteBoundary>
+    </main>
   </div>
 );

@@ -1,8 +1,8 @@
 export { AuthRoute } from './auth-route';
 export { subscribeToSessionUser } from './helpers/session-user';
 export { authPaths } from './model/consts';
+export { AccountControls } from './ui/account-controls';
 export { AccountForm } from './ui/account-form';
-export { AccountMenu } from './ui/account-menu';
 export { ChangePasswordForm } from './ui/change-password-form';
 export { Registration } from './ui/registration';
 export { RevokeOtherSessions } from './ui/revoke-other-sessions';

@@ -15,7 +15,7 @@ function renderAt(path: string, routes: Record<string, ComponentType>) {
       <Routes>
         <Route
           element={
-            <RouteBoundary fallbackClassName="fallback">
+            <RouteBoundary>
               <Outlet />
             </RouteBoundary>
           }
@@ -51,7 +51,7 @@ describe('RouteBoundary', () => {
     renderAt('/lazy', { '/lazy': LazyPage });
 
     expect(screen.getByRole('status')).toHaveTextContent('Loading…');
-    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
 
     finishLoading(() => <h1>Loaded page</h1>);
 

@@ -8,10 +8,9 @@ type Props = {
 };
 
 export const HomePage = ({ logoGlyph, name, nameJa, tagline }: Props) => (
-  <main className="mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-12 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:justify-center">
+  <div className="mx-auto flex w-full max-w-lg flex-1 flex-col py-6 sm:justify-center">
     <header className="flex flex-col items-center text-center">
       <Logo
-        className="shadow-sm"
         decorative
         glyph={logoGlyph}
         name={name}
@@ -29,5 +28,5 @@ export const HomePage = ({ logoGlyph, name, nameJa, tagline }: Props) => (
       Learn hiragana, katakana, kanji and vocabulary together - every word
       linked to its readings, meanings and the kanji inside it.
     </p>
-  </main>
+  </div>
 );

@@ -1,11 +1,17 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import product from '@/product-config';
 import { sessionResponse, stubApi } from '@/test/api-stub';
 import { registrationMode, server } from '@/test/msw';
-import { getMainNavigation } from './routing/route-metadata';
+import { getNavigation } from './routing/route-metadata';
 import { routes } from './routing/routes';
 
 const SESSION = '/api/auth/get-session';
@@ -31,6 +37,8 @@ const guestRoutes = [
   ['/sign-in', 'Sign in'],
   ['/sign-up', 'Create account'],
 ] as const;
+
+const navigationItems = () => getNavigation().flatMap(({ items }) => items);
 
 const registryPaths = (access: string) =>
   routes.filter((route) => route.access === access).map(({ path }) => path);
@@ -58,12 +66,15 @@ describe('App routes', () => {
       stubApi({ [SESSION]: signedIn });
       await renderAt(path);
 
-      expect(
-        await screen.findByRole('heading', { level: 1, name: heading }),
-      ).toBeVisible();
+      const title = await screen.findByRole('heading', {
+        level: 1,
+        name: heading,
+      });
+      expect(title).toBeVisible();
+      expect(screen.getByRole('main')).toContainElement(title);
       const nav = screen.getByRole('navigation', { name: 'Main' });
       expect(within(nav).getAllByRole('link')).toHaveLength(
-        getMainNavigation().length,
+        navigationItems().length,
       );
       expect(screen.getByText(alice.name)).toBeVisible();
     },
@@ -95,9 +106,12 @@ describe('App routes', () => {
       stubApi({ [SESSION]: signedOut });
       await renderAt(path);
 
+      const title = await screen.findByRole('heading', { name: heading });
+      expect(title).toBeVisible();
+      expect(screen.getByRole('main')).toContainElement(title);
       expect(
-        await screen.findByRole('heading', { name: heading }),
-      ).toBeVisible();
+        screen.queryByRole('navigation', { name: 'Main' }),
+      ).not.toBeInTheDocument();
     },
   );
 
@@ -240,18 +254,113 @@ describe('App routes', () => {
       within(nav)
         .getAllByRole('link')
         .map((link) => [link.textContent, link.getAttribute('href')]),
-    ).toEqual(getMainNavigation().map(({ label, path }) => [label, path]));
+    ).toEqual(navigationItems().map(({ label, path }) => [label, path]));
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
 
     await user.click(within(nav).getByRole('link', { name: 'Security' }));
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Security' }),
     ).toBeVisible();
-    expect(within(nav).getByRole('link', { name: 'Security' })).toHaveAttribute(
+    expect(
+      within(nav)
+        .getAllByRole('link')
+        .filter((link) => link.getAttribute('aria-current') === 'page')
+        .map((link) => link.textContent),
+    ).toEqual(['Security']);
+    expect(document.title).toBe(`Security — ${product.name}`);
+  });
+
+  it('opens the mobile navigation, follows a link and closes it', async () => {
+    vi.stubGlobal('innerWidth', 390);
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/');
+    const user = userEvent.setup();
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: product.name }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole('navigation', { name: 'Main' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Toggle Sidebar' }));
+    const menu = await screen.findByRole('dialog');
+    const nav = within(menu).getByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(document.title).toBe(`Security — ${product.name}`);
+    expect(
+      within(menu).getByRole('button', { name: 'Sign out' }),
+    ).toBeVisible();
+
+    await user.click(within(nav).getByRole('link', { name: 'Status' }));
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Status' }),
+    ).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes the mobile navigation with Escape and returns focus to its trigger', async () => {
+    vi.stubGlobal('innerWidth', 390);
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/');
+    const user = userEvent.setup();
+
+    const trigger = await screen.findByRole('button', {
+      name: 'Toggle Sidebar',
+    });
+    await user.click(trigger);
+    expect(await screen.findByRole('dialog')).toBeVisible();
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+    expect(trigger).toHaveFocus();
+  });
+
+  it('keeps a branded loading screen while the signed-in shell downloads', async () => {
+    vi.doMock('./layouts/app-layout', () => new Promise(() => undefined));
+    try {
+      stubApi({ [SESSION]: signedIn });
+      await renderAt('/');
+
+      expect(await screen.findByText('Loading…')).toBeVisible();
+      expect(screen.getByRole('img', { name: product.name })).toBeVisible();
+      expect(
+        screen.queryByRole('navigation', { name: 'Main' }),
+      ).not.toBeInTheDocument();
+    } finally {
+      vi.doUnmock('./layouts/app-layout');
+    }
+  });
+
+  it('offers a reload when the signed-in shell cannot download', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.doMock('./layouts/app-layout', () => {
+      throw new Error('Failed to fetch dynamically imported module');
+    });
+    try {
+      stubApi({ [SESSION]: signedIn });
+      await renderAt('/');
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'This page couldn’t load',
+      );
+      expect(screen.getByRole('button', { name: 'Reload page' })).toBeVisible();
+    } finally {
+      vi.doUnmock('./layouts/app-layout');
+      vi.restoreAllMocks();
+    }
   });
 
   it('moves between the guest pages', async () => {
@@ -385,7 +494,8 @@ describe('App routes', () => {
       [SESSION]: signedIn,
     });
     await renderAt('/');
-    fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByText('alice@example.test')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not sign out. Try again.',

@@ -3,12 +3,15 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Outlet, Route, Routes } from 'react-router';
 import { AuthRoute } from '@/domain/auth';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
+import { LoadingScreen } from '@/shared/ui';
 import { AppLogo } from '../branding/app-logo';
-import { AppLayout } from '../layouts/app-layout';
 import { GuestLayout } from '../layouts/guest-layout';
 import { RouteBoundary } from './route-boundary';
 import { type RouteLayout, routes } from './routes';
 
+const AppLayout = lazyComponent(() =>
+  import('../layouts/app-layout').then((module) => module.AppLayout),
+);
 const HealthStatus = lazyComponent(() =>
   import('@/domain/health').then((module) => module.HealthStatus),
 );
@@ -44,37 +47,41 @@ function pageRoutes(layout: RouteLayout) {
 }
 
 export const AppRoutes = () => (
-  <Routes>
-    <Route
-      element={
-        <AuthRoute
-          access="protected"
-          brand={sessionBrand}
-          unavailableDetails={serverStatus}
-        />
-      }
-    >
-      <Route element={<AppLayout />}>{pageRoutes('app')}</Route>
-    </Route>
-    <Route
-      element={
-        <AuthRoute
-          access="guest"
-          brand={sessionBrand}
-          unavailableDetails={serverStatus}
-        />
-      }
-    >
-      <Route element={<GuestLayout />}>{pageRoutes('guest')}</Route>
-    </Route>
-    <Route
-      element={
-        <RouteBoundary fallbackClassName="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-3 px-5">
-          <Outlet />
-        </RouteBoundary>
-      }
-    >
-      {pageRoutes('none')}
-    </Route>
-  </Routes>
+  <Suspense fallback={<LoadingScreen brand={sessionBrand} label="Loading…" />}>
+    <Routes>
+      <Route
+        element={
+          <AuthRoute
+            access="protected"
+            brand={sessionBrand}
+            unavailableDetails={serverStatus}
+          />
+        }
+      >
+        <Route element={<AppLayout />}>{pageRoutes('app')}</Route>
+      </Route>
+      <Route
+        element={
+          <AuthRoute
+            access="guest"
+            brand={sessionBrand}
+            unavailableDetails={serverStatus}
+          />
+        }
+      >
+        <Route element={<GuestLayout />}>{pageRoutes('guest')}</Route>
+      </Route>
+      <Route
+        element={
+          <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-8">
+            <RouteBoundary>
+              <Outlet />
+            </RouteBoundary>
+          </main>
+        }
+      >
+        {pageRoutes('none')}
+      </Route>
+    </Routes>
+  </Suspense>
 );

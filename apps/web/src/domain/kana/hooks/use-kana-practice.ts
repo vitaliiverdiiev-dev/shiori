@@ -1,6 +1,7 @@
 import { useEffect, useReducer } from 'react';
-import { practiceReducer } from '../helpers/session';
+import { isAwaitingAdvance, practiceReducer } from '../helpers/session';
 import { readKanaState, writeKanaState } from '../helpers/storage';
+import { CORRECT_ADVANCE_DELAY_MS } from '../model/consts';
 import type { KanaScript } from '../model/types';
 
 export function useKanaPractice(
@@ -12,10 +13,21 @@ export function useKanaPractice(
     null,
     () => readKanaState(script, userId).session,
   );
+  const awaitingAdvance = session !== null && isAwaitingAdvance(session);
 
   useEffect(() => {
     if (session) writeKanaState(script, userId, { session });
   }, [script, session, userId]);
 
-  return { dispatch, session };
+  useEffect(() => {
+    if (!awaitingAdvance) return;
+    const timer = window.setTimeout(() => {
+      dispatch({ from: session, type: 'next' });
+    }, CORRECT_ADVANCE_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [awaitingAdvance, session]);
+
+  return { awaitingAdvance, dispatch, session };
 }

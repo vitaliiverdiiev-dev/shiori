@@ -5,6 +5,7 @@ const storedSessionSchema = z.object({
   attempts: z.array(
     z.object({
       answer: z.string(),
+      corrected: z.optional(z.boolean()),
       kanaId: z.string(),
       outcome: z.enum(['correct', 'incorrect', 'skipped']),
     }),

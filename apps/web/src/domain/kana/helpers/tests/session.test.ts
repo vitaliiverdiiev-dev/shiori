@@ -5,6 +5,8 @@ import {
   createRetrySession,
   createSession,
   getPracticePhase,
+  isAwaitingAdvance,
+  isAwaitingCorrection,
   practiceReducer,
   shuffle,
   summarizeSession,
@@ -83,6 +85,38 @@ describe('practiceReducer', () => {
     expect(session.attempts.at(-1)?.outcome).toBe('incorrect');
   });
 
+  it('keeps asking after a wrong answer until the reading is typed correctly', () => {
+    const wrong = required(answer(createSession(ids, inOrder), 'i'));
+    expect(isAwaitingCorrection(wrong)).toBe(true);
+    expect(practiceReducer(wrong, { type: 'next' })).toBe(wrong);
+    expect(practiceReducer(wrong, { type: 'skip' })).toBe(wrong);
+
+    const stillWrong = required(answer(wrong, 'u'));
+    expect(stillWrong.attempts).toEqual(wrong.attempts);
+    expect(isAwaitingCorrection(stillWrong)).toBe(true);
+    expect(answer(stillWrong, '  ')).toEqual({ ...stillWrong, input: '  ' });
+
+    const corrected = required(answer(stillWrong, ' A '));
+    expect(corrected.attempts).toEqual([
+      {
+        answer: 'i',
+        corrected: true,
+        kanaId: 'hiragana:a',
+        outcome: 'incorrect',
+      },
+    ]);
+    expect(isAwaitingAdvance(corrected)).toBe(true);
+    expect(practiceReducer(corrected, { type: 'input', value: 'x' })).toBe(
+      corrected,
+    );
+    expect(practiceReducer(corrected, { type: 'submit' })).toBe(corrected);
+
+    const next = required(practiceReducer(corrected, { type: 'next' }));
+    expect(next.position).toBe(1);
+    expect(next.input).toBe('');
+    expect(summarizeSession(next).incorrect).toBe(1);
+  });
+
   it('ignores an empty answer and a second submit', () => {
     const start = createSession(ids, inOrder);
     expect(answer(start, '   ')).toEqual({ ...start, input: '   ' });
@@ -117,7 +151,9 @@ describe('practiceReducer', () => {
     session = required(practiceReducer(answer(session, 'a'), { type: 'next' }));
     session = required(practiceReducer(session, { type: 'skip' }));
     session = required(
-      practiceReducer(answer(session, 'su'), { type: 'next' }),
+      practiceReducer(answer(required(answer(session, 'su')), 'shi'), {
+        type: 'next',
+      }),
     );
 
     expect(getPracticePhase(session)).toBe('complete');
@@ -157,5 +193,19 @@ describe('next rounds', () => {
     const restart = createSession(finished.selection, () => 0);
     expect([...restart.order].sort()).toEqual([...ids].sort());
     expect(restart.order).not.toEqual(ids);
+  });
+});
+
+describe('scheduled advance', () => {
+  it('only advances the session it was scheduled for', () => {
+    const scheduled = required(answer(createSession(ids, inOrder), 'a'));
+    const other = required(answer(createSession(ids, inOrder), 'a'));
+
+    expect(practiceReducer(other, { from: scheduled, type: 'next' })).toBe(
+      other,
+    );
+    expect(
+      practiceReducer(scheduled, { from: scheduled, type: 'next' })?.position,
+    ).toBe(1);
   });
 });

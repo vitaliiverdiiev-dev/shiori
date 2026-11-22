@@ -2,11 +2,13 @@ import { useId, useRef, useState } from 'react';
 import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
 import { Link, Navigate } from 'react-router';
 import { Button, buttonVariants, Input } from '@/shared/ui';
+import { isAcceptedReading } from '../helpers/answer';
 import { findKana } from '../helpers/catalog';
 import {
   createRetrySession,
   createSession,
   getPracticePhase,
+  isAwaitingCorrection,
 } from '../helpers/session';
 import { useKanaPractice } from '../hooks/use-kana-practice';
 import { kanaScripts } from '../model/catalog';
@@ -20,10 +22,17 @@ type Props = {
 };
 
 export const KanaPractice = ({ script, userId }: Props) => {
-  const { dispatch, session } = useKanaPractice(script, userId);
+  const { awaitingAdvance, dispatch, session } = useKanaPractice(
+    script,
+    userId,
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   const [emptyAnswer, setEmptyAnswer] = useState(false);
+  const [lastWrong, setLastWrong] = useState<{
+    answer: string;
+    position: number;
+  } | null>(null);
   const [focusInputOnMount, setFocusInputOnMount] = useState(
     () => window.matchMedia('(pointer: fine)').matches,
   );
@@ -75,6 +84,11 @@ export const KanaPractice = ({ script, userId }: Props) => {
   const kana = findKana(session.order[session.position] ?? '');
   const attempt =
     phase === 'feedback' ? session.attempts[session.position] : undefined;
+  const correcting = isAwaitingCorrection(session);
+  const wrongAnswer =
+    lastWrong?.position === session.position
+      ? lastWrong.answer
+      : attempt?.answer;
   const keepTyping = () => {
     inputRef.current?.focus();
   };
@@ -105,13 +119,17 @@ export const KanaPractice = ({ script, userId }: Props) => {
           event.preventDefault();
           if (composing.current) return;
           keepTyping();
-          if (phase === 'feedback') {
-            dispatch({ type: 'next' });
-            return;
+          if (awaitingAdvance) return;
+          const answer = session.input.trim();
+          if (!correcting) setEmptyAnswer(answer === '');
+          if (answer === '') return;
+          dispatch({ type: 'submit' });
+          if (kana && !isAcceptedReading(kana, answer)) {
+            if (correcting) {
+              setLastWrong({ answer, position: session.position });
+            }
+            inputRef.current?.select();
           }
-          const isEmpty = session.input.trim() === '';
-          setEmptyAnswer(isEmpty);
-          if (!isEmpty) dispatch({ type: 'submit' });
         }}
       >
         <label className="text-sm font-medium" htmlFor={inputId} id={labelId}>
@@ -119,15 +137,16 @@ export const KanaPractice = ({ script, userId }: Props) => {
         </label>
         <Input
           aria-describedby={feedbackId}
-          aria-invalid={attempt?.outcome === 'incorrect' ? true : undefined}
+          aria-invalid={correcting ? true : undefined}
           aria-labelledby={`${promptId} ${labelId}`}
-          aria-readonly={phase === 'feedback' ? true : undefined}
+          aria-readonly={awaitingAdvance ? true : undefined}
           autoCapitalize="none"
           autoComplete="off"
           autoCorrect="off"
           autoFocus={focusInputOnMount}
-          className="h-12 text-center text-lg pointer-coarse:h-12 md:text-lg"
-          enterKeyHint={phase === 'feedback' ? 'next' : 'go'}
+          className="h-12 text-center text-lg pointer-coarse:h-12 data-correct:border-success data-correct:ring-3 data-correct:ring-success/30 data-correct:focus-visible:border-success data-correct:focus-visible:ring-success/50 aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/50 md:text-lg dark:aria-invalid:focus-visible:ring-destructive/50"
+          data-correct={awaitingAdvance ? '' : undefined}
+          enterKeyHint="go"
           id={inputId}
           onChange={(event) => {
             setEmptyAnswer(false);
@@ -149,7 +168,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
           }}
           ref={inputRef}
           spellCheck={false}
-          value={phase === 'feedback' ? (attempt?.answer ?? '') : session.input}
+          value={session.input}
         />
 
         <div className="min-h-12 text-sm" id={feedbackId} role="status">
@@ -158,28 +177,30 @@ export const KanaPractice = ({ script, userId }: Props) => {
               Type the reading first, or choose Skip.
             </p>
           )}
-          {attempt?.outcome === 'correct' && (
-            <p className="flex items-center gap-2 font-medium text-primary">
+          {awaitingAdvance && (
+            <p className="flex items-center gap-2 font-medium text-success">
               <CheckIcon aria-hidden="true" className="size-4 shrink-0" />
               Correct: {kana?.romaji}
             </p>
           )}
-          {attempt?.outcome === 'incorrect' && (
-            <p className="flex flex-wrap items-center gap-x-2 text-destructive">
-              <XIcon aria-hidden="true" className="size-4 shrink-0" />
+          {correcting && (
+            <p className="flex items-start gap-2 text-destructive">
+              <XIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
               <span>
                 Incorrect. <span lang="ja">{kana?.form}</span> is{' '}
                 <strong className="font-semibold">{kana?.romaji}</strong>; you
-                answered “{attempt.answer}”.
+                answered “{wrongAnswer}”. Type{' '}
+                <strong className="font-semibold">{kana?.romaji}</strong> to
+                continue.
               </span>
             </p>
           )}
         </div>
 
         <div className="flex gap-2">
-          {phase === 'feedback' ? (
+          {phase === 'feedback' && attempt?.outcome === 'incorrect' ? (
             <Button className="flex-1" size="lg" type="submit">
-              Next
+              Check
             </Button>
           ) : (
             <>

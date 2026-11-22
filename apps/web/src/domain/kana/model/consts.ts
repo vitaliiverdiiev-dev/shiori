@@ -11,5 +11,7 @@ export const kanaPaths = {
   },
 } as const satisfies Record<KanaScript, KanaPaths>;
 
+export const CORRECT_ADVANCE_DELAY_MS = 400;
+
 export const KANA_STORAGE_PREFIX = 'shiori:kana:';
 export const KANA_STORAGE_VERSION = 1;

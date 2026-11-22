@@ -559,8 +559,8 @@ describe('Kana practice', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.getByText('Question 1 of 1')).toBeVisible();
-    await user.type(screen.getByRole('textbox'), 'ka{Enter}');
-    expect(screen.getByRole('status')).toHaveTextContent('Correct: ka');
+    await user.type(screen.getByRole('textbox'), 'ki{Enter}');
+    expect(screen.getByRole('status')).toHaveTextContent('Incorrect.');
 
     await user.click(screen.getByRole('link', { name: 'Leave' }));
     expect(
@@ -570,11 +570,13 @@ describe('Kana practice', () => {
     cleanup();
     await renderAt('/kana/hiragana/practice');
     expect(await screen.findByText('Question 1 of 1')).toBeVisible();
-    expect(screen.getByRole('textbox')).toHaveValue('ka');
-    expect(screen.getByRole('status')).toHaveTextContent('Correct: ka');
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByRole('textbox')).toHaveValue('ki');
+    expect(screen.getByRole('status')).toHaveTextContent('Incorrect.');
+    const resumed = userEvent.setup();
+    await resumed.clear(screen.getByRole('textbox'));
+    await resumed.type(screen.getByRole('textbox'), 'ka{Enter}');
     expect(
-      screen.getByRole('heading', { name: 'Round complete' }),
+      await screen.findByRole('heading', { name: 'Round complete' }),
     ).toBeVisible();
   });
 

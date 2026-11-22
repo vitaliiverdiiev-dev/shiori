@@ -67,7 +67,15 @@ function restoreSession(
   for (const [index, attempt] of stored.attempts.entries()) {
     const kanaId = order[index];
     if (kanaId === undefined || attempt.kanaId !== kanaId) return null;
-    attempts.push({ ...attempt, kanaId });
+    if (attempt.corrected === true && attempt.outcome !== 'incorrect') {
+      return null;
+    }
+    const { answer, outcome } = attempt;
+    attempts.push(
+      attempt.corrected === true
+        ? { answer, corrected: true, kanaId, outcome }
+        : { answer, kanaId, outcome },
+    );
   }
   if (answered > position && attempts.at(-1)?.outcome === 'skipped') {
     return null;

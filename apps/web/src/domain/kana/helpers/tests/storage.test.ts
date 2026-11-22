@@ -109,6 +109,20 @@ describe('kana state storage', () => {
       },
     ],
     [
+      'a correction on a correct answer',
+      {
+        ...session,
+        attempts: [
+          {
+            answer: 'a',
+            corrected: true,
+            kanaId: 'hiragana:a',
+            outcome: 'correct',
+          },
+        ],
+      },
+    ],
+    [
       'a skip waiting for Next',
       {
         ...session,
@@ -122,6 +136,23 @@ describe('kana state storage', () => {
       selection: ['hiragana:a', 'hiragana:ka'],
       session: null,
     });
+  });
+
+  it('restores a corrected wrong answer awaiting advance', () => {
+    const corrected: KanaPracticeSession = {
+      ...session,
+      attempts: [
+        {
+          answer: 'o',
+          corrected: true,
+          kanaId: 'hiragana:a',
+          outcome: 'incorrect',
+        },
+      ],
+      position: 0,
+    };
+    writeKanaState('hiragana', 'alice', { session: corrected });
+    expect(readKanaState('hiragana', 'alice').session).toEqual(corrected);
   });
 
   it('restores a complete catalog round mid-way', () => {

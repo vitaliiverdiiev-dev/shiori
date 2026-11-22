@@ -39,6 +39,23 @@ export function getPracticePhase(
   return session.attempts.length > session.position ? 'feedback' : 'answering';
 }
 
+export function isAwaitingAdvance(session: KanaPracticeSession): boolean {
+  const attempt = session.attempts[session.position];
+  return (
+    getPracticePhase(session) === 'feedback' &&
+    (attempt?.outcome === 'correct' || attempt?.corrected === true)
+  );
+}
+
+export function isAwaitingCorrection(session: KanaPracticeSession): boolean {
+  const attempt = session.attempts[session.position];
+  return (
+    getPracticePhase(session) === 'feedback' &&
+    attempt?.outcome === 'incorrect' &&
+    attempt.corrected !== true
+  );
+}
+
 export function practiceReducer(
   session: KanaPracticeSession | null,
   action: KanaPracticeAction,
@@ -50,11 +67,11 @@ export function practiceReducer(
 
   switch (action.type) {
     case 'input':
-      return phase === 'answering'
+      return phase === 'answering' || isAwaitingCorrection(session)
         ? { ...session, input: action.value }
         : session;
     case 'next':
-      return phase === 'feedback'
+      return isAwaitingAdvance(session) && (action.from ?? session) === session
         ? { ...session, input: '', position: session.position + 1 }
         : session;
     case 'skip':
@@ -70,10 +87,20 @@ export function practiceReducer(
       };
     case 'submit': {
       const answer = session.input.trim();
-      if (phase !== 'answering' || kanaId === undefined || answer === '') {
-        return session;
-      }
+      if (kanaId === undefined || answer === '') return session;
       const kana = findKana(kanaId);
+      if (isAwaitingCorrection(session)) {
+        if (!kana || !isAcceptedReading(kana, answer)) return session;
+        return {
+          ...session,
+          attempts: session.attempts.map((attempt, index) =>
+            index === session.position
+              ? { ...attempt, corrected: true }
+              : attempt,
+          ),
+        };
+      }
+      if (phase !== 'answering') return session;
       const attempt: KanaAttempt = {
         answer,
         kanaId,

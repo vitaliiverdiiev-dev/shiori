@@ -13,6 +13,7 @@ export type Kana = {
 
 export type KanaAttempt = {
   answer: string;
+  corrected?: boolean;
   kanaId: KanaId;
   outcome: KanaOutcome;
 };
@@ -31,7 +32,7 @@ export type KanaPaths = {
 export type KanaPracticeAction =
   | { session: KanaPracticeSession; type: 'start' }
   | { type: 'input'; value: string }
-  | { type: 'next' }
+  | { from?: KanaPracticeSession; type: 'next' }
   | { type: 'skip' }
   | { type: 'submit' };
 

@@ -111,4 +111,28 @@ describe('ChangePasswordForm', () => {
     expect(screen.getByLabelText('Current password')).toHaveValue(CURRENT);
     expect(screen.getByLabelText('New password')).toHaveValue(NEXT);
   });
+
+  it('accepts another change after a successful one', async () => {
+    const change = vi.fn<(body: unknown) => Response>(() =>
+      Response.json({ token: 'new' }),
+    );
+    stubApi({ [CHANGE]: change, [SESSION]: session });
+    const { user } = await renderForm();
+
+    await fill(user);
+    await screen.findByRole('status');
+    await user.type(screen.getByLabelText('Current password'), NEXT);
+    await user.type(screen.getByLabelText('New password'), CURRENT);
+    await user.type(screen.getByLabelText('Confirm new password'), CURRENT);
+    await user.click(screen.getByRole('button', { name: 'Change password' }));
+
+    await vi.waitFor(() => {
+      expect(change).toHaveBeenCalledTimes(2);
+    });
+    expect(change).toHaveBeenLastCalledWith({
+      currentPassword: NEXT,
+      newPassword: CURRENT,
+      revokeOtherSessions: true,
+    });
+  });
 });

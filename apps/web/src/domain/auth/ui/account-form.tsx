@@ -18,7 +18,7 @@ export const AccountForm = () => {
     register,
     reset,
   } = useForm({
-    resetOptions: { keepDirtyValues: true },
+    resetOptions: { keepDirtyValues: true, keepFieldsRef: true },
     resolver: zodResolver(accountNameSchema),
     values: { name: data?.user.name ?? '' },
   });

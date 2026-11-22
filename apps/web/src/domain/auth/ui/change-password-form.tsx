@@ -23,6 +23,7 @@ export const ChangePasswordForm = () => {
       currentPassword: '',
       newPassword: '',
     },
+    resetOptions: { keepFieldsRef: true },
     resolver: zodResolver(changePasswordSchema),
   });
 

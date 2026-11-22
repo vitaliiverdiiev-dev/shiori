@@ -1,6 +1,8 @@
 export { ErrorFallback } from './composites/error-fallback/error-fallback';
+export { FormField } from './composites/form-field/form-field';
 export { LoadingScreen } from './composites/loading-screen/loading-screen';
 export { Logo } from './composites/logo/logo';
+export { PasswordInput } from './composites/password-input/password-input';
 export { Button } from './primitives/button/button';
 export {
   DropdownMenu,
@@ -12,8 +14,8 @@ export {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './primitives/dropdown-menu/dropdown-menu';
+export { FieldGroup } from './primitives/field/field';
 export { Input } from './primitives/input/input';
-export { Label } from './primitives/label/label';
 export {
   Sidebar,
   SidebarContent,

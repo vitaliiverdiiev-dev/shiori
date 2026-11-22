@@ -1,6 +1,10 @@
 import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { sessionResponse, stubApi } from '@/test/api-stub';
+import {
+  sessionResponse,
+  stubApi,
+  triggerSessionRecheck,
+} from '@/test/api-stub';
 import { renderWithProviders } from '@/test/render';
 
 const SESSION = '/api/auth/get-session';
@@ -87,5 +91,43 @@ describe('AccountForm', () => {
       'Something went wrong on the server.',
     );
     expect(screen.getByLabelText('Name')).toHaveValue('Alicia');
+  });
+
+  it.each([
+    ['unchanged', 'Alice'],
+    ['renamed on another device', 'Alicia'],
+  ])(
+    'keeps an unsaved edit when a background session check finds the name %s',
+    async (_case, serverName) => {
+      let name = 'Alice';
+      const session = vi.fn(() => sessionResponse({ id: 'alice', name }));
+      stubApi({ [SESSION]: session });
+      const { user } = await renderForm();
+
+      await user.clear(screen.getByLabelText('Name'));
+      await user.type(screen.getByLabelText('Name'), 'Ally');
+      name = serverName;
+      const checks = session.mock.calls.length;
+      triggerSessionRecheck();
+
+      await vi.waitFor(() => {
+        expect(session.mock.calls.length).toBeGreaterThan(checks);
+      });
+      await new Promise((resolve) => setTimeout(resolve));
+      expect(screen.getByLabelText('Name')).toHaveValue('Ally');
+    },
+  );
+
+  it('shows a name changed elsewhere while the field is untouched', async () => {
+    let name = 'Alice';
+    stubApi({ [SESSION]: () => sessionResponse({ id: 'alice', name }) });
+    await renderForm();
+
+    name = 'Alicia';
+    triggerSessionRecheck();
+
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('Name')).toHaveValue('Alicia');
+    });
   });
 });

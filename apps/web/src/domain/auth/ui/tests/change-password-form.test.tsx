@@ -94,4 +94,21 @@ describe('ChangePasswordForm', () => {
     ).toHaveAccessibleDescription('Passwords do not match.');
     expect(change).not.toHaveBeenCalled();
   });
+
+  it('keeps the typed values and blocks a second submission while saving', async () => {
+    const change = vi.fn(() => new Promise<Response>(() => undefined));
+    stubApi({ [CHANGE]: change, [SESSION]: session });
+    const { user } = await renderForm();
+
+    await fill(user);
+    const pending = await screen.findByRole('button', {
+      name: 'Changing password…',
+    });
+    await user.click(pending);
+
+    expect(pending).toBeDisabled();
+    expect(change).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Current password')).toHaveValue(CURRENT);
+    expect(screen.getByLabelText('New password')).toHaveValue(NEXT);
+  });
 });

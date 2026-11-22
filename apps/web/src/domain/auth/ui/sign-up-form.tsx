@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { Button } from '@/shared/ui';
+import {
+  Button,
+  FieldGroup,
+  FormField,
+  Input,
+  PasswordInput,
+} from '@/shared/ui';
 import { authClient } from '../config/auth-client';
 import { runAuthAction } from '../helpers/auth-action';
 import {
@@ -11,8 +17,6 @@ import {
 } from '../model/consts';
 import { signUpSchema } from '../model/schemas';
 import { FormMessage } from './form-message';
-import { PasswordField } from './password-field';
-import { TextField } from './text-field';
 
 type Props = {
   onComplete: () => void;
@@ -58,57 +62,80 @@ export const SignUpForm = ({ onComplete }: Props) => {
   );
 
   return (
-    <form
-      className="flex flex-col gap-5"
-      noValidate
-      onSubmit={(event) => void onSubmit(event)}
-    >
-      <TextField
-        autoComplete="name"
-        error={errors.name?.message}
-        label="Name"
-        {...register('name')}
-      />
-      <TextField
-        autoCapitalize="none"
-        autoComplete="email"
-        error={errors.email?.message}
-        label="Email"
-        spellCheck={false}
-        type="email"
-        {...register('email')}
-      />
-      <PasswordField
-        autoComplete="new-password"
-        description={commonMessages.passwordLength}
-        error={errors.password?.message}
-        label="Password"
-        {...register('password')}
-      />
-      <PasswordField
-        autoComplete="new-password"
-        error={errors.confirmPassword?.message}
-        label="Confirm password"
-        {...register('confirmPassword')}
-      />
-      <TextField
-        autoCapitalize="none"
-        autoComplete="off"
-        autoCorrect="off"
-        error={errors.invitationCode?.message}
-        label="Invitation code"
-        spellCheck={false}
-        {...register('invitationCode')}
-      />
-      {failure && <FormMessage tone="error">{failure}</FormMessage>}
-      <Button
-        className="w-full"
-        disabled={isSubmitting}
-        size="lg"
-        type="submit"
-      >
-        {isSubmitting ? 'Creating account…' : 'Create account'}
-      </Button>
+    <form noValidate onSubmit={(event) => void onSubmit(event)}>
+      <FieldGroup>
+        <FormField error={errors.name} label="Name" required>
+          {(control) => (
+            <Input {...control} autoComplete="name" {...register('name')} />
+          )}
+        </FormField>
+        <FormField error={errors.email} label="Email" required>
+          {(control) => (
+            <Input
+              {...control}
+              autoCapitalize="none"
+              autoComplete="email"
+              spellCheck={false}
+              type="email"
+              {...register('email')}
+            />
+          )}
+        </FormField>
+        <FormField
+          description={commonMessages.passwordLength}
+          error={errors.password}
+          label="Password"
+          required
+        >
+          {(control) => (
+            <PasswordInput
+              {...control}
+              autoComplete="new-password"
+              fieldLabel="Password"
+              {...register('password')}
+            />
+          )}
+        </FormField>
+        <FormField
+          error={errors.confirmPassword}
+          label="Confirm password"
+          required
+        >
+          {(control) => (
+            <PasswordInput
+              {...control}
+              autoComplete="new-password"
+              fieldLabel="Confirm password"
+              {...register('confirmPassword')}
+            />
+          )}
+        </FormField>
+        <FormField
+          error={errors.invitationCode}
+          label="Invitation code"
+          required
+        >
+          {(control) => (
+            <Input
+              {...control}
+              autoCapitalize="none"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              {...register('invitationCode')}
+            />
+          )}
+        </FormField>
+        {failure && <FormMessage tone="error">{failure}</FormMessage>}
+        <Button
+          className="w-full"
+          disabled={isSubmitting}
+          size="lg"
+          type="submit"
+        >
+          {isSubmitting ? 'Creating account…' : 'Create account'}
+        </Button>
+      </FieldGroup>
     </form>
   );
 };

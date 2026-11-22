@@ -36,7 +36,7 @@ const StatusPage = lazyComponent(() =>
   import('@/pages/status').then((module) => module.StatusPage),
 );
 
-export type NavigationGroup = 'main' | 'settings';
+export type NavigationGroup = 'main' | 'settings' | 'system';
 
 export type RouteDefinition = RouteShell & {
   id: string;
@@ -78,15 +78,6 @@ const routeDefinitions = [
     title: 'Home',
   },
   {
-    id: 'status',
-    access: 'protected',
-    element: <StatusPage />,
-    layout: 'app',
-    navigation: { group: 'main', icon: ActivityIcon },
-    path: '/status',
-    title: 'Status',
-  },
-  {
     id: 'accountSettings',
     access: 'protected',
     element: <AccountSettingsPage />,
@@ -103,6 +94,15 @@ const routeDefinitions = [
     navigation: { group: 'settings', icon: ShieldIcon },
     path: '/settings/security',
     title: 'Security',
+  },
+  {
+    id: 'status',
+    access: 'protected',
+    element: <StatusPage />,
+    layout: 'app',
+    navigation: { group: 'system', icon: ActivityIcon },
+    path: '/status',
+    title: 'Status',
   },
   {
     id: 'signIn',

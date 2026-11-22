@@ -43,7 +43,7 @@ export const AppSidebar = () => {
             <SidebarGroup key={group}>
               {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="gap-1">
                   {items.map((item) => {
                     const active = isNavigationItemActive(item, pathname);
                     return (

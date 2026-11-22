@@ -42,8 +42,9 @@ describe('getNavigation', () => {
         items.map((item) => item.label),
       ]),
     ).toEqual([
-      [undefined, ['Home', 'Status']],
+      [undefined, ['Home']],
       ['Settings', ['Account', 'Security']],
+      ['System', ['Status']],
     ]);
     expect(
       getNavigation().flatMap(({ items }) => items.map(({ path }) => path)),

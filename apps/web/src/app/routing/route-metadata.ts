@@ -19,6 +19,7 @@ export type NavigationSection = {
 const navigationGroupLabels: Record<NavigationGroup, string | undefined> = {
   main: undefined,
   settings: 'Settings',
+  system: 'System',
 };
 
 export function findRoute(pathname: string): RouteDefinition | undefined {

@@ -28,9 +28,9 @@ async function renderAt(path: string) {
 
 const protectedRoutes = [
   ['/', product.name],
-  ['/status', 'Status'],
   ['/settings/account', 'Account'],
   ['/settings/security', 'Security'],
+  ['/status', 'Status'],
 ] as const;
 
 const guestRoutes = [

@@ -2,13 +2,13 @@ import type { ReactNode } from 'react';
 import {
   ActivityIcon,
   HouseIcon,
-  type LucideIcon,
   ShieldIcon,
   UserRoundIcon,
 } from 'lucide-react';
 import { authPaths } from '@/domain/auth';
 import product from '@/product-config';
 import { lazyComponent } from '@/shared/helpers/lazy-component';
+import { NavigationGlyph } from '../layouts/ui/navigation-glyph';
 
 const AccountSettingsPage = lazyComponent(() =>
   import('@/pages/account-settings').then(
@@ -17,6 +17,9 @@ const AccountSettingsPage = lazyComponent(() =>
 );
 const HomePage = lazyComponent(() =>
   import('@/pages/home').then((module) => module.HomePage),
+);
+const KanaPage = lazyComponent(() =>
+  import('@/pages/kana').then((module) => module.KanaPage),
 );
 const NotFoundPage = lazyComponent(() =>
   import('@/pages/not-found').then((module) => module.NotFoundPage),
@@ -36,7 +39,7 @@ const StatusPage = lazyComponent(() =>
   import('@/pages/status').then((module) => module.StatusPage),
 );
 
-export type NavigationGroup = 'main' | 'settings' | 'system';
+export type NavigationGroup = 'kana' | 'main' | 'settings' | 'system';
 
 export type RouteDefinition = RouteShell & {
   id: string;
@@ -50,7 +53,7 @@ export type RouteLayout = RouteDefinition['layout'];
 
 type RouteNavigation = {
   group: NavigationGroup;
-  icon: LucideIcon;
+  icon: ReactNode;
 };
 
 type RouteShell =
@@ -73,16 +76,37 @@ const routeDefinitions = [
       />
     ),
     layout: 'app',
-    navigation: { group: 'main', icon: HouseIcon },
+    navigation: { group: 'main', icon: <HouseIcon aria-hidden="true" /> },
     path: authPaths.home,
     title: 'Home',
+  },
+  {
+    id: 'hiragana',
+    access: 'protected',
+    element: <KanaPage script="hiragana" />,
+    layout: 'app',
+    navigation: { group: 'kana', icon: <NavigationGlyph glyph="あ" /> },
+    path: '/kana/hiragana',
+    title: 'Hiragana',
+  },
+  {
+    id: 'katakana',
+    access: 'protected',
+    element: <KanaPage script="katakana" />,
+    layout: 'app',
+    navigation: { group: 'kana', icon: <NavigationGlyph glyph="ア" /> },
+    path: '/kana/katakana',
+    title: 'Katakana',
   },
   {
     id: 'accountSettings',
     access: 'protected',
     element: <AccountSettingsPage />,
     layout: 'app',
-    navigation: { group: 'settings', icon: UserRoundIcon },
+    navigation: {
+      group: 'settings',
+      icon: <UserRoundIcon aria-hidden="true" />,
+    },
     path: '/settings/account',
     title: 'Account',
   },
@@ -91,7 +115,7 @@ const routeDefinitions = [
     access: 'protected',
     element: <SecuritySettingsPage />,
     layout: 'app',
-    navigation: { group: 'settings', icon: ShieldIcon },
+    navigation: { group: 'settings', icon: <ShieldIcon aria-hidden="true" /> },
     path: '/settings/security',
     title: 'Security',
   },
@@ -100,7 +124,7 @@ const routeDefinitions = [
     access: 'protected',
     element: <StatusPage />,
     layout: 'app',
-    navigation: { group: 'system', icon: ActivityIcon },
+    navigation: { group: 'system', icon: <ActivityIcon aria-hidden="true" /> },
     path: '/status',
     title: 'Status',
   },

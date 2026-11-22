@@ -28,6 +28,8 @@ async function renderAt(path: string) {
 
 const protectedRoutes = [
   ['/', product.name],
+  ['/kana/hiragana', 'Hiragana'],
+  ['/kana/katakana', 'Katakana'],
   ['/settings/account', 'Account'],
   ['/settings/security', 'Security'],
   ['/status', 'Status'],
@@ -250,11 +252,17 @@ describe('App routes', () => {
     const user = userEvent.setup();
 
     const nav = await screen.findByRole('navigation', { name: 'Main' });
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .map((link) => [link.textContent, link.getAttribute('href')]),
-    ).toEqual(navigationItems().map(({ label, path }) => [label, path]));
+    expect(within(nav).getAllByRole('link')).toEqual(
+      navigationItems().map(({ label }) =>
+        within(nav).getByRole('link', { name: label }),
+      ),
+    );
+    for (const { label, path } of navigationItems()) {
+      expect(within(nav).getByRole('link', { name: label })).toHaveAttribute(
+        'href',
+        path,
+      );
+    }
     expect(within(nav).getByRole('link', { name: 'Home' })).toHaveAttribute(
       'aria-current',
       'page',

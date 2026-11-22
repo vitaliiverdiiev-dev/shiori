@@ -4,6 +4,7 @@ export { LoadingScreen } from './composites/loading-screen/loading-screen';
 export { Logo } from './composites/logo/logo';
 export { PasswordInput } from './composites/password-input/password-input';
 export { Button } from './primitives/button/button';
+export { Checkbox } from './primitives/checkbox/checkbox';
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -32,3 +33,7 @@ export {
   SidebarTrigger,
   useSidebar,
 } from './primitives/sidebar/sidebar';
+export {
+  ToggleGroup,
+  ToggleGroupItem,
+} from './primitives/toggle-group/toggle-group';

@@ -43,6 +43,7 @@ describe('getNavigation', () => {
       ]),
     ).toEqual([
       [undefined, ['Home']],
+      ['Kana', ['Hiragana', 'Katakana']],
       ['Settings', ['Account', 'Security']],
       ['System', ['Status']],
     ]);
@@ -71,6 +72,8 @@ describe('isNavigationItemActive', () => {
   it.each([
     ['/', ['Home']],
     ['/status', ['Status']],
+    ['/kana/katakana', ['Katakana']],
+    ['/kana', []],
     ['/settings/security/', ['Security']],
     ['/settings', []],
     ['/no-such-page', []],
@@ -82,6 +85,7 @@ describe('isNavigationItemActive', () => {
 describe('findRoute', () => {
   it.each([
     ['/', 'home'],
+    ['/kana/hiragana', 'hiragana'],
     ['/settings/security', 'securitySettings'],
     ['/settings/security/', 'securitySettings'],
     ['/sign-in', 'signIn'],
@@ -99,6 +103,7 @@ describe('getDocumentTitle', () => {
 
   it.each([
     ['/settings/account', `Account — ${product.name}`],
+    ['/kana/hiragana', `Hiragana — ${product.name}`],
     ['/sign-up', `Create account — ${product.name}`],
     ['/missing', `Page not found — ${product.name}`],
   ])('titles %s as %s', (pathname, title) => {

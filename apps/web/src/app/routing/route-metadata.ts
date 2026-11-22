@@ -1,11 +1,11 @@
-import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { matchPath } from 'react-router';
 import product from '@/product-config';
 import { type NavigationGroup, type RouteDefinition, routes } from './routes';
 
 export type NavigationItem = {
   end: boolean;
-  icon: LucideIcon;
+  icon: ReactNode;
   label: string;
   path: string;
 };
@@ -17,6 +17,7 @@ export type NavigationSection = {
 };
 
 const navigationGroupLabels: Record<NavigationGroup, string | undefined> = {
+  kana: 'Kana',
   main: undefined,
   settings: 'Settings',
   system: 'System',

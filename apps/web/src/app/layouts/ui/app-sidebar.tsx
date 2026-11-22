@@ -58,7 +58,7 @@ export const AppSidebar = () => {
                             />
                           }
                         >
-                          <item.icon aria-hidden="true" />
+                          {item.icon}
                           <span>{item.label}</span>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

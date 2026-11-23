@@ -7,9 +7,11 @@ import { readKanaState, writeKanaState } from '../storage';
 const KEY = 'shiori:kana:hiragana';
 const session: KanaPracticeSession = {
   attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
+  hintShown: false,
   input: '',
   order: ['hiragana:a', 'hiragana:ka'],
   position: 1,
+  questionCount: 2,
   selection: ['hiragana:a', 'hiragana:ka'],
 };
 
@@ -38,6 +40,7 @@ describe('kana state storage', () => {
     writeKanaState('hiragana', 'alice', { selection: ['hiragana:a'] });
 
     expect(readKanaState('hiragana', 'alice')).toEqual({
+      questionCount: null,
       selection: ['hiragana:a'],
       session,
     });
@@ -48,6 +51,7 @@ describe('kana state storage', () => {
     writeKanaState('hiragana', 'alice', { selection: ['hiragana:a'], session });
 
     expect(readKanaState('hiragana', 'bob')).toEqual({
+      questionCount: null,
       selection: [],
       session: null,
     });
@@ -68,6 +72,7 @@ describe('kana state storage', () => {
   ])('starts empty after %s', (_, raw) => {
     window.sessionStorage.setItem(KEY, raw);
     expect(readKanaState('hiragana', 'alice')).toEqual({
+      questionCount: null,
       selection: [],
       session: null,
     });
@@ -91,8 +96,8 @@ describe('kana state storage', () => {
       { ...session, order: ['hiragana:a', 'hiragana:wi'] },
     ],
     [
-      'a duplicated question',
-      { ...session, order: ['hiragana:a', 'hiragana:a'] },
+      'a duplicated selected kana',
+      { ...session, selection: ['hiragana:a', 'hiragana:a', 'hiragana:ka'] },
     ],
     [
       'a question outside the selection',
@@ -133,6 +138,7 @@ describe('kana state storage', () => {
   ])('discards a session with %s but keeps the selection', (_, stored) => {
     storeRaw(record({ session: stored }));
     expect(readKanaState('hiragana', 'alice')).toEqual({
+      questionCount: null,
       selection: ['hiragana:a', 'hiragana:ka'],
       session: null,
     });
@@ -163,6 +169,66 @@ describe('kana state storage', () => {
     writeKanaState('hiragana', 'alice', { session: round });
     expect(readKanaState('hiragana', 'alice').session).toEqual(round);
   });
+
+  it('keeps repeated questions apart by their position in the round', () => {
+    const repeated: KanaPracticeSession = {
+      ...session,
+      attempts: [
+        { answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' },
+        { answer: 'ga', kanaId: 'hiragana:ka', outcome: 'incorrect' },
+        {
+          answer: 'a',
+          hintUsed: true,
+          kanaId: 'hiragana:a',
+          outcome: 'correct',
+        },
+      ],
+      hintShown: true,
+      order: ['hiragana:a', 'hiragana:ka', 'hiragana:a', 'hiragana:ka'],
+      position: 3,
+      questionCount: 4,
+    };
+    writeKanaState('hiragana', 'alice', {
+      questionCount: 4,
+      session: repeated,
+    });
+
+    expect(readKanaState('hiragana', 'alice')).toEqual({
+      questionCount: 4,
+      selection: [],
+      session: repeated,
+    });
+  });
+
+  it('restores a round saved before question counts and hints existed', () => {
+    storeRaw(
+      record({
+        session: {
+          attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
+          input: 'k',
+          order: ['hiragana:a', 'hiragana:ka'],
+          position: 1,
+          selection: ['hiragana:a', 'hiragana:ka'],
+        },
+      }),
+    );
+    expect(readKanaState('hiragana', 'alice')).toEqual({
+      questionCount: null,
+      selection: ['hiragana:a', 'hiragana:ka'],
+      session: { ...session, input: 'k' },
+    });
+  });
+
+  it.each([0, 1001, 2.5, '10'])(
+    'ignores a stored question count of %j',
+    (questionCount) => {
+      storeRaw(record({ questionCount }));
+      expect(readKanaState('hiragana', 'alice')).toMatchObject({
+        questionCount: null,
+        selection: [],
+      });
+    },
+  );
 
   it('fails safely when storage is unavailable', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {

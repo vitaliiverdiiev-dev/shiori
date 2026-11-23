@@ -1,7 +1,14 @@
 import { useId, useRef, useState } from 'react';
-import { ArrowLeftIcon, CheckIcon, XIcon } from 'lucide-react';
+import { ArrowLeftIcon, CheckIcon, LightbulbIcon, XIcon } from 'lucide-react';
 import { Link, Navigate } from 'react-router';
-import { Button, buttonVariants, Input } from '@/shared/ui';
+import {
+  Button,
+  buttonVariants,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/shared/ui';
 import { isAcceptedReading } from '../helpers/answer';
 import { findKana } from '../helpers/catalog';
 import {
@@ -29,10 +36,6 @@ export const KanaPractice = ({ script, userId }: Props) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
   const [emptyAnswer, setEmptyAnswer] = useState(false);
-  const [lastWrong, setLastWrong] = useState<{
-    answer: string;
-    position: number;
-  } | null>(null);
   const [focusInputOnMount, setFocusInputOnMount] = useState(
     () => window.matchMedia('(pointer: fine)').matches,
   );
@@ -66,7 +69,9 @@ export const KanaPractice = ({ script, userId }: Props) => {
           onRestart={() => {
             setFocusInputOnMount(true);
             dispatch({
-              session: createSession(session.selection),
+              session: createSession(session.selection, {
+                questionCount: session.questionCount,
+              }),
               type: 'start',
             });
           }}
@@ -82,13 +87,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
   }
 
   const kana = findKana(session.order[session.position] ?? '');
-  const attempt =
-    phase === 'feedback' ? session.attempts[session.position] : undefined;
   const correcting = isAwaitingCorrection(session);
-  const wrongAnswer =
-    lastWrong?.position === session.position
-      ? lastWrong.answer
-      : attempt?.answer;
   const keepTyping = () => {
     inputRef.current?.focus();
   };
@@ -125,9 +124,6 @@ export const KanaPractice = ({ script, userId }: Props) => {
           if (answer === '') return;
           dispatch({ type: 'submit' });
           if (kana && !isAcceptedReading(kana, answer)) {
-            if (correcting) {
-              setLastWrong({ answer, position: session.position });
-            }
             inputRef.current?.select();
           }
         }}
@@ -135,43 +131,67 @@ export const KanaPractice = ({ script, userId }: Props) => {
         <label className="text-sm font-medium" htmlFor={inputId} id={labelId}>
           Reading in romaji
         </label>
-        <Input
-          aria-describedby={feedbackId}
-          aria-invalid={correcting ? true : undefined}
-          aria-labelledby={`${promptId} ${labelId}`}
-          aria-readonly={awaitingAdvance ? true : undefined}
-          autoCapitalize="none"
-          autoComplete="off"
-          autoCorrect="off"
-          autoFocus={focusInputOnMount}
-          className="h-12 text-center text-lg pointer-coarse:h-12 data-correct:border-success data-correct:ring-3 data-correct:ring-success/30 data-correct:focus-visible:border-success data-correct:focus-visible:ring-success/50 aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/50 md:text-lg dark:aria-invalid:focus-visible:ring-destructive/50"
+        <InputGroup
+          className="h-12 pointer-coarse:h-12 data-correct:border-success data-correct:ring-3 data-correct:ring-success/30 data-correct:has-[[data-slot=input-group-control]:focus-visible]:border-success data-correct:has-[[data-slot=input-group-control]:focus-visible]:ring-success/50 has-[[data-slot][aria-invalid=true]:focus-visible]:ring-destructive/50 dark:has-[[data-slot][aria-invalid=true]:focus-visible]:ring-destructive/50"
           data-correct={awaitingAdvance ? '' : undefined}
-          enterKeyHint="go"
-          id={inputId}
-          onChange={(event) => {
-            setEmptyAnswer(false);
-            dispatch({ type: 'input', value: event.target.value });
-          }}
-          onCompositionEnd={() => {
-            composing.current = false;
-          }}
-          onCompositionStart={() => {
-            composing.current = true;
-          }}
-          onKeyDown={(event) => {
-            if (
-              event.key === 'Enter' &&
-              (event.repeat || event.nativeEvent.isComposing)
-            ) {
-              event.preventDefault();
-            }
-          }}
-          ref={inputRef}
-          spellCheck={false}
-          value={session.input}
-        />
+        >
+          <InputGroupInput
+            aria-describedby={feedbackId}
+            aria-invalid={correcting ? true : undefined}
+            aria-labelledby={`${promptId} ${labelId}`}
+            aria-readonly={awaitingAdvance ? true : undefined}
+            autoCapitalize="none"
+            autoComplete="off"
+            autoCorrect="off"
+            autoFocus={focusInputOnMount}
+            className="h-full rounded-l-[inherit] pl-11 text-center text-lg md:text-lg"
+            enterKeyHint="go"
+            id={inputId}
+            onChange={(event) => {
+              setEmptyAnswer(false);
+              dispatch({ type: 'input', value: event.target.value });
+            }}
+            onCompositionEnd={() => {
+              composing.current = false;
+            }}
+            onCompositionStart={() => {
+              composing.current = true;
+            }}
+            onKeyDown={(event) => {
+              if (
+                event.key === 'Enter' &&
+                (event.repeat || event.nativeEvent.isComposing)
+              ) {
+                event.preventDefault();
+              }
+            }}
+            ref={inputRef}
+            spellCheck={false}
+            value={session.input}
+          />
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              aria-expanded={session.hintShown}
+              aria-label="Show the reading"
+              onClick={() => {
+                dispatch({ type: 'hint' });
+                keepTyping();
+              }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+              }}
+              size="icon-sm"
+            >
+              <LightbulbIcon aria-hidden="true" />
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
 
-        <div className="min-h-12 text-sm" id={feedbackId} role="status">
+        <div
+          className="flex min-h-12 flex-col gap-1 text-sm"
+          id={feedbackId}
+          role="status"
+        >
           {emptyAnswer && (
             <p className="text-muted-foreground">
               Type the reading first, or choose Skip.
@@ -184,44 +204,41 @@ export const KanaPractice = ({ script, userId }: Props) => {
             </p>
           )}
           {correcting && (
-            <p className="flex items-start gap-2 text-destructive">
-              <XIcon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+            <p className="flex items-center gap-2 font-medium text-destructive">
+              <XIcon aria-hidden="true" className="size-4 shrink-0" />
+              Try again
+            </p>
+          )}
+          {session.hintShown && (
+            <p className="flex items-center gap-2 text-muted-foreground">
+              <LightbulbIcon aria-hidden="true" className="size-4 shrink-0" />
               <span>
-                Incorrect. <span lang="ja">{kana?.form}</span> is{' '}
-                <strong className="font-semibold">{kana?.romaji}</strong>; you
-                answered “{wrongAnswer}”. Type{' '}
-                <strong className="font-semibold">{kana?.romaji}</strong> to
-                continue.
+                Reading:{' '}
+                <strong className="font-semibold text-foreground">
+                  {kana?.romaji}
+                </strong>
               </span>
             </p>
           )}
         </div>
 
         <div className="flex gap-2">
-          {phase === 'feedback' && attempt?.outcome === 'incorrect' ? (
-            <Button className="flex-1" size="lg" type="submit">
-              Check
-            </Button>
-          ) : (
-            <>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  setEmptyAnswer(false);
-                  dispatch({ type: 'skip' });
-                  keepTyping();
-                }}
-                size="lg"
-                type="button"
-                variant="outline"
-              >
-                Skip
-              </Button>
-              <Button className="flex-1" size="lg" type="submit">
-                Check
-              </Button>
-            </>
-          )}
+          <Button
+            className="flex-1"
+            onClick={() => {
+              setEmptyAnswer(false);
+              dispatch({ type: 'skip' });
+              keepTyping();
+            }}
+            size="lg"
+            type="button"
+            variant="outline"
+          >
+            Skip
+          </Button>
+          <Button className="flex-1" size="lg" type="submit">
+            Check
+          </Button>
         </div>
       </form>
     </div>

@@ -9,7 +9,11 @@ import type {
 } from '../model/types';
 import { getKanaCatalog } from './catalog';
 
-const EMPTY_STATE: StoredKanaState = { selection: [], session: null };
+const EMPTY_STATE: StoredKanaState = {
+  questionCount: null,
+  selection: [],
+  session: null,
+};
 
 export function readKanaState(
   script: KanaScript,
@@ -43,6 +47,7 @@ export function restoreKanaState(
     getKanaCatalog(script).map(({ id }) => [id, id]),
   );
   return {
+    questionCount: parsed.data.questionCount ?? null,
     selection: parsed.data.selection.flatMap((id) => ids.get(id) ?? []),
     session: parsed.data.session && restoreSession(parsed.data.session, ids),
   };
@@ -55,6 +60,7 @@ function restoreSession(
   const selection = toKanaIds(stored.selection, ids);
   const order = toKanaIds(stored.order, ids);
   if (!selection || !order || order.length === 0) return null;
+  if (new Set(selection).size !== selection.length) return null;
   if (!order.every((id) => selection.includes(id))) return null;
 
   const { position } = stored;
@@ -70,17 +76,26 @@ function restoreSession(
     if (attempt.corrected === true && attempt.outcome !== 'incorrect') {
       return null;
     }
-    const { answer, outcome } = attempt;
-    attempts.push(
-      attempt.corrected === true
-        ? { answer, corrected: true, kanaId, outcome }
-        : { answer, kanaId, outcome },
-    );
+    attempts.push({
+      answer: attempt.answer,
+      kanaId,
+      outcome: attempt.outcome,
+      ...(attempt.corrected === true && { corrected: true }),
+      ...(attempt.hintUsed === true && { hintUsed: true }),
+    });
   }
   if (answered > position && attempts.at(-1)?.outcome === 'skipped') {
     return null;
   }
-  return { attempts, input: stored.input, order, position, selection };
+  return {
+    attempts,
+    hintShown: stored.hintShown === true,
+    input: stored.input,
+    order,
+    position,
+    questionCount: stored.questionCount ?? selection.length,
+    selection,
+  };
 }
 
 function storageKey(script: KanaScript): string {
@@ -92,9 +107,7 @@ function toKanaIds(
   ids: ReadonlyMap<string, KanaId>,
 ): KanaId[] | null {
   const result = values.flatMap((value) => ids.get(value) ?? []);
-  const valid =
-    result.length === values.length && new Set(result).size === result.length;
-  return valid ? result : null;
+  return result.length === values.length ? result : null;
 }
 
 export function writeKanaState(

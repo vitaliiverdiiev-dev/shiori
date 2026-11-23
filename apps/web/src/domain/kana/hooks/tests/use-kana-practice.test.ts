@@ -7,7 +7,7 @@ import { useKanaPractice } from '../use-kana-practice';
 
 const keepOrder = () => 0.999;
 const awaitingCorrect = (ids: KanaPracticeSession['order']) => {
-  const round = createSession(ids, keepOrder);
+  const round = createSession(ids, { random: keepOrder });
   const first = round.order[0] ?? 'hiragana:a';
   return {
     ...round,
@@ -34,7 +34,9 @@ describe('useKanaPractice', () => {
     act(() => {
       vi.advanceTimersByTime(300);
       result.current.dispatch({
-        session: createSession(['hiragana:u', 'hiragana:e'], keepOrder),
+        session: createSession(['hiragana:u', 'hiragana:e'], {
+          random: keepOrder,
+        }),
         type: 'start',
       });
       vi.advanceTimersByTime(400);

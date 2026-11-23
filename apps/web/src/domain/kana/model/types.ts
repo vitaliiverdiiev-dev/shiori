@@ -14,6 +14,7 @@ export type Kana = {
 export type KanaAttempt = {
   answer: string;
   corrected?: boolean;
+  hintUsed?: boolean;
   kanaId: KanaId;
   outcome: KanaOutcome;
 };
@@ -31,6 +32,7 @@ export type KanaPaths = {
 
 export type KanaPracticeAction =
   | { session: KanaPracticeSession; type: 'start' }
+  | { type: 'hint' }
   | { type: 'input'; value: string }
   | { from?: KanaPracticeSession; type: 'next' }
   | { type: 'skip' }
@@ -40,13 +42,16 @@ export type KanaPracticePhase = 'answering' | 'complete' | 'feedback';
 
 export type KanaPracticeSession = {
   attempts: readonly KanaAttempt[];
+  hintShown: boolean;
   input: string;
   order: readonly KanaId[];
   position: number;
+  questionCount: number;
   selection: readonly KanaId[];
 };
 
 export type KanaPracticeSummary = {
+  assisted: number;
   correct: number;
   incorrect: number;
   missed: readonly KanaId[];
@@ -98,6 +103,7 @@ export type KanaSoundDefinition = {
 };
 
 export type StoredKanaState = {
+  questionCount: null | number;
   selection: readonly KanaId[];
   session: KanaPracticeSession | null;
 };

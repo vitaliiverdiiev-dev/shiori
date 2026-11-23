@@ -37,11 +37,12 @@ export const PracticeSummary = ({
       >
         Round complete
       </h1>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
         {(
           [
             ['Questions', summary.total],
             ['Correct', summary.correct],
+            ['With hint', summary.assisted],
             ['Incorrect', summary.incorrect],
             ['Skipped', summary.skipped],
           ] as const

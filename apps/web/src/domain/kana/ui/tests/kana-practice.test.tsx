@@ -12,7 +12,7 @@ const keepOrder = () => 0.999;
 function setup(
   session: KanaPracticeSession | null = createSession(
     ['hiragana:si', 'hiragana:kyu'],
-    keepOrder,
+    { random: keepOrder },
   ),
 ) {
   if (session) writeKanaState('hiragana', 'alice', { session });
@@ -37,6 +37,9 @@ function setup(
 
 const input = () => screen.getByRole('textbox');
 const feedback = () => screen.getByRole('status');
+const field = () => input().closest('[data-slot="input-group"]');
+const hintButton = () =>
+  screen.getByRole('button', { name: 'Show the reading' });
 const stored = () => readKanaState('hiragana', 'alice').session;
 const wait = (ms: number) => {
   act(() => {
@@ -88,7 +91,7 @@ describe('KanaPractice', () => {
     await user.click(input());
     await user.keyboard('SI{Enter}');
     expect(feedback()).toHaveTextContent('Correct: shi');
-    expect(input()).toHaveAttribute('data-correct');
+    expect(field()).toHaveAttribute('data-correct');
     expect(input()).toHaveValue('SI');
     expect(input()).toHaveFocus();
     expect(
@@ -102,29 +105,23 @@ describe('KanaPractice', () => {
     expect(screen.getByText('Question 2 of 2')).toBeVisible();
     expect(input()).toHaveValue('');
     expect(input()).toHaveFocus();
-    expect(input()).not.toHaveAttribute('data-correct');
+    expect(field()).not.toHaveAttribute('data-correct');
     expect(feedback()).toBeEmptyDOMElement();
     expect(stored()?.attempts).toHaveLength(1);
   });
 
-  it('keeps asking after a wrong answer, with no timer and no way past it', async () => {
+  it('says “Try again” after a wrong answer, without revealing the reading', async () => {
     const { user } = setup();
 
     await user.type(input(), 'chi{Enter}');
-    expect(feedback()).toHaveTextContent(
-      'Incorrect. し is shi; you answered “chi”. Type shi to continue.',
-    );
+    expect(feedback()).toHaveTextContent(/^Try again$/);
+    expect(feedback()).not.toHaveTextContent('shi');
     expect(input()).toHaveAttribute('aria-invalid', 'true');
-    expect(input()).not.toHaveAttribute('data-correct');
+    expect(field()).not.toHaveAttribute('data-correct');
     expect(input()).toHaveFocus();
     expect(input()).toHaveProperty('selectionStart', 0);
     expect(input()).toHaveProperty('selectionEnd', 3);
-    expect(
-      screen.queryByRole('button', { name: 'Skip' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Next' }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Skip' })).toBeVisible();
 
     wait(5000);
     await user.keyboard('{ArrowRight}{Enter}');
@@ -132,20 +129,35 @@ describe('KanaPractice', () => {
     expect(stored()?.attempts).toHaveLength(1);
   });
 
+  it('skips after a wrong answer without recording another attempt', async () => {
+    const { user } = setup();
+
+    await user.type(input(), 'chi{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(screen.getByText('Question 2 of 2')).toBeVisible();
+    expect(input()).toHaveValue('');
+    expect(input()).toHaveFocus();
+    expect(input()).not.toHaveAttribute('aria-invalid');
+    expect(stored()?.attempts).toEqual([
+      { answer: 'chi', kanaId: 'hiragana:si', outcome: 'incorrect' },
+    ]);
+  });
+
   it('checks every retyped answer until it is right, then moves on after 400 ms', async () => {
     const { user } = setup();
 
     await user.type(input(), 'chi{Enter}');
     await user.keyboard('su{Enter}');
-    expect(feedback()).toHaveTextContent('you answered “su”');
+    expect(feedback()).toHaveTextContent('Try again');
     expect(input()).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByText('Question 1 of 2')).toBeVisible();
 
     await user.keyboard('SHI{Enter}');
     expect(feedback()).toHaveTextContent('Correct: shi');
-    expect(input()).toHaveAttribute('data-correct');
+    expect(field()).toHaveAttribute('data-correct');
     expect(input()).not.toHaveAttribute('aria-invalid');
     await user.keyboard('{Enter}x');
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
     expect(input()).toHaveValue('SHI');
 
     wait(400);
@@ -160,6 +172,64 @@ describe('KanaPractice', () => {
         outcome: 'incorrect',
       },
     ]);
+  });
+
+  it('reveals the reading on demand without touching the field', async () => {
+    const { user } = setup();
+
+    await user.type(input(), 'sh');
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(feedback()).not.toHaveTextContent('shi');
+
+    await user.click(hintButton());
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'true');
+    expect(feedback()).toHaveTextContent('Reading: shi');
+    expect(input()).toHaveValue('sh');
+    expect(input()).toHaveFocus();
+    expect(screen.getByText('Question 1 of 2')).toBeVisible();
+    expect(stored()?.attempts).toEqual([]);
+
+    await user.keyboard('i{Enter}');
+    expect(stored()?.attempts).toEqual([
+      {
+        answer: 'shi',
+        hintUsed: true,
+        kanaId: 'hiragana:si',
+        outcome: 'correct',
+      },
+    ]);
+    wait(400);
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(feedback()).not.toHaveTextContent('Reading');
+  });
+
+  it('opens the hint from the keyboard and after a wrong answer', async () => {
+    const { user } = setup();
+
+    await user.type(input(), 'su{Enter}');
+    await user.tab();
+    expect(hintButton()).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(feedback()).toHaveTextContent('Try again');
+    expect(feedback()).toHaveTextContent('Reading: shi');
+    expect(input()).toHaveFocus();
+    expect(stored()?.attempts).toEqual([
+      {
+        answer: 'su',
+        hintUsed: true,
+        kanaId: 'hiragana:si',
+        outcome: 'incorrect',
+      },
+    ]);
+  });
+
+  it('keeps an open hint after a reload', () => {
+    setup({
+      ...createSession(['hiragana:si', 'hiragana:kyu'], { random: keepOrder }),
+      hintShown: true,
+    });
+    expect(feedback()).toHaveTextContent('Reading: shi');
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('asks for a reading instead of submitting an empty answer', async () => {
@@ -231,7 +301,9 @@ describe('KanaPractice', () => {
 
   it('summarizes the round and retries only the missed kana', async () => {
     const { user } = setup(
-      createSession(['hiragana:a', 'hiragana:ka', 'hiragana:si'], keepOrder),
+      createSession(['hiragana:a', 'hiragana:ka', 'hiragana:si'], {
+        random: keepOrder,
+      }),
     );
 
     await user.type(input(), 'a{Enter}');
@@ -247,6 +319,7 @@ describe('KanaPractice', () => {
       screen.getByText(term).nextElementSibling?.textContent;
     expect(value('Questions')).toBe('3');
     expect(value('Correct')).toBe('1');
+    expect(value('With hint')).toBe('0');
     expect(value('Incorrect')).toBe('1');
     expect(value('Skipped')).toBe('1');
 
@@ -285,6 +358,46 @@ describe('KanaPractice', () => {
     expect(screen.getByText('Question 1 of 1')).toBeVisible();
   });
 
+  it('practises the same selection again with its question count', async () => {
+    const { user } = setup(
+      createSession(['hiragana:a'], { questionCount: 3, random: keepOrder }),
+    );
+
+    for (let question = 0; question < 3; question += 1) {
+      await user.type(input(), 'a{Enter}');
+      wait(400);
+    }
+    expect(
+      screen.getByRole('heading', { name: 'Round complete' }),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole('button', { name: 'Practice the same selection again' }),
+    );
+    expect(screen.getByText('Question 1 of 3')).toBeVisible();
+  });
+
+  it('records repeated kana as separate questions', async () => {
+    const { user } = setup(
+      createSession(['hiragana:a', 'hiragana:i'], {
+        questionCount: 4,
+        random: keepOrder,
+      }),
+    );
+    const prompts: (null | string)[] = [];
+    for (let question = 0; question < 4; question += 1) {
+      prompts.push(screen.getByText(/^[あい]$/).textContent);
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+    }
+
+    expect([...prompts].sort()).toEqual(['あ', 'あ', 'い', 'い']);
+    expect(
+      screen.getByRole('heading', { name: 'Round complete' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Retry 2 missed' }),
+    ).toBeVisible();
+  });
+
   it('cancels the pending advance when practice unmounts', async () => {
     const { user, view } = setup();
 
@@ -296,13 +409,15 @@ describe('KanaPractice', () => {
   });
 
   it('finishes a restored correct answer once, without recording it again', () => {
-    const round = createSession(['hiragana:si', 'hiragana:kyu'], keepOrder);
+    const round = createSession(['hiragana:si', 'hiragana:kyu'], {
+      random: keepOrder,
+    });
     setup({
       ...round,
       attempts: [{ answer: 'shi', kanaId: 'hiragana:si', outcome: 'correct' }],
     });
 
-    expect(input()).toHaveAttribute('data-correct');
+    expect(field()).toHaveAttribute('data-correct');
     expect(feedback()).toHaveTextContent('Correct: shi');
     wait(400);
     expect(screen.getByText('Question 2 of 2')).toBeVisible();

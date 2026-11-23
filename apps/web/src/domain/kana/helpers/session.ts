@@ -9,26 +9,55 @@ import type {
 import { isAcceptedReading } from './answer';
 import { findKana } from './catalog';
 
+export function buildQuestionOrder(
+  kanaIds: readonly KanaId[],
+  questionCount: number,
+  random: () => number = Math.random,
+): KanaId[] {
+  const unique = [...new Set(kanaIds)];
+  const order: KanaId[] = [];
+  while (unique.length > 0 && order.length < questionCount) {
+    const cycle = shuffle(unique, random);
+    const previous = order.at(-1);
+    const first = cycle[0];
+    if (cycle.length > 1 && first !== undefined && first === previous) {
+      const swapIndex = 1 + Math.floor(random() * (cycle.length - 1));
+      cycle[0] = cycle[swapIndex] ?? first;
+      cycle[swapIndex] = first;
+    }
+    order.push(...cycle.slice(0, questionCount - order.length));
+  }
+  return order;
+}
+
 export function createRetrySession(
   session: KanaPracticeSession,
   random: () => number = Math.random,
 ): KanaPracticeSession {
   return {
-    ...createSession(summarizeSession(session).missed, random),
+    ...createSession(summarizeSession(session).missed, { random }),
+    questionCount: session.questionCount,
     selection: session.selection,
   };
 }
 
 export function createSession(
   kanaIds: readonly KanaId[],
-  random: () => number = Math.random,
+  {
+    questionCount,
+    random = Math.random,
+  }: { questionCount?: number; random?: () => number } = {},
 ): KanaPracticeSession {
+  const selection = [...new Set(kanaIds)];
+  const count = questionCount ?? selection.length;
   return {
     attempts: [],
+    hintShown: false,
     input: '',
-    order: shuffle([...new Set(kanaIds)], random),
+    order: buildQuestionOrder(selection, count, random),
     position: 0,
-    selection: [...new Set(kanaIds)],
+    questionCount: count,
+    selection,
   };
 }
 
@@ -62,50 +91,68 @@ export function practiceReducer(
 ): KanaPracticeSession | null {
   if (action.type === 'start') return action.session;
   if (!session) return session;
-  const phase = getPracticePhase(session);
+  const answering = getPracticePhase(session) === 'answering';
+  const correcting = isAwaitingCorrection(session);
   const kanaId = session.order[session.position];
+  const advanced = {
+    ...session,
+    hintShown: false,
+    input: '',
+    position: session.position + 1,
+  };
 
   switch (action.type) {
+    case 'hint':
+      if (session.hintShown || (!answering && !correcting)) return session;
+      return {
+        ...session,
+        attempts: correcting
+          ? updateCurrentAttempt(session, { hintUsed: true })
+          : session.attempts,
+        hintShown: true,
+      };
     case 'input':
-      return phase === 'answering' || isAwaitingCorrection(session)
+      return answering || correcting
         ? { ...session, input: action.value }
         : session;
     case 'next':
       return isAwaitingAdvance(session) && (action.from ?? session) === session
-        ? { ...session, input: '', position: session.position + 1 }
+        ? advanced
         : session;
     case 'skip':
-      if (phase !== 'answering' || kanaId === undefined) return session;
+      if (correcting) return advanced;
+      if (!answering || kanaId === undefined) return session;
       return {
-        ...session,
+        ...advanced,
         attempts: [
           ...session.attempts,
-          { answer: '', kanaId, outcome: 'skipped' },
+          {
+            answer: '',
+            kanaId,
+            outcome: 'skipped',
+            ...(session.hintShown && { hintUsed: true }),
+          },
         ],
-        input: '',
-        position: session.position + 1,
       };
     case 'submit': {
       const answer = session.input.trim();
       if (kanaId === undefined || answer === '') return session;
       const kana = findKana(kanaId);
-      if (isAwaitingCorrection(session)) {
-        if (!kana || !isAcceptedReading(kana, answer)) return session;
-        return {
-          ...session,
-          attempts: session.attempts.map((attempt, index) =>
-            index === session.position
-              ? { ...attempt, corrected: true }
-              : attempt,
-          ),
-        };
+      const accepted = kana !== undefined && isAcceptedReading(kana, answer);
+      if (correcting) {
+        return accepted
+          ? {
+              ...session,
+              attempts: updateCurrentAttempt(session, { corrected: true }),
+            }
+          : session;
       }
-      if (phase !== 'answering') return session;
+      if (!answering) return session;
       const attempt: KanaAttempt = {
         answer,
         kanaId,
-        outcome:
-          kana && isAcceptedReading(kana, answer) ? 'correct' : 'incorrect',
+        outcome: accepted ? 'correct' : 'incorrect',
+        ...(session.hintShown && { hintUsed: true }),
       };
       return { ...session, attempts: [...session.attempts, attempt] };
     }
@@ -131,19 +178,30 @@ export function shuffle<T>(
 export function summarizeSession(
   session: KanaPracticeSession,
 ): KanaPracticeSummary {
-  const count = (outcome: KanaAttempt['outcome']) =>
-    session.attempts.filter((attempt) => attempt.outcome === outcome).length;
+  const { attempts } = session;
+  const count = (matches: (attempt: KanaAttempt) => boolean) =>
+    attempts.filter(matches).length;
   return {
-    correct: count('correct'),
-    incorrect: count('incorrect'),
+    assisted: count((a) => a.outcome === 'correct' && a.hintUsed === true),
+    correct: count((a) => a.outcome === 'correct' && a.hintUsed !== true),
+    incorrect: count((a) => a.outcome === 'incorrect'),
     missed: [
       ...new Set(
-        session.attempts
-          .filter(({ outcome }) => outcome !== 'correct')
+        attempts
+          .filter((a) => a.outcome !== 'correct' || a.hintUsed === true)
           .map(({ kanaId }) => kanaId),
       ),
     ],
-    skipped: count('skipped'),
+    skipped: count((a) => a.outcome === 'skipped'),
     total: session.order.length,
   };
+}
+
+function updateCurrentAttempt(
+  session: KanaPracticeSession,
+  patch: Pick<KanaAttempt, 'corrected' | 'hintUsed'>,
+): KanaAttempt[] {
+  return session.attempts.map((attempt, index) =>
+    index === session.position ? { ...attempt, ...patch } : attempt,
+  );
 }

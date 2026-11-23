@@ -13,5 +13,7 @@ export const kanaPaths = {
 
 export const CORRECT_ADVANCE_DELAY_MS = 400;
 
+export const MAX_QUESTION_COUNT = 1_000;
+
 export const KANA_STORAGE_PREFIX = 'shiori:kana:';
 export const KANA_STORAGE_VERSION = 1;

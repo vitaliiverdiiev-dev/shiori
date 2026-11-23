@@ -73,4 +73,67 @@ describe('PracticeLauncher', () => {
       'hiragana:ki',
     ]);
   });
+
+  it('defaults the question count to the selection and describes it', () => {
+    setup(['hiragana:a', 'hiragana:ka']);
+    const count = screen.getByRole('spinbutton', { name: 'Questions' });
+    expect(count).toHaveValue(2);
+    expect(count).toHaveAccessibleDescription('2 questions · each kana once');
+  });
+
+  it('starts a round with the configured number of questions and keeps it', async () => {
+    const ids: KanaId[] = Array.from(
+      ['a', 'i', 'u', 'e', 'o', 'ka', 'ki', 'ku', 'ke', 'ko'],
+      (id) => `hiragana:${id}` as const,
+    );
+    const { user } = setup(ids);
+    const count = screen.getByRole('spinbutton', { name: 'Questions' });
+
+    await user.clear(count);
+    await user.type(count, '23');
+    expect(count).toHaveAccessibleDescription(
+      '23 questions · each kana 2–3 times',
+    );
+    expect(readKanaState('hiragana', 'alice').questionCount).toBe(23);
+
+    await user.click(screen.getByRole('button', { name: 'Start practice' }));
+    const session = readKanaState('hiragana', 'alice').session;
+    expect(session?.order).toHaveLength(23);
+    expect(session?.questionCount).toBe(23);
+  });
+
+  it('refuses an invalid question count', async () => {
+    const { user } = setup(['hiragana:a']);
+    const count = screen.getByRole('spinbutton', { name: 'Questions' });
+
+    await user.clear(count);
+    await user.type(count, '0');
+    expect(readKanaState('hiragana', 'alice').questionCount).toBeNull();
+
+    for (const text of ['0', '1001']) {
+      await user.clear(count);
+      await user.type(count, text);
+      expect(count).toHaveAttribute('aria-invalid', 'true');
+      expect(count).toHaveAccessibleDescription(
+        'Enter a whole number from 1 to 1,000.',
+      );
+      expect(
+        screen.getByRole('button', { name: 'Start practice' }),
+      ).toHaveAttribute('aria-disabled', 'true');
+    }
+  });
+
+  it('restores the configured count without changing an unfinished round', () => {
+    const round = createSession(['hiragana:a'], { questionCount: 5 });
+    writeKanaState('hiragana', 'alice', { questionCount: 40, session: round });
+    setup(['hiragana:a', 'hiragana:ka']);
+
+    expect(screen.getByRole('spinbutton', { name: 'Questions' })).toHaveValue(
+      40,
+    );
+    expect(
+      screen.getByRole('link', { name: 'Resume practice 1/5' }),
+    ).toBeVisible();
+    expect(readKanaState('hiragana', 'alice').session).toEqual(round);
+  });
 });

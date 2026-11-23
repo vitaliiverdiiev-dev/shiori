@@ -16,6 +16,12 @@ export {
   DropdownMenuTrigger,
 } from './primitives/dropdown-menu/dropdown-menu';
 export { FieldGroup } from './primitives/field/field';
+export {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from './primitives/input-group/input-group';
 export { Input } from './primitives/input/input';
 export {
   Sidebar,

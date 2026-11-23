@@ -642,12 +642,13 @@ describe('Kana practice', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Katakana' }),
     ).toBeVisible();
-    expect(screen.getAllByRole('status')[0]).toHaveTextContent(
-      '0 of 104 selected',
-    );
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent('0 selected');
     expect(
       screen.queryByRole('link', { name: /Resume practice/ }),
     ).not.toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('tab', { name: 'Statistics' }));
     expect(
       await screen.findByText('Nothing recorded yet.', { exact: false }),
     ).toBeVisible();

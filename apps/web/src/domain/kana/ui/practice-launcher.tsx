@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 import type { KanaId, KanaScript } from '@shiori/kana';
 import { Link, useNavigate } from 'react-router';
 import { Button, buttonVariants, Input } from '@/shared/ui';
@@ -13,10 +13,18 @@ import { kanaPaths, MAX_QUESTION_COUNT } from '../model/consts';
 type Props = {
   script: KanaScript;
   selectedIds: readonly KanaId[];
+  selectionActions?: ReactNode;
+  selectionStatus?: ReactNode;
   userId: string | undefined;
 };
 
-export const PracticeLauncher = ({ script, selectedIds, userId }: Props) => {
+export const PracticeLauncher = ({
+  script,
+  selectedIds,
+  selectionActions,
+  selectionStatus,
+  userId,
+}: Props) => {
   const navigate = useNavigate();
   const inputId = useId();
   const descriptionId = useId();
@@ -41,15 +49,19 @@ export const PracticeLauncher = ({ script, selectedIds, userId }: Props) => {
   };
 
   return (
-    <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      <div className="flex min-w-0 items-center gap-2">
+        {selectionStatus}
+        {selectionActions}
+      </div>
+      <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
         <label className="text-sm font-medium" htmlFor={inputId}>
           Questions
         </label>
         <Input
           aria-describedby={descriptionId}
           aria-invalid={invalid || undefined}
-          className="w-20 tabular-nums"
+          className="w-16 tabular-nums sm:w-20"
           disabled={nothingSelected}
           id={inputId}
           inputMode="numeric"
@@ -67,20 +79,6 @@ export const PracticeLauncher = ({ script, selectedIds, userId }: Props) => {
           type="number"
           value={countText ?? String(selectedIds.length)}
         />
-      </div>
-      <p
-        className={
-          invalid ? 'text-sm text-destructive' : 'text-sm text-muted-foreground'
-        }
-        id={descriptionId}
-      >
-        {invalid
-          ? `Enter a whole number from 1 to ${MAX_QUESTION_COUNT.toLocaleString('en')}.`
-          : questionCount !== null &&
-            !nothingSelected &&
-            describeQuestionCount(questionCount, selectedIds.length)}
-      </p>
-      <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
         {unfinished && (
           <Link
             className={buttonVariants({ className: 'flex-1 sm:flex-none' })}
@@ -101,6 +99,16 @@ export const PracticeLauncher = ({ script, selectedIds, userId }: Props) => {
         >
           {unfinished ? 'Start new round' : 'Start practice'}
         </Button>
+        <p
+          className={invalid ? 'w-full text-sm text-destructive' : 'sr-only'}
+          id={descriptionId}
+        >
+          {invalid
+            ? `Enter a whole number from 1 to ${MAX_QUESTION_COUNT.toLocaleString('en')}.`
+            : questionCount !== null &&
+              !nothingSelected &&
+              describeQuestionCount(questionCount, selectedIds.length)}
+        </p>
       </div>
     </div>
   );

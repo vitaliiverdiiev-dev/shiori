@@ -24,6 +24,13 @@ export {
 } from './primitives/input-group/input-group';
 export { Input } from './primitives/input/input';
 export {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from './primitives/popover/popover';
+export {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -48,6 +55,12 @@ export {
   TableHeader,
   TableRow,
 } from './primitives/table/table';
+export {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from './primitives/tabs/tabs';
 export {
   ToggleGroup,
   ToggleGroupItem,

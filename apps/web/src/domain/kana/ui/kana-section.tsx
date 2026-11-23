@@ -1,6 +1,15 @@
 import { useId } from 'react';
 import type { Kana, KanaId, KanaSectionGroup } from '@shiori/kana';
-import { Checkbox } from '@/shared/ui';
+import { InfoIcon } from 'lucide-react';
+import {
+  Button,
+  Checkbox,
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverTitle,
+  PopoverTrigger,
+} from '@/shared/ui';
 import { countSelected, getGroupState } from '../helpers/selection';
 import type { KanaProgressStats } from '../model/types';
 import { KanaRow } from './kana-row';
@@ -29,26 +38,41 @@ export const KanaSection = ({
       aria-labelledby={headingId}
       className={kanaSectionVariants({ section: section.id })}
     >
-      <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="text-lg font-semibold tracking-tight" id={headingId}>
-            <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 pl-2.5">
-              <Checkbox
-                aria-label={`Select all ${section.title}`}
-                checked={state === 'all'}
-                indeterminate={state === 'some'}
-                onCheckedChange={(checked) => {
-                  onSelectGroup(section.kana, checked);
-                }}
+      <div className="flex items-center gap-1">
+        <h2 className="text-lg font-semibold tracking-tight" id={headingId}>
+          <label className="flex min-h-11 w-fit cursor-pointer items-center gap-3 pl-2.5">
+            <Checkbox
+              aria-label={`Select all ${section.title}`}
+              checked={state === 'all'}
+              indeterminate={state === 'some'}
+              onCheckedChange={(checked) => {
+                onSelectGroup(section.kana, checked);
+              }}
+            />
+            {section.title}
+          </label>
+        </h2>
+        <Popover>
+          <PopoverTrigger
+            aria-label={`About ${section.title}`}
+            delay={300}
+            openOnHover
+            render={
+              <Button
+                className="text-muted-foreground pointer-coarse:size-10"
+                size="icon-sm"
+                variant="ghost"
               />
-              {section.title}
-            </label>
-          </h2>
-          <p className="pl-2.5 text-sm text-muted-foreground">
-            {section.description}
-          </p>
-        </div>
-        <p className="mt-3 shrink-0 text-sm text-muted-foreground tabular-nums">
+            }
+          >
+            <InfoIcon aria-hidden="true" />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64">
+            <PopoverTitle>{section.title}</PopoverTitle>
+            <PopoverDescription>{section.description}</PopoverDescription>
+          </PopoverContent>
+        </Popover>
+        <p className="ml-auto shrink-0 text-sm text-muted-foreground tabular-nums">
           {countSelected(selection, section.kana)} / {section.kana.length}
         </p>
       </div>

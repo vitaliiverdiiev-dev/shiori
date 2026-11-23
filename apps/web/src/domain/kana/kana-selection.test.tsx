@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '@/test/msw';
+import { createSession } from './helpers/session';
+import { readKanaState, writeKanaState } from './helpers/storage';
 import { KanaSelection } from './kana-selection';
 import type { KanaProgressStats } from './model/types';
 
@@ -57,8 +59,14 @@ const status = () => {
   if (!selectionStatus) throw new Error('Missing selection status');
   return selectionStatus;
 };
-const progressStatus = () =>
-  within(screen.getByRole('region', { name: 'Progress' })).getByRole('status');
+const tab = (name: string) => screen.getByRole('tab', { name });
+const statisticsStatus = () =>
+  within(screen.getByRole('tabpanel', { name: 'Statistics' })).getByRole(
+    'status',
+  );
+const openStatistics = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(tab('Statistics'));
+};
 const kana = (name: string) => screen.getByRole('button', { name });
 const rowCheckbox = (label: string) =>
   screen.getByRole('checkbox', { name: `${label} row` });
@@ -73,10 +81,12 @@ describe('KanaSelection', () => {
   it('starts with nothing selected and shows every section', () => {
     setup();
 
-    expect(status()).toHaveTextContent('0 of 104 selected');
+    expect(status()).toHaveTextContent('0 selected');
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent),
-    ).toEqual(['Basic', 'Dakuten & handakuten', 'Yōon', 'Progress']);
+    ).toEqual(['Basic', 'Dakuten & handakuten', 'Yōon']);
+    expect(tab('Practice')).toHaveAttribute('aria-selected', 'true');
+    expect(tab('Statistics')).toHaveAttribute('aria-selected', 'false');
     expect(kana('し shi')).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -86,12 +96,12 @@ describe('KanaSelection', () => {
     await user.click(kana('し shi'));
     await user.click(kana('ち chi'));
     expect(kana('し shi')).toHaveAttribute('aria-pressed', 'true');
-    expect(status()).toHaveTextContent('2 of 104 selected');
+    expect(status()).toHaveTextContent('2 selected');
 
     await user.click(kana('し shi'));
     expect(kana('し shi')).toHaveAttribute('aria-pressed', 'false');
     expect(kana('ち chi')).toHaveAttribute('aria-pressed', 'true');
-    expect(status()).toHaveTextContent('1 of 104 selected');
+    expect(status()).toHaveTextContent('1 selected');
   });
 
   it('shows a partly selected row as mixed and completes it on click', async () => {
@@ -106,18 +116,18 @@ describe('KanaSelection', () => {
     for (const button of within(row).getAllByRole('button')) {
       expect(button).toHaveAttribute('aria-pressed', 'true');
     }
-    expect(status()).toHaveTextContent('5 of 104 selected');
+    expect(status()).toHaveTextContent('5 selected');
 
     await user.click(rowCheckbox('か'));
     expect(rowCheckbox('か')).toHaveAttribute('aria-checked', 'false');
-    expect(status()).toHaveTextContent('0 of 104 selected');
+    expect(status()).toHaveTextContent('0 selected');
   });
 
   it('selects a whole section and marks it mixed after one deselection', async () => {
     const { user } = setup();
 
     await user.click(sectionCheckbox('Yōon'));
-    expect(status()).toHaveTextContent('33 of 104 selected');
+    expect(status()).toHaveTextContent('33 selected');
     expect(rowCheckbox('きゃ')).toHaveAttribute('aria-checked', 'true');
 
     await user.click(kana('ぎょ gyo'));
@@ -130,7 +140,7 @@ describe('KanaSelection', () => {
     const { user } = setup('katakana');
 
     await user.click(screen.getByRole('button', { name: 'Select all' }));
-    expect(status()).toHaveTextContent('104 of 104 selected');
+    expect(status()).toHaveTextContent('104 selected');
     expect(kana('ン n')).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Select all' })).toHaveAttribute(
       'aria-disabled',
@@ -138,7 +148,7 @@ describe('KanaSelection', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Clear' }));
-    expect(status()).toHaveTextContent('0 of 104 selected');
+    expect(status()).toHaveTextContent('0 selected');
     expect(kana('ン n')).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -163,17 +173,21 @@ describe('KanaSelection', () => {
     expect(rowCheckbox('さ')).toHaveFocus();
     await user.keyboard(' ');
     expect(rowCheckbox('さ')).toHaveAttribute('aria-checked', 'true');
-    expect(status()).toHaveTextContent('7 of 104 selected');
+    expect(status()).toHaveTextContent('7 selected');
   });
 
   describe('progress', () => {
     it('says when nothing has been recorded yet and shows no indicators', async () => {
-      setup();
+      const { user } = setup();
 
-      expect(progressStatus()).toHaveTextContent('Loading progress…');
-      expect(await screen.findByText(/^Nothing recorded yet\./)).toBeVisible();
+      expect(screen.getByText('Loading statistics…')).toBeInTheDocument();
+      await screen.findByText(/^Nothing recorded yet\./);
       expect(document.querySelector('[data-slot="kana-progress"]')).toBeNull();
       expect(kana('し shi')).not.toHaveAttribute('aria-describedby');
+
+      await openStatistics(user);
+      expect(statisticsStatus()).toHaveTextContent(/^Nothing recorded yet\./);
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
     });
 
     it('marks practised kana with the share of independent first answers', async () => {
@@ -195,9 +209,7 @@ describe('KanaSelection', () => {
       );
       setup();
 
-      expect(
-        await screen.findByText('2 kana practised, 5 questions recorded.'),
-      ).toBeVisible();
+      await screen.findByText('2 kana practised, 5 questions recorded.');
       expect(kana('し shi')).toHaveAccessibleDescription(
         'Practised 4 times, 1 correct on the first try without a hint.',
       );
@@ -213,7 +225,7 @@ describe('KanaSelection', () => {
       ).toBeNull();
     });
 
-    it('lists the four outcomes per kana in the details, in catalog order', async () => {
+    it('lists the four outcomes per kana in a visible table, in catalog order', async () => {
       server.use(
         progressResponse([
           stats('hiragana:si', {
@@ -229,8 +241,10 @@ describe('KanaSelection', () => {
       );
       const { user } = setup();
 
-      await user.click(await screen.findByText('Details per kana'));
-      const rows = within(screen.getByRole('table')).getAllByRole('row');
+      await openStatistics(user);
+      const table = await screen.findByRole('table');
+      expect(table).toHaveAccessibleName(/^Statistics per kana/);
+      const rows = within(table).getAllByRole('row');
       expect(rows.map((row) => row.textContent)).toEqual([
         'KanaQuestionsCorrect, no hintCorrect with hintIncorrectSkippedLast practised',
         expect.stringMatching(/^あ a44000/) as unknown,
@@ -246,17 +260,21 @@ describe('KanaSelection', () => {
       );
       const { user } = setup();
 
-      expect(
-        await screen.findByText('Progress could not be loaded.'),
-      ).toBeVisible();
+      await screen.findByText('Statistics could not be loaded.');
       await user.click(kana('し shi'));
-      expect(status()).toHaveTextContent('1 of 104 selected');
+      expect(status()).toHaveTextContent('1 selected');
       expect(
         screen.getByRole('button', { name: 'Start practice' }),
       ).toBeEnabled();
 
+      await openStatistics(user);
+      expect(statisticsStatus()).toHaveTextContent(
+        'Statistics could not be loaded.',
+      );
       server.use(progressResponse([stats('hiragana:si')]));
-      await user.click(screen.getByRole('button', { name: 'Reload progress' }));
+      await user.click(
+        screen.getByRole('button', { name: 'Reload statistics' }),
+      );
       expect(await screen.findByText(/^1 kana practised, /)).toBeVisible();
     });
 
@@ -283,7 +301,8 @@ describe('KanaSelection', () => {
       server.use(
         http.post('*/api/kana-progress/attempts', () => HttpResponse.error()),
       );
-      setup();
+      const { user } = setup();
+      await openStatistics(user);
 
       expect(
         await screen.findByText(/1 result from this device not saved yet\./),
@@ -327,12 +346,187 @@ describe('KanaSelection', () => {
           }),
         ),
       );
-      setup();
+      const { user } = setup();
+      await openStatistics(user);
 
       expect(await screen.findByText(/^1 kana practised, /)).toBeVisible();
       expect(
         window.localStorage.getItem('shiori:kana-attempts:alice'),
       ).toBeNull();
+    });
+  });
+
+  describe('tabs', () => {
+    it('shows the practice actions in one footer, and none on Statistics', async () => {
+      const { user } = setup();
+      const start = screen.getByRole('button', { name: 'Start practice' });
+      const footer = start.closest('.sticky');
+      if (!(footer instanceof HTMLElement)) throw new Error('Missing footer');
+
+      expect(
+        within(footer)
+          .getAllByRole('button')
+          .map((button) => button.textContent),
+      ).toEqual(['Select all', 'Clear', 'Start practice']);
+      expect(within(footer).getByRole('status')).toHaveTextContent(
+        '0 selected',
+      );
+      expect(
+        within(footer).getByRole('spinbutton', { name: 'Questions' }),
+      ).toBeVisible();
+
+      await openStatistics(user);
+      expect(
+        screen.queryByRole('button', { name: 'Start practice' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('spinbutton', { name: 'Questions' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('keeps the count description for screen readers and shows only errors', async () => {
+      const { user } = setup();
+      await user.click(kana('し shi'));
+      const count = screen.getByRole('spinbutton', { name: 'Questions' });
+
+      expect(count).toHaveAccessibleDescription('1 question · each kana once');
+      expect(screen.getByText('1 question · each kana once')).toHaveClass(
+        'sr-only',
+      );
+      await user.clear(count);
+      await user.type(count, '0');
+      expect(
+        screen.getByText('Enter a whole number from 1 to 1,000.'),
+      ).not.toHaveClass('sr-only');
+    });
+
+    it('keeps the selection and the question count when switching tabs', async () => {
+      const { user } = setup();
+      await user.click(kana('し shi'));
+      await user.click(kana('ち chi'));
+      const count = screen.getByRole('spinbutton', { name: 'Questions' });
+      await user.clear(count);
+      await user.type(count, '7');
+
+      await openStatistics(user);
+      expect(
+        screen.queryByRole('button', { name: 'し shi' }),
+      ).not.toBeInTheDocument();
+      await user.click(tab('Practice'));
+
+      expect(kana('し shi')).toHaveAttribute('aria-pressed', 'true');
+      expect(kana('ち chi')).toHaveAttribute('aria-pressed', 'true');
+      expect(status()).toHaveTextContent('2 selected');
+      expect(screen.getByRole('spinbutton', { name: 'Questions' })).toHaveValue(
+        7,
+      );
+    });
+
+    it('keeps an unfinished round, its order and Resume across tabs', async () => {
+      writeKanaState('hiragana', 'alice', {
+        session: createSession(['hiragana:a', 'hiragana:i', 'hiragana:u']),
+      });
+      const before = readKanaState('hiragana', 'alice').session;
+      const { user } = setup();
+
+      await openStatistics(user);
+      await user.click(tab('Practice'));
+
+      expect(
+        screen.getByRole('link', { name: /Resume practice 1\/3/ }),
+      ).toBeVisible();
+      expect(readKanaState('hiragana', 'alice').session).toEqual(before);
+    });
+
+    it('moves between tabs with the arrow keys without leaving the tab list', async () => {
+      const { user } = setup();
+
+      await user.click(tab('Practice'));
+      await user.keyboard('{ArrowRight}');
+      expect(tab('Statistics')).toHaveFocus();
+      await user.keyboard('{Enter}');
+      expect(tab('Statistics')).toHaveAttribute('aria-selected', 'true');
+      expect(
+        screen.getByRole('tabpanel', { name: 'Statistics' }),
+      ).toBeVisible();
+      await user.keyboard('{ArrowLeft}{Enter}');
+      expect(tab('Practice')).toHaveFocus();
+      expect(tab('Practice')).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('loads statistics once for both tabs', async () => {
+      let requests = 0;
+      server.use(
+        http.get(PROGRESS, () => {
+          requests += 1;
+          return HttpResponse.json({
+            direction: 'kana-to-romaji',
+            kana: [stats('hiragana:si')],
+            script: 'hiragana',
+          });
+        }),
+      );
+      const { user } = setup();
+
+      await screen.findByText(/^1 kana practised/);
+      await openStatistics(user);
+      await user.click(tab('Practice'));
+      await openStatistics(user);
+
+      expect(screen.getByRole('table')).toBeVisible();
+      expect(requests).toBe(1);
+    });
+  });
+
+  describe('section information', () => {
+    it.each([
+      ['Basic', 'Gojūon, the core characters.'],
+      ['Dakuten & handakuten', /Voiced and semi-voiced characters/],
+      ['Yōon', 'Combinations with a small ya, yu or yo.'],
+    ])('explains %s on request instead of permanently', async (title, text) => {
+      const { user } = setup();
+      expect(screen.queryByText(text)).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: `About ${title}` }));
+      const popup = await screen.findByRole('dialog');
+      expect(within(popup).getByText(text)).toBeVisible();
+      expect(within(popup).getByText(title)).toBeVisible();
+    });
+
+    it('opens from the keyboard, closes with Escape and returns focus', async () => {
+      const { user } = setup();
+      const trigger = screen.getByRole('button', { name: 'About Yōon' });
+
+      trigger.focus();
+      await user.keyboard('{Enter}');
+      expect(await screen.findByRole('dialog')).toBeVisible();
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      });
+      expect(trigger).toHaveFocus();
+    });
+
+    it('opens on hover', async () => {
+      const { user } = setup();
+
+      await user.hover(screen.getByRole('button', { name: 'About Basic' }));
+      expect(
+        await screen.findByText('Gojūon, the core characters.'),
+      ).toBeVisible();
+    });
+
+    it('leaves the section selection alone', async () => {
+      const { user } = setup();
+
+      await user.click(screen.getByRole('button', { name: 'About Basic' }));
+      await user.keyboard('{Escape}');
+      expect(sectionCheckbox('Basic')).toHaveAttribute('aria-checked', 'false');
+      expect(status()).toHaveTextContent('0 selected');
+
+      await user.click(sectionCheckbox('Basic'));
+      expect(status()).toHaveTextContent('46 selected');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
   });
 });

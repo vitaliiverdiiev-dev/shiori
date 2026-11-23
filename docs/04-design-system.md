@@ -51,6 +51,12 @@ A theme file changes colors, radii, typography, and related visual values—not 
 - First M00 page should show the Shiori identity, carefully styled for small screens, and a real reusable button (e.g. retry API health). Do not scaffold a full product navigation shell.
 - Future Expo app should match intent/tokens and main interactions, but may use platform-specific components. shadcn HTML/DOM components are not React Native components.
 
+## Contextual information (M03.3.4)
+
+Optional explanatory descriptions should preferably use accessible contextual information controls instead of occupying permanent space in dense interfaces. Essential labels, errors, warnings and actionable instructions must remain directly accessible.
+
+This is a guideline for new and dense screens, not a mandate to hide existing text. Use the shadcn Base UI `Popover` (not `Tooltip`, which Base UI reserves for supplementary labels and which does not open on touch) behind a muted Info icon button with an accessible name such as “About Yōon”; open on hover (`openOnHover`) and on click or tap, close with Escape. First use: the Kana section headings.
+
 ## Future generic components — **not** for M00
 
 - Input/form primitives, Select, Dialog/Drawer, Sonner toaster.

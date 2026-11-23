@@ -14,7 +14,7 @@ export const AppLayout = () => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="min-w-0 pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] [--app-header-height:calc(3.5rem+1px+env(safe-area-inset-top))]">
+      <SidebarInset className="min-w-0 overflow-x-clip pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] [--app-header-height:calc(3.5rem+1px+env(safe-area-inset-top))]">
         <header className="sticky top-0 z-10 box-content flex h-14 items-center gap-2 border-b bg-background px-3 pt-[env(safe-area-inset-top)] sm:px-4">
           <SidebarTrigger size="icon" />
           <Link
@@ -32,7 +32,7 @@ export const AppLayout = () => {
             <ThemeControl />
           </div>
         </header>
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8 md:pt-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 pt-6 pb-(--app-content-bottom) [--app-content-bottom:max(1.5rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8 md:pt-8">
           <RouteBoundary>
             <Outlet />
           </RouteBoundary>

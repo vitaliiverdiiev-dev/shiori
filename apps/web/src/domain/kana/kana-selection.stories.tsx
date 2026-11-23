@@ -43,7 +43,7 @@ const meta = {
   render: (args) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <div className="p-4">
+        <div className="overflow-x-clip p-4">
           <KanaSelection {...args} />
         </div>
       </MemoryRouter>

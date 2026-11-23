@@ -1,8 +1,14 @@
-import { findKana, isAcceptedReading, type Kana } from '@shiori/kana';
+import {
+  findKana,
+  isAcceptedReading,
+  isKanaAnswer,
+  type Kana,
+} from '@shiori/kana';
 import type {
   KanaAttemptInput,
   KanaAttemptRecord,
   KanaOccurrence,
+  KanaResultOccurrence,
 } from '../types/kana-attempt.types.js';
 
 const RECORDED_FIELDS = [
@@ -14,15 +20,32 @@ const RECORDED_FIELDS = [
   'script',
 ] as const satisfies readonly (keyof KanaAttemptRecord)[];
 
+export function canShareQuestion(
+  a: KanaAttemptRecord,
+  b: KanaAttemptRecord,
+): boolean {
+  return (
+    a.direction === 'romaji-to-kana' &&
+    b.direction === 'romaji-to-kana' &&
+    a.kanaId !== b.kanaId &&
+    findKana(a.kanaId)?.romaji === findKana(b.kanaId)?.romaji &&
+    a.script === b.script
+  );
+}
+
 function hasConsistentOutcome(
   kana: Kana,
-  { answer, corrected, outcome }: KanaAttemptInput,
+  { answer, corrected, direction, outcome }: KanaAttemptInput,
 ): boolean {
+  const accepted =
+    direction === 'romaji-to-kana'
+      ? isKanaAnswer(kana, answer)
+      : isAcceptedReading(kana, answer);
   switch (outcome) {
     case 'correct':
-      return !corrected && isAcceptedReading(kana, answer);
+      return !corrected && accepted;
     case 'incorrect':
-      return answer.trim() !== '' && !isAcceptedReading(kana, answer);
+      return answer.trim() !== '' && !accepted;
     case 'skipped':
       return !corrected && answer === '';
   }
@@ -40,6 +63,10 @@ export function occurrenceKey({
   roundId,
 }: KanaOccurrence): string {
   return `${roundId}#${String(questionIndex)}`;
+}
+
+export function resultKey(result: KanaResultOccurrence): string {
+  return `${occurrenceKey(result)}#${result.kanaId}`;
 }
 
 export function toKanaAttemptRecord(

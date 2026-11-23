@@ -1,9 +1,13 @@
-import type { KanaId } from '@shiori/kana';
-import { findKana, getKanaCatalog, isAcceptedReading } from '@shiori/kana';
+import type { KanaId, KanaQuestion } from '@shiori/kana';
+import {
+  findKana,
+  getKanaCatalog,
+  isAcceptedReading,
+  questionKey,
+} from '@shiori/kana';
 import { describe, expect, it } from 'vitest';
 import type { KanaPracticeSession } from '../../model/types';
 import {
-  buildQuestionOrder,
   createRetrySession,
   createSession,
   getAbandonedAttempts,
@@ -12,7 +16,6 @@ import {
   isAwaitingAdvance,
   isAwaitingCorrection,
   practiceReducer,
-  shuffle,
   summarizeSession,
 } from '../session';
 
@@ -26,31 +29,18 @@ function answer(session: KanaPracticeSession, value: string) {
   });
 }
 
+function forward(...kanaIds: KanaId[]): KanaQuestion[] {
+  return kanaIds.map((kanaId) => ({ direction: 'kana-to-romaji', kanaId }));
+}
+
+function keys(session: KanaPracticeSession): string[] {
+  return session.order.map(questionKey);
+}
+
 function required(session: KanaPracticeSession | null): KanaPracticeSession {
   if (!session) throw new Error('Expected a session');
   return session;
 }
-
-describe('shuffle', () => {
-  it('returns a permutation and leaves the input untouched', () => {
-    const items = [1, 2, 3, 4, 5];
-    const result = shuffle(items, () => 0);
-    expect([...result].sort()).toEqual(items);
-    expect(result).not.toEqual(items);
-    expect(items).toEqual([1, 2, 3, 4, 5]);
-  });
-
-  it('uses every swap position (Fisher–Yates)', () => {
-    const seen = new Set<string>();
-    for (let a = 0; a < 3; a += 1) {
-      for (let b = 0; b < 2; b += 1) {
-        const draws = [a / 3, b / 2];
-        seen.add(shuffle(['x', 'y', 'z'], () => draws.shift() ?? 0).join(''));
-      }
-    }
-    expect(seen.size).toBe(6);
-  });
-});
 
 describe('createSession', () => {
   it('asks every selected kana exactly once, in shuffled order', () => {
@@ -58,14 +48,24 @@ describe('createSession', () => {
     const session = createSession(all);
 
     expect(session.order).toHaveLength(104);
-    expect(new Set(session.order)).toEqual(new Set(all));
+    expect(new Set(keys(session))).toEqual(new Set(all));
     expect(session.selection).toEqual(all);
     expect(getPracticePhase(session)).toBe('answering');
   });
 
   it('handles a single kana and removes duplicate ids', () => {
     const session = createSession(['hiragana:a', 'hiragana:a']);
-    expect(session.order).toEqual(['hiragana:a']);
+    expect(keys(session)).toEqual(['hiragana:a']);
+  });
+
+  it('defaults to one appearance per selected kana', () => {
+    const ten = getKanaCatalog('hiragana')
+      .slice(0, 10)
+      .map(({ id }) => id);
+    const session = createSession(ten);
+    expect(session.order).toHaveLength(10);
+    expect(new Set(keys(session)).size).toBe(10);
+    expect(session.questionCount).toBe(10);
   });
 });
 
@@ -98,7 +98,7 @@ describe('getFinalizedAttempts', () => {
         corrected: false,
         direction: 'kana-to-romaji',
         hintUsed: false,
-        kanaId: start.order[0],
+        kanaId: keys(start)[0],
         outcome: 'correct',
         questionIndex: 0,
         roundId: ROUND,
@@ -161,7 +161,7 @@ describe('getFinalizedAttempts', () => {
     const first = advance(required(answer(twice, 'a')));
     const second = required(answer(first, 'a'));
 
-    expect(twice.order).toEqual(['hiragana:a', 'hiragana:a']);
+    expect(keys(twice)).toEqual(['hiragana:a', 'hiragana:a']);
     expect(getFinalizedAttempts(first, second)).toEqual([
       expect.objectContaining({ kanaId: 'hiragana:a', questionIndex: 1 }),
     ]);
@@ -183,7 +183,7 @@ describe('getFinalizedAttempts', () => {
     const typed = required(
       practiceReducer(si, { type: 'input', value: tooLong }),
     );
-    expect(typed.input).toBe(tooLong);
+    expect(typed.inputs).toEqual([tooLong]);
     expect(required(practiceReducer(typed, { type: 'submit' }))).toBe(typed);
 
     const wrong = required(answer(si, 'chi'));
@@ -230,7 +230,7 @@ describe('getAbandonedAttempts', () => {
         corrected: false,
         direction: 'kana-to-romaji',
         hintUsed: true,
-        kanaId: start.order[0],
+        kanaId: keys(start)[0],
         outcome: 'incorrect',
         questionIndex: 0,
         roundId: ROUND,
@@ -256,15 +256,15 @@ describe('practiceReducer', () => {
       answer(createSession(ids, { random: inOrder }), ' A '),
     );
 
-    expect(session.attempts).toEqual([
-      { answer: 'A', kanaId: 'hiragana:a', outcome: 'correct' },
+    expect(session.results).toEqual([
+      [{ answer: 'A', kanaId: 'hiragana:a', outcome: 'correct' }],
     ]);
     expect(getPracticePhase(session)).toBe('feedback');
     expect(session.position).toBe(0);
 
     const next = required(practiceReducer(session, { type: 'next' }));
     expect(next.position).toBe(1);
-    expect(next.input).toBe('');
+    expect(next.inputs).toEqual(['']);
     expect(getPracticePhase(next)).toBe('answering');
   });
 
@@ -272,7 +272,7 @@ describe('practiceReducer', () => {
     const session = required(
       answer(createSession(ids, { random: inOrder }), 'i'),
     );
-    expect(session.attempts.at(-1)?.outcome).toBe('incorrect');
+    expect(session.results.at(-1)?.[0]?.outcome).toBe('incorrect');
   });
 
   it('keeps asking after a wrong answer until the reading is typed correctly', () => {
@@ -283,18 +283,23 @@ describe('practiceReducer', () => {
     expect(practiceReducer(wrong, { type: 'next' })).toBe(wrong);
 
     const stillWrong = required(answer(wrong, 'u'));
-    expect(stillWrong.attempts).toEqual(wrong.attempts);
+    expect(stillWrong.results).toEqual(wrong.results);
     expect(isAwaitingCorrection(stillWrong)).toBe(true);
-    expect(answer(stillWrong, '  ')).toEqual({ ...stillWrong, input: '  ' });
+    expect(answer(stillWrong, '  ')).toEqual({
+      ...stillWrong,
+      inputs: ['  '],
+    });
 
     const corrected = required(answer(stillWrong, ' A '));
-    expect(corrected.attempts).toEqual([
-      {
-        answer: 'i',
-        corrected: true,
-        kanaId: 'hiragana:a',
-        outcome: 'incorrect',
-      },
+    expect(corrected.results).toEqual([
+      [
+        {
+          answer: 'i',
+          corrected: true,
+          kanaId: 'hiragana:a',
+          outcome: 'incorrect',
+        },
+      ],
     ]);
     expect(isAwaitingAdvance(corrected)).toBe(true);
     expect(practiceReducer(corrected, { type: 'input', value: 'x' })).toBe(
@@ -306,13 +311,13 @@ describe('practiceReducer', () => {
 
     const next = required(practiceReducer(corrected, { type: 'next' }));
     expect(next.position).toBe(1);
-    expect(next.input).toBe('');
+    expect(next.inputs).toEqual(['']);
     expect(summarizeSession(next).incorrect).toBe(1);
   });
 
   it('ignores an empty answer and a second submit', () => {
     const start = createSession(ids, { random: inOrder });
-    expect(answer(start, '   ')).toEqual({ ...start, input: '   ' });
+    expect(answer(start, '   ')).toEqual({ ...start, inputs: ['   '] });
 
     const answered = required(answer(start, 'a'));
     expect(practiceReducer(answered, { type: 'submit' })).toBe(answered);
@@ -331,11 +336,11 @@ describe('practiceReducer', () => {
     );
     const skipped = required(practiceReducer(typed, { type: 'skip' }));
 
-    expect(skipped.attempts).toEqual([
-      { answer: '', kanaId: 'hiragana:a', outcome: 'skipped' },
+    expect(skipped.results).toEqual([
+      [{ answer: '', kanaId: 'hiragana:a', outcome: 'skipped' }],
     ]);
     expect(skipped.position).toBe(1);
-    expect(skipped.input).toBe('');
+    expect(skipped.inputs).toEqual(['']);
     expect(practiceReducer(skipped, { type: 'next' })).toBe(skipped);
   });
 
@@ -364,34 +369,35 @@ describe('practiceReducer', () => {
 
 describe('next rounds', () => {
   const finished: KanaPracticeSession = {
-    attempts: [
-      { answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' },
-      { answer: 'x', kanaId: 'hiragana:ka', outcome: 'incorrect' },
-      { answer: '', kanaId: 'hiragana:si', outcome: 'skipped' },
-    ],
     hintShown: false,
     hintUsed: false,
-    input: '',
-    order: ids,
+    inputs: [],
+    mode: 'kana-to-romaji',
+    order: forward(...ids),
     position: 3,
     questionCount: 3,
+    results: [
+      [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
+      [{ answer: 'x', kanaId: 'hiragana:ka', outcome: 'incorrect' }],
+      [{ answer: '', kanaId: 'hiragana:si', outcome: 'skipped' }],
+    ],
     roundId: ROUND,
     selection: ids,
   };
 
   it('retries only the missed kana and keeps the full selection', () => {
     const retry = createRetrySession(finished);
-    expect([...retry.order].sort()).toEqual(['hiragana:ka', 'hiragana:si']);
+    expect(keys(retry).sort()).toEqual(['hiragana:ka', 'hiragana:si']);
     expect(retry.selection).toEqual(ids);
     expect(retry.questionCount).toBe(3);
-    expect(retry.attempts).toEqual([]);
+    expect(retry.results).toEqual([]);
     expect(retry.position).toBe(0);
   });
 
   it('restarts the full selection in a new order', () => {
     const restart = createSession(finished.selection, { random: () => 0 });
-    expect([...restart.order].sort()).toEqual([...ids].sort());
-    expect(restart.order).not.toEqual(ids);
+    expect(keys(restart).sort()).toEqual([...ids].sort());
+    expect(keys(restart)).not.toEqual(ids);
   });
 });
 
@@ -413,90 +419,6 @@ describe('scheduled advance', () => {
   });
 });
 
-describe('buildQuestionOrder', () => {
-  const ten = getKanaCatalog('hiragana')
-    .slice(0, 10)
-    .map(({ id }) => id);
-  const counts = (order: readonly KanaId[]) => {
-    const result = new Map<KanaId, number>();
-    for (const id of order) result.set(id, (result.get(id) ?? 0) + 1);
-    return result;
-  };
-  const seeded = (seed: number) => {
-    let state = seed;
-    return () => {
-      state = (state * 1_103_515_245 + 12_345) % 2_147_483_648;
-      return state / 2_147_483_648;
-    };
-  };
-
-  it('defaults to one appearance per selected kana', () => {
-    const session = createSession(ten);
-    expect(session.order).toHaveLength(10);
-    expect(new Set(session.order).size).toBe(10);
-    expect(session.questionCount).toBe(10);
-  });
-
-  it('asks 10 kana ten times each in 100 questions, cycle by cycle', () => {
-    const order = buildQuestionOrder(ten, 100, seeded(1));
-
-    expect(order).toHaveLength(100);
-    expect([...counts(order).values()]).toEqual(Array(10).fill(10));
-    for (let start = 0; start < 100; start += 10) {
-      expect(new Set(order.slice(start, start + 10))).toEqual(new Set(ten));
-    }
-  });
-
-  it('spreads 23 questions over 10 kana as 2 or 3 appearances', () => {
-    const order = buildQuestionOrder(ten, 23, seeded(2));
-    const appearances = [...counts(order).values()].sort();
-
-    expect(order).toHaveLength(23);
-    expect(appearances).toEqual([2, 2, 2, 2, 2, 2, 2, 3, 3, 3]);
-    expect(new Set(order.slice(20)).size).toBe(3);
-    expect(order.every((id) => ten.includes(id))).toBe(true);
-  });
-
-  it('asks fewer questions than kana with distinct kana only', () => {
-    const order = buildQuestionOrder(ten, 4, seeded(3));
-    expect(order).toHaveLength(4);
-    expect(new Set(order).size).toBe(4);
-  });
-
-  it('repeats a single kana as often as asked', () => {
-    expect(buildQuestionOrder(['hiragana:a'], 50)).toEqual(
-      Array(50).fill('hiragana:a'),
-    );
-  });
-
-  it('never repeats a kana back to back across cycles', () => {
-    for (let seed = 1; seed <= 200; seed += 1) {
-      const order = buildQuestionOrder(
-        ['hiragana:a', 'hiragana:i', 'hiragana:u'],
-        31,
-        seeded(seed),
-      );
-      order.forEach((id, index) => {
-        if (index > 0) expect(id).not.toBe(order[index - 1]);
-      });
-    }
-  });
-
-  it('avoids back-to-back repeats with two kana as well', () => {
-    const order = buildQuestionOrder(['hiragana:a', 'hiragana:i'], 9, () => 0);
-    order.forEach((id, index) => {
-      if (index > 0) expect(id).not.toBe(order[index - 1]);
-    });
-    expect(order).toHaveLength(9);
-  });
-
-  it('produces a different arrangement for a new round', () => {
-    const first = buildQuestionOrder(ten, 30, seeded(4));
-    const second = buildQuestionOrder(ten, 30, seeded(5));
-    expect(second).not.toEqual(first);
-  });
-});
-
 describe('hints', () => {
   it('marks a first-try correct answer as assisted when the hint was shown', () => {
     const start = createSession(ids, { random: inOrder });
@@ -508,8 +430,15 @@ describe('hints', () => {
     expect(hidden.hintUsed).toBe(true);
 
     const answered = required(answer(hidden, 'a'));
-    expect(answered.attempts).toEqual([
-      { answer: 'a', hintUsed: true, kanaId: 'hiragana:a', outcome: 'correct' },
+    expect(answered.results).toEqual([
+      [
+        {
+          answer: 'a',
+          hintUsed: true,
+          kanaId: 'hiragana:a',
+          outcome: 'correct',
+        },
+      ],
     ]);
     expect(practiceReducer(answered, { type: 'hint' })).toBe(answered);
     const next = required(practiceReducer(answered, { type: 'next' }));
@@ -523,48 +452,53 @@ describe('hints', () => {
     );
     const hinted = required(practiceReducer(wrong, { type: 'hint' }));
     const closed = required(practiceReducer(hinted, { type: 'hint' }));
-    expect(closed.attempts[0]?.hintUsed).toBe(true);
+    expect(closed.results[0]?.[0]?.hintUsed).toBe(true);
     const corrected = required(answer(closed, 'a'));
 
-    expect(corrected.attempts).toEqual([
-      {
-        answer: 'o',
-        corrected: true,
-        hintUsed: true,
-        kanaId: 'hiragana:a',
-        outcome: 'incorrect',
-      },
+    expect(corrected.results).toEqual([
+      [
+        {
+          answer: 'o',
+          corrected: true,
+          hintUsed: true,
+          kanaId: 'hiragana:a',
+          outcome: 'incorrect',
+        },
+      ],
     ]);
   });
 
   it('counts assisted answers apart and retries them once each', () => {
     const repeated: KanaPracticeSession = {
-      attempts: [
-        {
-          answer: 'a',
-          hintUsed: true,
-          kanaId: 'hiragana:a',
-          outcome: 'correct',
-        },
-        { answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' },
-        { answer: 'o', kanaId: 'hiragana:a', outcome: 'incorrect' },
-        { answer: '', kanaId: 'hiragana:ka', outcome: 'skipped' },
-        { answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' },
-        { answer: 'si', kanaId: 'hiragana:si', outcome: 'correct' },
-      ],
       hintShown: false,
       hintUsed: false,
-      input: '',
-      order: [
+      inputs: [],
+      mode: 'kana-to-romaji',
+      order: forward(
         'hiragana:a',
         'hiragana:ka',
         'hiragana:a',
         'hiragana:ka',
         'hiragana:ka',
         'hiragana:si',
-      ],
+      ),
       position: 6,
       questionCount: 6,
+      results: [
+        [
+          {
+            answer: 'a',
+            hintUsed: true,
+            kanaId: 'hiragana:a',
+            outcome: 'correct',
+          },
+        ],
+        [{ answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' }],
+        [{ answer: 'o', kanaId: 'hiragana:a', outcome: 'incorrect' }],
+        [{ answer: '', kanaId: 'hiragana:ka', outcome: 'skipped' }],
+        [{ answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' }],
+        [{ answer: 'si', kanaId: 'hiragana:si', outcome: 'correct' }],
+      ],
       roundId: ROUND,
       selection: ids,
     };
@@ -578,7 +512,7 @@ describe('hints', () => {
       total: 6,
     });
     const retry = createRetrySession(repeated);
-    expect([...retry.order].sort()).toEqual(['hiragana:a', 'hiragana:ka']);
+    expect(keys(retry).sort()).toEqual(['hiragana:a', 'hiragana:ka']);
     expect(retry.questionCount).toBe(6);
   });
 });
@@ -591,11 +525,249 @@ describe('skip after a wrong answer', () => {
     const skipped = required(practiceReducer(wrong, { type: 'skip' }));
 
     expect(skipped.position).toBe(1);
-    expect(skipped.input).toBe('');
-    expect(skipped.attempts).toEqual(wrong.attempts);
+    expect(skipped.inputs).toEqual(['']);
+    expect(skipped.results).toEqual(wrong.results);
     expect(getPracticePhase(skipped)).toBe('answering');
-    expect(practiceReducer(skipped, { type: 'skip' })?.attempts).toHaveLength(
-      2,
+    expect(practiceReducer(skipped, { type: 'skip' })?.results).toHaveLength(2);
+  });
+});
+
+describe('romaji → kana cards', () => {
+  const ji = createSession(['hiragana:zi'], {
+    mode: 'romaji-to-kana',
+    roundId: ROUND,
+  });
+  const type = (session: KanaPracticeSession, ...values: string[]) =>
+    values.reduce<KanaPracticeSession>(
+      (current, value, field) =>
+        required(practiceReducer(current, { field, type: 'input', value })),
+      session,
+    );
+  const check = (session: KanaPracticeSession, ...values: string[]) =>
+    required(practiceReducer(type(session, ...values), { type: 'submit' }));
+  const sent = (...steps: KanaPracticeSession[]) =>
+    steps.slice(1).flatMap((step, index) =>
+      getFinalizedAttempts(steps[index] ?? null, step).map(
+        ({
+          corrected,
+          direction,
+          hintUsed,
+          kanaId,
+          outcome,
+          questionIndex,
+        }) => ({
+          corrected,
+          direction,
+          hintUsed,
+          kanaId,
+          outcome,
+          questionIndex,
+        }),
+      ),
+    );
+
+  it('asks the whole reading once for a partial or complete selection', () => {
+    expect(ji.order).toEqual([
+      { direction: 'romaji-to-kana', readingId: 'hiragana/ji' },
+    ]);
+    expect(ji.selection).toEqual(['hiragana:zi']);
+    expect(ji.inputs).toEqual(['', '']);
+
+    const both = createSession(['hiragana:di', 'hiragana:zi', 'hiragana:a'], {
+      mode: 'romaji-to-kana',
+      questionCount: 4,
+    });
+    expect(both.order).toHaveLength(4);
+    expect(new Set(keys(both))).toEqual(new Set(['hiragana/a', 'hiragana/ji']));
+  });
+
+  it('evaluates nothing until every field has an answer', () => {
+    const partial = type(ji, 'じ');
+    expect(practiceReducer(partial, { type: 'submit' })).toBe(partial);
+    expect(sent(ji, partial)).toEqual([]);
+    expect(practiceReducer(ji, { field: 2, type: 'input', value: 'x' })).toBe(
+      ji,
+    );
+  });
+
+  it('scores each kana of one card on its own and finalizes a right one at once', () => {
+    const wrong = check(ji, 'ち', 'じ');
+
+    expect(wrong.results).toEqual([
+      [
+        { answer: 'じ', kanaId: 'hiragana:zi', outcome: 'correct' },
+        { answer: 'ち', kanaId: 'hiragana:di', outcome: 'incorrect' },
+      ],
+    ]);
+    expect(isAwaitingCorrection(wrong)).toBe(true);
+    expect(sent(ji, wrong)).toEqual([
+      {
+        corrected: false,
+        direction: 'romaji-to-kana',
+        hintUsed: false,
+        kanaId: 'hiragana:zi',
+        outcome: 'correct',
+        questionIndex: 0,
+      },
+    ]);
+  });
+
+  it('marks a correction without turning the first answer into a correct one', () => {
+    const wrong = check(ji, 'じ', 'ち');
+    const stillWrong = check(wrong, 'じ', 'つ');
+    expect(stillWrong).toEqual(type(wrong, 'じ', 'つ'));
+
+    const corrected = check(wrong, 'じ', 'ぢ');
+    expect(corrected.results[0]).toEqual([
+      { answer: 'じ', kanaId: 'hiragana:zi', outcome: 'correct' },
+      {
+        answer: 'ち',
+        corrected: true,
+        kanaId: 'hiragana:di',
+        outcome: 'incorrect',
+      },
+    ]);
+    expect(isAwaitingAdvance(corrected)).toBe(true);
+    const next = required(practiceReducer(corrected, { type: 'next' }));
+    expect(sent(ji, wrong, corrected, next)).toEqual([
+      expect.objectContaining({ kanaId: 'hiragana:zi', outcome: 'correct' }),
+      expect.objectContaining({
+        corrected: true,
+        kanaId: 'hiragana:di',
+        outcome: 'incorrect',
+      }),
+    ]);
+    expect(summarizeSession(next)).toMatchObject({
+      correct: 1,
+      incorrect: 1,
+      missed: ['hiragana:di'],
+      total: 1,
+    });
+  });
+
+  it('matches a repeated answer once', () => {
+    const twice = check(ji, 'じ', 'じ');
+    expect(twice.results[0]?.map(({ outcome }) => outcome)).toEqual([
+      'correct',
+      'incorrect',
+    ]);
+    expect(
+      check(ji, 'ち', 'つ').results[0]?.map(({ outcome }) => outcome),
+    ).toEqual(['incorrect', 'incorrect']);
+  });
+
+  it('applies a hint before the first check to every kana of the card', () => {
+    const hinted = required(practiceReducer(ji, { type: 'hint' }));
+    expect(check(hinted, 'ぢ', 'じ').results[0]).toEqual([
+      {
+        answer: 'じ',
+        hintUsed: true,
+        kanaId: 'hiragana:zi',
+        outcome: 'correct',
+      },
+      {
+        answer: 'ぢ',
+        hintUsed: true,
+        kanaId: 'hiragana:di',
+        outcome: 'correct',
+      },
+    ]);
+  });
+
+  it('applies a hint after a wrong answer only to unresolved kana', () => {
+    const wrong = check(ji, 'じ', 'ち');
+    const hinted = required(practiceReducer(wrong, { type: 'hint' }));
+
+    expect(hinted.results[0]).toEqual([
+      { answer: 'じ', kanaId: 'hiragana:zi', outcome: 'correct' },
+      {
+        answer: 'ち',
+        hintUsed: true,
+        kanaId: 'hiragana:di',
+        outcome: 'incorrect',
+      },
+    ]);
+    expect(sent(wrong, hinted)).toEqual([]);
+    expect(getAbandonedAttempts(hinted)).toEqual([
+      expect.objectContaining({
+        answer: 'ち',
+        direction: 'romaji-to-kana',
+        hintUsed: true,
+        kanaId: 'hiragana:di',
+        outcome: 'incorrect',
+      }),
+    ]);
+  });
+
+  it('skips every kana of an unanswered card, and only the unresolved ones after a check', () => {
+    const skipped = required(practiceReducer(ji, { type: 'skip' }));
+    expect(
+      sent(ji, skipped).map(({ kanaId, outcome }) => [kanaId, outcome]),
+    ).toEqual([
+      ['hiragana:zi', 'skipped'],
+      ['hiragana:di', 'skipped'],
+    ]);
+
+    const wrong = check(ji, 'じ', 'ち');
+    const moved = required(practiceReducer(wrong, { type: 'skip' }));
+    expect(sent(ji, wrong, moved)).toEqual([
+      expect.objectContaining({ kanaId: 'hiragana:zi', outcome: 'correct' }),
+      expect.objectContaining({
+        corrected: false,
+        kanaId: 'hiragana:di',
+        outcome: 'incorrect',
+      }),
+    ]);
+    expect(getPracticePhase(moved)).toBe('complete');
+  });
+
+  it('never finalizes a kana result twice over a whole round', () => {
+    let session = createSession(['hiragana:zi', 'hiragana:zu', 'hiragana:a'], {
+      mode: 'romaji-to-kana',
+      questionCount: 6,
+      roundId: ROUND,
+    });
+    const steps = [session];
+    while (getPracticePhase(session) !== 'complete') {
+      const forms = session.inputs.map(() => 'x');
+      session = check(session, ...forms);
+      steps.push(session, required(practiceReducer(session, { type: 'hint' })));
+      session = required(practiceReducer(session, { type: 'skip' }));
+      steps.push(session);
+    }
+    const results = sent(...steps);
+    const identities = results.map(
+      ({ kanaId, questionIndex }) => `${String(questionIndex)}#${kanaId}`,
+    );
+    expect(new Set(identities).size).toBe(identities.length);
+    expect(results).toHaveLength(session.results.flat().length);
+  });
+
+  it('keeps the selection when retrying a missed reading', () => {
+    const missed = check(ji, 'ぢ', 'ぢ');
+    const finished = required(practiceReducer(missed, { type: 'skip' }));
+    const retry = createRetrySession(finished);
+    expect(retry.mode).toBe('romaji-to-kana');
+    expect(retry.order).toEqual(ji.order);
+    expect(retry.selection).toEqual(['hiragana:zi']);
+  });
+});
+
+describe('both directions', () => {
+  it('gives each card one concrete direction', () => {
+    const session = createSession(['katakana:zu'], {
+      mode: 'both',
+      questionCount: 4,
+    });
+    expect(session.order.map(({ direction }) => direction).sort()).toEqual([
+      'kana-to-romaji',
+      'kana-to-romaji',
+      'romaji-to-kana',
+      'romaji-to-kana',
+    ]);
+    const first = session.order[0];
+    expect(session.inputs).toHaveLength(
+      first?.direction === 'romaji-to-kana' ? 2 : 1,
     );
   });
 });

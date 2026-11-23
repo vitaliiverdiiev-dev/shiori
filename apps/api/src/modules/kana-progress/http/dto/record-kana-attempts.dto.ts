@@ -22,9 +22,18 @@ export const recordKanaAttemptsRequestSchema = z.strictObject({
   attempts: z
     .array(
       occurrenceSchema.extend({
-        answer: z.string().max(MAX_ANSWER_LENGTH),
+        answer: z
+          .string()
+          .max(MAX_ANSWER_LENGTH)
+          .describe(
+            'The first answer: romaji for `kana-to-romaji`, the kana typed for this expected kana for `romaji-to-kana`.',
+          ),
         corrected: z.boolean(),
-        direction: z.enum(KANA_ATTEMPT_DIRECTIONS),
+        direction: z
+          .enum(KANA_ATTEMPT_DIRECTIONS)
+          .describe(
+            'The concrete direction of the question. In `romaji-to-kana` one question (card) yields one entry per expected kana, all with the same `roundId` and `questionIndex`.',
+          ),
         hintUsed: z.boolean(),
         kanaId: z.string().max(MAX_KANA_ID_LENGTH),
         outcome: z.enum(KANA_ATTEMPT_OUTCOMES),
@@ -51,7 +60,11 @@ export type RecordKanaAttemptsResponse = z.infer<
 >;
 
 export const kanaAttemptsConflictResponseSchema = z.object({
-  conflicts: z.array(occurrenceSchema),
+  conflicts: z.array(
+    occurrenceSchema.extend({
+      kanaId: z.string().max(MAX_KANA_ID_LENGTH),
+    }),
+  ),
   message: z.string(),
   statusCode: z.literal(HttpStatus.CONFLICT),
 });

@@ -2,6 +2,8 @@ import { kanaRows, kanaSectionOrder, kanaSections } from './catalog-data.js';
 import type {
   Kana,
   KanaId,
+  KanaReadingGroup,
+  KanaReadingId,
   KanaRow,
   KanaScript,
   KanaSectionGroup,
@@ -54,8 +56,36 @@ const kanaById = new Map<string, Kana>(
   ),
 );
 
+const readingGroupsByScript: Record<KanaScript, readonly KanaReadingGroup[]> = {
+  hiragana: buildReadingGroups('hiragana'),
+  katakana: buildReadingGroups('katakana'),
+};
+
+function buildReadingGroups(script: KanaScript): KanaReadingGroup[] {
+  const groups = new Map<string, Kana[]>();
+  for (const kana of getKanaCatalog(script)) {
+    groups.set(kana.romaji, [...(groups.get(kana.romaji) ?? []), kana]);
+  }
+  return [...groups].map(([romaji, kana]) => ({
+    id: toReadingId(script, romaji),
+    kana,
+    romaji,
+    script,
+  }));
+}
+
+const readingGroupById = new Map<string, KanaReadingGroup>(
+  [...readingGroupsByScript.hiragana, ...readingGroupsByScript.katakana].map(
+    (group) => [group.id, group] as const,
+  ),
+);
+
 export function findKana(id: string): Kana | undefined {
   return kanaById.get(id);
+}
+
+export function findReadingGroup(id: string): KanaReadingGroup | undefined {
+  return readingGroupById.get(id);
 }
 
 export function getKanaCatalog(script: KanaScript): readonly Kana[] {
@@ -68,6 +98,28 @@ export function getKanaSections(
   return sectionsByScript[script];
 }
 
+export function getReadingGroups(
+  script: KanaScript,
+): readonly KanaReadingGroup[] {
+  return readingGroupsByScript[script];
+}
+
 export function toKanaId(script: KanaScript, soundId: string): KanaId {
   return `${script}:${soundId}`;
+}
+
+export function toReadingGroups(
+  kanaIds: readonly string[],
+): KanaReadingGroup[] {
+  const ids = new Set(
+    kanaIds.flatMap((id) => {
+      const kana = findKana(id);
+      return kana ? [toReadingId(kana.script, kana.romaji)] : [];
+    }),
+  );
+  return [...readingGroupById.values()].filter(({ id }) => ids.has(id));
+}
+
+export function toReadingId(script: KanaScript, romaji: string): KanaReadingId {
+  return `${script}/${romaji}`;
 }

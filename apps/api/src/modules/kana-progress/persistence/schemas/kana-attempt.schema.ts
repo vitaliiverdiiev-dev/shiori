@@ -9,6 +9,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { user } from '../../../auth/persistence/schemas/auth.schema.js';
@@ -42,9 +43,12 @@ export const kanaAttempt = pgTable(
   },
   (table) => [
     primaryKey({
-      columns: [table.userId, table.roundId, table.questionIndex],
+      columns: [table.userId, table.roundId, table.questionIndex, table.kanaId],
       name: 'kana_attempt_pk',
     }),
+    uniqueIndex('kana_attempt_kana_to_romaji_question_idx')
+      .on(table.userId, table.roundId, table.questionIndex)
+      .where(sql`${table.direction} = 'kana-to-romaji'`),
     index('kana_attempt_progress_idx').on(
       table.userId,
       table.script,

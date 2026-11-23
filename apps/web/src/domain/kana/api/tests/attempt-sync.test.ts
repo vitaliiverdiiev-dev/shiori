@@ -197,7 +197,9 @@ describe('createAttemptSync', () => {
       attempts.some(({ questionIndex }) => questionIndex === 0)
         ? HttpResponse.json(
             {
-              conflicts: [{ questionIndex: 0, roundId: ROUND }],
+              conflicts: [
+                { kanaId: 'hiragana:a', questionIndex: 0, roundId: ROUND },
+              ],
               message: 'Attempts conflict with recorded attempts',
               statusCode: 409,
             },
@@ -212,6 +214,102 @@ describe('createAttemptSync', () => {
       expect(sync.getSnapshot()).toMatchObject({ pending: 0, status: 'idle' });
     });
     expect(bodies.map(({ attempts }) => attempts.length)).toEqual([2, 1]);
+  });
+
+  describe('several kana results of one question', () => {
+    const zi: PendingKanaAttempt = {
+      answer: 'じ',
+      corrected: false,
+      direction: 'romaji-to-kana',
+      hintUsed: false,
+      kanaId: 'hiragana:zi',
+      outcome: 'correct',
+      questionIndex: 0,
+      roundId: ROUND,
+    };
+    const di: PendingKanaAttempt = {
+      ...zi,
+      answer: 'ち',
+      kanaId: 'hiragana:di',
+      outcome: 'incorrect',
+    };
+
+    it('queues each kana result once without one replacing the other', () => {
+      const sync = createAttemptSync('alice', vi.fn());
+      sync.record([zi]);
+      sync.record([di, { ...zi, roundId: ROUND.toUpperCase() }]);
+      expect(pending()).toEqual([zi, di]);
+    });
+
+    it('drops only the kana result the server names in a conflict', async () => {
+      const bodies = recordRequests(({ attempts }) =>
+        attempts.some(({ kanaId }) => kanaId === 'hiragana:di')
+          ? HttpResponse.json(
+              {
+                conflicts: [
+                  { kanaId: 'hiragana:di', questionIndex: 0, roundId: ROUND },
+                ],
+                message: 'Attempts conflict with recorded attempts',
+                statusCode: 409,
+              },
+              { status: 409 },
+            )
+          : HttpResponse.json({ duplicates: 0, recorded: attempts.length }),
+      );
+      const { sync } = started();
+
+      sync.record([zi, di]);
+      await vi.waitFor(() => {
+        expect(sync.getSnapshot()).toMatchObject({
+          pending: 0,
+          status: 'idle',
+        });
+      });
+      expect(bodies.map(({ attempts }) => attempts)).toEqual([[zi, di], [zi]]);
+    });
+
+    it('moves only the invalid kana result of a question aside', async () => {
+      recordRequests(({ attempts }) =>
+        attempts.length === 2
+          ? HttpResponse.json(
+              {
+                invalidIndexes: [1],
+                message: 'Invalid attempts',
+                statusCode: 400,
+              },
+              { status: 400 },
+            )
+          : HttpResponse.json({ duplicates: 0, recorded: 1 }),
+      );
+      const { sync } = started();
+
+      sync.record([zi, di]);
+      await vi.waitFor(() => {
+        expect(sync.getSnapshot()).toMatchObject({
+          pending: 0,
+          status: 'idle',
+        });
+      });
+      expect(readPendingAttempts('alice').invalid).toEqual([di]);
+    });
+  });
+
+  it('sends a queue saved by M03 unchanged', async () => {
+    const saved = { ...attempt(4), answer: 'o', outcome: 'incorrect' };
+    window.localStorage.setItem(
+      'shiori:kana-attempts:alice',
+      JSON.stringify({ pending: [saved], rejected: [attempt(5)], version: 1 }),
+    );
+    const bodies = recordRequests();
+    const { sync } = started();
+
+    await settled(sync);
+    expect(bodies).toEqual([{ attempts: [saved], userId: 'alice' }]);
+    expect(readPendingAttempts('alice')).toEqual({
+      invalid: [],
+      pending: [],
+      rejected: [attempt(5)],
+    });
   });
 
   it('keeps a batch refused as a whole, never resends it by itself, and sends it again on request', async () => {

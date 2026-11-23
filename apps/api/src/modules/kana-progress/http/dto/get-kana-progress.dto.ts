@@ -5,6 +5,7 @@ import {
 } from '../../model/constants/kana-attempt.constants.js';
 
 export const kanaProgressQuerySchema = z.strictObject({
+  direction: z.enum(KANA_ATTEMPT_DIRECTIONS).default('kana-to-romaji'),
   script: z.enum(KANA_SCRIPTS),
 });
 
@@ -18,7 +19,7 @@ export const kanaProgressResponseSchema = z.object({
       attempts: z
         .int()
         .describe(
-          'Recorded questions; independentCorrect + assistedCorrect + incorrect + skipped.',
+          'Recorded results of this kana in this direction, one per question that expected it; independentCorrect + assistedCorrect + incorrect + skipped. A romaji → kana question with several expected kana gives each of them one result, so these counts are not numbers of questions.',
         ),
       corrected: z
         .int()

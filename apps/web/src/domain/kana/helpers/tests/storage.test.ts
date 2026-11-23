@@ -7,6 +7,21 @@ import { readKanaState, writeKanaState } from '../storage';
 const KEY = 'shiori:kana:hiragana';
 const ROUND = '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10';
 const session: KanaPracticeSession = {
+  hintShown: false,
+  hintUsed: false,
+  inputs: [''],
+  mode: 'kana-to-romaji',
+  order: [
+    { direction: 'kana-to-romaji', kanaId: 'hiragana:a' },
+    { direction: 'kana-to-romaji', kanaId: 'hiragana:ka' },
+  ],
+  position: 1,
+  questionCount: 2,
+  results: [[{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }]],
+  roundId: ROUND,
+  selection: ['hiragana:a', 'hiragana:ka'],
+};
+const legacySession = {
   attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
   hintShown: false,
   hintUsed: false,
@@ -24,7 +39,7 @@ function storeRaw(value: unknown) {
 
 const record = (overrides: Record<string, unknown> = {}) => ({
   selection: ['hiragana:a', 'hiragana:ka'],
-  session,
+  session: legacySession,
   userId: 'alice',
   version: 1,
   ...overrides,
@@ -70,7 +85,11 @@ describe('kana state storage', () => {
 
   it.each([
     ['malformed JSON', '{'],
-    ['an unknown version', JSON.stringify(record({ version: 2 }))],
+    ['an unknown version', JSON.stringify(record({ version: 3 }))],
+    [
+      'a version 2 record with an M03 session',
+      JSON.stringify(record({ version: 2 })),
+    ],
     ['a wrong shape', JSON.stringify(record({ selection: 'hiragana:a' }))],
   ])('starts empty after %s', (_, raw) => {
     window.sessionStorage.setItem(KEY, raw);
@@ -96,30 +115,36 @@ describe('kana state storage', () => {
   it.each([
     [
       'an unknown kana id',
-      { ...session, order: ['hiragana:a', 'hiragana:wi'] },
+      { ...legacySession, order: ['hiragana:a', 'hiragana:wi'] },
     ],
     [
       'a duplicated selected kana',
-      { ...session, selection: ['hiragana:a', 'hiragana:a', 'hiragana:ka'] },
+      {
+        ...legacySession,
+        selection: ['hiragana:a', 'hiragana:a', 'hiragana:ka'],
+      },
     ],
     [
       'a question outside the selection',
-      { ...session, selection: ['hiragana:a'] },
+      { ...legacySession, selection: ['hiragana:a'] },
     ],
-    ['an empty round', { ...session, attempts: [], order: [], position: 0 }],
-    ['a position past the end', { ...session, position: 3 }],
-    ['missing attempts', { ...session, attempts: [] }],
+    [
+      'an empty round',
+      { ...legacySession, attempts: [], order: [], position: 0 },
+    ],
+    ['a position past the end', { ...legacySession, position: 3 }],
+    ['missing attempts', { ...legacySession, attempts: [] }],
     [
       'an attempt for another question',
       {
-        ...session,
+        ...legacySession,
         attempts: [{ answer: 'ka', kanaId: 'hiragana:ka', outcome: 'correct' }],
       },
     ],
     [
       'a correction on a correct answer',
       {
-        ...session,
+        ...legacySession,
         attempts: [
           {
             answer: 'a',
@@ -133,7 +158,7 @@ describe('kana state storage', () => {
     [
       'an answer longer than the API accepts',
       {
-        ...session,
+        ...legacySession,
         attempts: [
           {
             answer: `shi${' '.repeat(29)}x`,
@@ -147,7 +172,7 @@ describe('kana state storage', () => {
     [
       'a skip waiting for Next',
       {
-        ...session,
+        ...legacySession,
         attempts: [{ answer: '', kanaId: 'hiragana:a', outcome: 'skipped' }],
         position: 0,
       },
@@ -161,27 +186,128 @@ describe('kana state storage', () => {
     });
   });
 
+  it('upgrades an M03 round in place and saves it in the current format', () => {
+    storeRaw(record());
+    expect(readKanaState('hiragana', 'alice').session).toEqual(session);
+
+    writeKanaState('hiragana', 'alice', { questionCount: 2 });
+    expect(JSON.parse(window.sessionStorage.getItem(KEY) ?? '')).toMatchObject({
+      session: { inputs: [''], mode: 'kana-to-romaji', results: [[{}]] },
+      version: 2,
+    });
+    expect(readKanaState('hiragana', 'alice').session).toEqual(session);
+  });
+
+  describe('romaji → kana rounds', () => {
+    const wrong: KanaPracticeSession = {
+      hintShown: false,
+      hintUsed: true,
+      inputs: ['じ', 'ち'],
+      mode: 'romaji-to-kana',
+      order: [
+        { direction: 'romaji-to-kana', readingId: 'hiragana/a' },
+        { direction: 'romaji-to-kana', readingId: 'hiragana/ji' },
+      ],
+      position: 1,
+      questionCount: 2,
+      results: [
+        [{ answer: '', kanaId: 'hiragana:a', outcome: 'skipped' }],
+        [
+          { answer: 'じ', kanaId: 'hiragana:zi', outcome: 'correct' },
+          {
+            answer: 'ち',
+            hintUsed: true,
+            kanaId: 'hiragana:di',
+            outcome: 'incorrect',
+          },
+        ],
+      ],
+      roundId: ROUND,
+      selection: ['hiragana:a', 'hiragana:zi'],
+    };
+    const stored = (patch: Partial<KanaPracticeSession>) => {
+      storeRaw({
+        selection: [],
+        session: { ...wrong, ...patch },
+        userId: 'alice',
+        version: 2,
+      });
+      return readKanaState('hiragana', 'alice').session;
+    };
+    const [skippedA, answeredJi] = wrong.results;
+
+    it('restores a card with a finalized and an unresolved kana result', () => {
+      writeKanaState('hiragana', 'alice', { session: wrong });
+      expect(readKanaState('hiragana', 'alice').session).toEqual(wrong);
+    });
+
+    it.each<[string, Partial<KanaPracticeSession>]>([
+      [
+        'a reading of the other script',
+        {
+          order: [
+            { direction: 'romaji-to-kana', readingId: 'hiragana/a' },
+            { direction: 'romaji-to-kana', readingId: 'katakana/ji' },
+          ],
+        },
+      ],
+      [
+        'a reading without a selected member',
+        { selection: ['hiragana:a', 'hiragana:zu'] },
+      ],
+      ['a direction the mode does not ask', { mode: 'kana-to-romaji' }],
+      [
+        'one result for a two-kana reading',
+        { results: [skippedA ?? [], answeredJi?.slice(0, 1) ?? []] },
+      ],
+      [
+        'results in another order than the reading',
+        {
+          results: [skippedA ?? [], [...(answeredJi ?? [])].reverse()],
+        },
+      ],
+      [
+        'a card skipped only in part',
+        {
+          position: 2,
+          results: [
+            skippedA ?? [],
+            [
+              { answer: '', kanaId: 'hiragana:zi', outcome: 'skipped' },
+              { answer: 'ち', kanaId: 'hiragana:di', outcome: 'incorrect' },
+            ],
+          ],
+        },
+      ],
+      ['fields that do not fit the card', { inputs: ['じ'] }],
+    ])('discards a round with %s', (_, patch) => {
+      expect(stored(patch)).toBeNull();
+    });
+  });
+
   it('restores typed text longer than an answer may be, unchanged', () => {
     const typed = `shi${' '.repeat(29)}x`;
-    storeRaw(record({ session: { ...session, input: typed } }));
+    storeRaw(record({ session: { ...legacySession, input: typed } }));
     expect(readKanaState('hiragana', 'alice').session).toEqual({
       ...session,
-      input: typed,
+      inputs: [typed],
     });
   });
 
   it('restores a corrected wrong answer awaiting advance', () => {
     const corrected: KanaPracticeSession = {
       ...session,
-      attempts: [
-        {
-          answer: 'o',
-          corrected: true,
-          kanaId: 'hiragana:a',
-          outcome: 'incorrect',
-        },
-      ],
       position: 0,
+      results: [
+        [
+          {
+            answer: 'o',
+            corrected: true,
+            kanaId: 'hiragana:a',
+            outcome: 'incorrect',
+          },
+        ],
+      ],
     };
     writeKanaState('hiragana', 'alice', { session: corrected });
     expect(readKanaState('hiragana', 'alice').session).toEqual(corrected);
@@ -190,7 +316,7 @@ describe('kana state storage', () => {
   it('restores a complete catalog round mid-way', () => {
     const round = {
       ...createSession(getKanaCatalog('hiragana').map(({ id }) => id)),
-      input: 'ts',
+      inputs: ['ts'],
     };
     writeKanaState('hiragana', 'alice', { session: round });
     expect(readKanaState('hiragana', 'alice').session).toEqual(round);
@@ -199,21 +325,23 @@ describe('kana state storage', () => {
   it('keeps repeated questions apart by their position in the round', () => {
     const repeated: KanaPracticeSession = {
       ...session,
-      attempts: [
-        { answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' },
-        { answer: 'ga', kanaId: 'hiragana:ka', outcome: 'incorrect' },
-        {
-          answer: 'a',
-          hintUsed: true,
-          kanaId: 'hiragana:a',
-          outcome: 'correct',
-        },
-      ],
       hintShown: true,
       hintUsed: true,
-      order: ['hiragana:a', 'hiragana:ka', 'hiragana:a', 'hiragana:ka'],
+      order: [...session.order, ...session.order],
       position: 3,
       questionCount: 4,
+      results: [
+        [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
+        [{ answer: 'ga', kanaId: 'hiragana:ka', outcome: 'incorrect' }],
+        [
+          {
+            answer: 'a',
+            hintUsed: true,
+            kanaId: 'hiragana:a',
+            outcome: 'correct',
+          },
+        ],
+      ],
     };
     writeKanaState('hiragana', 'alice', {
       questionCount: 4,
@@ -229,7 +357,9 @@ describe('kana state storage', () => {
 
   it('treats a hint open in an older save as used', () => {
     storeRaw(
-      record({ session: { ...session, hintShown: true, hintUsed: undefined } }),
+      record({
+        session: { ...legacySession, hintShown: true, hintUsed: undefined },
+      }),
     );
     expect(readKanaState('hiragana', 'alice').session).toMatchObject({
       hintShown: true,
@@ -254,14 +384,14 @@ describe('kana state storage', () => {
       selection: ['hiragana:a', 'hiragana:ka'],
       session: {
         ...session,
-        input: 'k',
+        inputs: ['k'],
         roundId: expect.any(String) as unknown,
       },
     });
   });
 
   it.each(['round-1', 42])('discards a stored round id of %j', (roundId) => {
-    storeRaw(record({ session: { ...session, roundId } }));
+    storeRaw(record({ session: { ...legacySession, roundId } }));
     expect(readKanaState('hiragana', 'alice').session).toBeNull();
   });
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getKanaCatalog, getKanaSections } from '../catalog.js';
+import {
+  findReadingGroup,
+  getKanaCatalog,
+  getKanaSections,
+  getReadingGroups,
+  toReadingGroups,
+} from '../catalog.js';
 
 describe('getKanaCatalog', () => {
   it.each(['hiragana', 'katakana'] as const)(
@@ -81,5 +87,75 @@ describe('getKanaSections', () => {
       'よ',
     ]);
     expect(ya?.kana.map(({ form }) => form)).toEqual(['や', 'ゆ', 'よ']);
+  });
+});
+
+describe('reading groups', () => {
+  const members = (script: 'hiragana' | 'katakana') =>
+    getReadingGroups(script)
+      .filter(({ kana }) => kana.length > 1)
+      .map(({ id, kana }) => [id, kana.map((entry) => entry.form)]);
+
+  it('groups kana by their canonical reading, not by alternatives', () => {
+    expect(members('hiragana')).toEqual([
+      ['hiragana/ji', ['じ', 'ぢ']],
+      ['hiragana/zu', ['ず', 'づ']],
+    ]);
+    expect(findReadingGroup('hiragana/o')?.kana.map(({ id }) => id)).toEqual([
+      'hiragana:o',
+    ]);
+    expect(findReadingGroup('hiragana/wo')?.kana.map(({ id }) => id)).toEqual([
+      'hiragana:wo',
+    ]);
+    expect(findReadingGroup('hiragana/si')).toBeUndefined();
+  });
+
+  it.each(['hiragana', 'katakana'] as const)(
+    'covers every %s kana exactly once, yōon included',
+    (script) => {
+      const groups = getReadingGroups(script);
+      const grouped = groups.flatMap(({ kana }) => kana.map(({ id }) => id));
+
+      expect(grouped.toSorted()).toEqual(
+        getKanaCatalog(script)
+          .map(({ id }) => id)
+          .toSorted(),
+      );
+      expect(groups).toHaveLength(102);
+      expect(findReadingGroup(`${script}/ja`)?.kana).toHaveLength(1);
+      for (const group of groups) {
+        expect(group.id).toBe(`${script}/${group.romaji}`);
+        expect(group.kana.every((kana) => kana.romaji === group.romaji)).toBe(
+          true,
+        );
+      }
+    },
+  );
+
+  it('forms the same groups in both scripts', () => {
+    const sounds = (script: 'hiragana' | 'katakana') =>
+      getReadingGroups(script).map(({ kana, romaji }) => [
+        romaji,
+        kana.map(({ soundId }) => soundId),
+      ]);
+    expect(sounds('katakana')).toEqual(sounds('hiragana'));
+    expect(members('katakana')).toEqual([
+      ['katakana/ji', ['ジ', 'ヂ']],
+      ['katakana/zu', ['ズ', 'ヅ']],
+    ]);
+  });
+
+  it('turns a selection into unique groups that include unselected members', () => {
+    const groups = toReadingGroups([
+      'hiragana:zi',
+      'hiragana:di',
+      'hiragana:a',
+      'hiragana:zi',
+      'unknown:x',
+    ]);
+    expect(groups.map(({ id }) => id)).toEqual(['hiragana/a', 'hiragana/ji']);
+    expect(
+      toReadingGroups(['hiragana:di'])[0]?.kana.map(({ id }) => id),
+    ).toEqual(['hiragana:zi', 'hiragana:di']);
   });
 });

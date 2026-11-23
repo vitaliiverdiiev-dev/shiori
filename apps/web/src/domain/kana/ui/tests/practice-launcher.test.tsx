@@ -1,4 +1,4 @@
-import type { KanaId } from '@shiori/kana';
+import { getExpectedKana, type KanaId, questionKey } from '@shiori/kana';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -45,7 +45,7 @@ describe('PracticeLauncher', () => {
     await user.click(screen.getByRole('button', { name: 'Start practice' }));
     expect(screen.getByRole('heading', { name: 'Practice' })).toBeVisible();
     const session = readKanaState('hiragana', 'alice').session;
-    expect([...(session?.order ?? [])].sort()).toEqual([
+    expect((session?.order ?? []).map(questionKey).sort()).toEqual([
       'hiragana:a',
       'hiragana:ka',
     ]);
@@ -55,14 +55,12 @@ describe('PracticeLauncher', () => {
     const round = createSession(['hiragana:a', 'hiragana:ka', 'hiragana:si']);
     const unfinished: KanaPracticeSession = {
       ...round,
-      attempts: [
-        {
-          answer: '',
-          kanaId: round.order[0] ?? 'hiragana:a',
-          outcome: 'skipped',
-        },
-      ],
       position: 1,
+      results: [
+        (round.order[0] ? getExpectedKana(round.order[0]) : []).map(
+          ({ id }) => ({ answer: '', kanaId: id, outcome: 'skipped' }),
+        ),
+      ],
     };
     writeKanaState('hiragana', 'alice', { session: unfinished });
     const { user } = setup(['hiragana:ki']);
@@ -72,7 +70,7 @@ describe('PracticeLauncher', () => {
     ).toHaveAttribute('href', '/kana/hiragana/practice');
     await user.click(screen.getByRole('button', { name: 'Start new round' }));
     expect(readKanaState('hiragana', 'alice').session?.order).toEqual([
-      'hiragana:ki',
+      { direction: 'kana-to-romaji', kanaId: 'hiragana:ki' },
     ]);
   });
 

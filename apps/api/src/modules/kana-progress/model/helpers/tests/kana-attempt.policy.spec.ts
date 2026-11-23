@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { KanaAttemptInput } from '../../types/kana-attempt.types.js';
 import {
+  canShareQuestion,
   isSameKanaAttempt,
   occurrenceKey,
+  resultKey,
   toKanaAttemptRecord,
 } from '../kana-attempt.policy.js';
 
@@ -112,5 +114,99 @@ describe('isSameKanaAttempt', () => {
     expect(isSameKanaAttempt(record(), record({ kanaId: 'katakana:si' }))).toBe(
       false,
     );
+  });
+});
+
+describe('romaji → kana attempts', () => {
+  const reverse = (patch: Partial<KanaAttemptInput> = {}) =>
+    attempt({
+      answer: 'じ',
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:zi',
+      ...patch,
+    });
+
+  it.each([
+    ['the expected kana', reverse()],
+    ['a decomposed kana', reverse({ answer: 'じ' })],
+    ['half-width katakana', reverse({ answer: 'ｼﾞ', kanaId: 'katakana:zi' })],
+    ['a yōon', reverse({ answer: 'きゃ', kanaId: 'hiragana:kya' })],
+    [
+      'another member of the reading as incorrect',
+      reverse({ kanaId: 'hiragana:di', outcome: 'incorrect' }),
+    ],
+    ['romaji as incorrect', reverse({ answer: 'ji', outcome: 'incorrect' })],
+    [
+      'the other script as incorrect',
+      reverse({ answer: 'ジ', outcome: 'incorrect' }),
+    ],
+    ['a skip', reverse({ answer: '', outcome: 'skipped' })],
+  ])('accepts %s', (_, input) => {
+    expect(toKanaAttemptRecord(input)).not.toBeNull();
+  });
+
+  it.each([
+    ['romaji as correct', reverse({ answer: 'ji' })],
+    ['the other script as correct', reverse({ answer: 'ジ' })],
+    [
+      'another member of the reading as correct',
+      reverse({ kanaId: 'hiragana:di' }),
+    ],
+    ['the expected kana as incorrect', reverse({ outcome: 'incorrect' })],
+  ])('rejects %s', (_, input) => {
+    expect(toKanaAttemptRecord(input)).toBeNull();
+  });
+});
+
+describe('canShareQuestion', () => {
+  const record = (patch: Partial<KanaAttemptInput>) => {
+    const result = toKanaAttemptRecord(attempt(patch));
+    if (!result) throw new Error('expected a valid attempt');
+    return result;
+  };
+  const zi = record({
+    answer: 'じ',
+    direction: 'romaji-to-kana',
+    kanaId: 'hiragana:zi',
+  });
+
+  it('lets the members of one reading share a romaji → kana question', () => {
+    const di = record({
+      answer: 'じ',
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:di',
+      outcome: 'incorrect',
+    });
+    expect(canShareQuestion(zi, di)).toBe(true);
+    expect(resultKey(zi)).not.toBe(resultKey(di));
+    expect(occurrenceKey(zi)).toBe(occurrenceKey(di));
+  });
+
+  it.each([
+    [
+      'another reading',
+      { answer: 'ず', direction: 'romaji-to-kana', kanaId: 'hiragana:zu' },
+    ],
+    [
+      'the other script',
+      {
+        answer: 'ジ',
+        direction: 'romaji-to-kana',
+        kanaId: 'katakana:di',
+        outcome: 'incorrect',
+      },
+    ],
+    ['a kana → romaji result', { answer: 'ji', kanaId: 'hiragana:di' }],
+  ] as const)('refuses %s in the same question', (_, patch) => {
+    expect(canShareQuestion(zi, record(patch))).toBe(false);
+  });
+
+  it('keeps one kana per kana → romaji question', () => {
+    expect(
+      canShareQuestion(
+        record({}),
+        record({ answer: 'a', kanaId: 'hiragana:a' }),
+      ),
+    ).toBe(false);
   });
 });

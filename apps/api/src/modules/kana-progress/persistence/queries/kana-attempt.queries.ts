@@ -6,6 +6,7 @@ import type {
   KanaAttemptRecord,
   KanaOccurrence,
   KanaProgressEntry,
+  KanaResultOccurrence,
 } from '../../model/types/kana-attempt.types.js';
 import {
   kanaAttempt,
@@ -21,12 +22,13 @@ export async function insertNewKanaAttempts(
   db: Executor,
   userId: string,
   records: readonly KanaAttemptRecord[],
-): Promise<KanaOccurrence[]> {
+): Promise<KanaResultOccurrence[]> {
   return db
     .insert(kanaAttempt)
     .values(records.map((record) => ({ ...record, userId })))
     .onConflictDoNothing()
     .returning({
+      kanaId: kanaAttempt.kanaId,
       questionIndex: kanaAttempt.questionIndex,
       roundId: kanaAttempt.roundId,
     });

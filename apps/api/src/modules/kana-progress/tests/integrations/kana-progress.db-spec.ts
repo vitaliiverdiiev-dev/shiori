@@ -358,7 +358,9 @@ describe('idempotency', () => {
     ]).expect(409);
 
     expect(response.body).toEqual({
-      conflicts: [{ questionIndex: 0, roundId: recorded.roundId }],
+      conflicts: [
+        { kanaId: 'hiragana:a', questionIndex: 0, roundId: recorded.roundId },
+      ],
       message: 'Attempts conflict with recorded attempts',
       statusCode: 409,
     });
@@ -405,7 +407,9 @@ describe('idempotency', () => {
     expect(rows).toEqual([{ hint_used: winner.hintUsed }]);
     const conflict = responses.find(({ status }) => status === 409);
     expect(conflict?.body).toMatchObject({
-      conflicts: [{ questionIndex: 0, roundId: plain.roundId }],
+      conflicts: [
+        { kanaId: 'hiragana:a', questionIndex: 0, roundId: plain.roundId },
+      ],
     });
   });
 });
@@ -414,7 +418,11 @@ describe('validation', () => {
   it.each([
     ['an unknown kana', [attempt({ kanaId: 'hiragana:wi' })]],
     ['a kana id of the wrong shape', [attempt({ kanaId: 'a' })]],
-    ['another direction', [attempt({ direction: 'romaji-to-kana' })]],
+    ['an unknown direction', [attempt({ direction: 'kana-to-kanji' })]],
+    [
+      'a romaji answer to a romaji → kana question',
+      [attempt({ direction: 'romaji-to-kana' })],
+    ],
     ['an unknown outcome', [attempt({ outcome: 'mastered' })]],
     ['a correct outcome with a wrong answer', [attempt({ answer: 'o' })]],
     [
@@ -566,7 +574,7 @@ describe('database constraints', () => {
     ],
     [
       'an unknown direction',
-      { direction: 'romaji-to-kana' },
+      { direction: 'kana-to-kanji' },
       'kana_attempt_direction_check',
     ],
     [
@@ -593,13 +601,37 @@ describe('database constraints', () => {
     await expect(insert(values)).rejects.toMatchObject({ constraint });
   });
 
-  it('rejects a second row for the same occurrence', async () => {
+  it('rejects a second row for the same kana result', async () => {
     const roundId = randomUUID();
-    await insert({ roundId });
+    await insert({
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:zi',
+      roundId,
+    });
     await expect(
-      insert({ kanaId: 'hiragana:i', roundId }),
+      insert({ direction: 'romaji-to-kana', kanaId: 'hiragana:zi', roundId }),
+    ).rejects.toMatchObject({ constraint: 'kana_attempt_pk' });
+  });
+
+  it('allows several kana in one romaji → kana question but only one in a kana → romaji question', async () => {
+    const reverse = randomUUID();
+    await insert({
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:zi',
+      roundId: reverse,
+    });
+    await insert({
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:di',
+      roundId: reverse,
+    });
+
+    const forward = randomUUID();
+    await insert({ roundId: forward });
+    await expect(
+      insert({ kanaId: 'hiragana:i', roundId: forward }),
     ).rejects.toMatchObject({
-      constraint: 'kana_attempt_pk',
+      constraint: 'kana_attempt_kana_to_romaji_question_idx',
     });
   });
 
@@ -619,10 +651,219 @@ describe('database constraints', () => {
       "select indexdef from pg_indexes where tablename = 'kana_attempt' order by indexname",
     );
     expect(rows.map(({ indexdef }) => indexdef)).toEqual([
-      expect.stringContaining('(user_id, round_id, question_index)') as unknown,
+      expect.stringMatching(
+        /UNIQUE INDEX kana_attempt_kana_to_romaji_question_idx .*\(user_id, round_id, question_index\) WHERE \(direction = 'kana-to-romaji'::text\)$/,
+      ) as unknown,
+      expect.stringContaining(
+        '(user_id, round_id, question_index, kana_id)',
+      ) as unknown,
       expect.stringContaining(
         '(user_id, script, direction, kana_id)',
       ) as unknown,
     ]);
+  });
+});
+
+describe('romaji → kana results', () => {
+  const reverse = (patch: Partial<Attempt> = {}): Attempt =>
+    attempt({
+      answer: 'じ',
+      direction: 'romaji-to-kana',
+      kanaId: 'hiragana:zi',
+      ...patch,
+    });
+  const ji = (roundId: string, questionIndex = 0): [Attempt, Attempt] => [
+    reverse({ questionIndex, roundId }),
+    reverse({
+      answer: 'ち',
+      corrected: true,
+      kanaId: 'hiragana:di',
+      outcome: 'incorrect',
+      questionIndex,
+      roundId,
+    }),
+  ];
+  const progressIn = async (direction?: string) => {
+    const response = await progress(alice)
+      .query(direction ? { direction } : {})
+      .expect(200);
+    return response.body as { direction: string; kana: unknown[] };
+  };
+
+  it('records one result per expected kana of one question', async () => {
+    const roundId = randomUUID();
+    await record(alice, ji(roundId)).expect(200, {
+      duplicates: 0,
+      recorded: 2,
+    });
+
+    const { rows } = await pool.query(
+      'select question_index, kana_id, outcome, corrected from kana_attempt order by kana_id',
+    );
+    expect(rows).toEqual([
+      {
+        corrected: true,
+        kana_id: 'hiragana:di',
+        outcome: 'incorrect',
+        question_index: 0,
+      },
+      {
+        corrected: false,
+        kana_id: 'hiragana:zi',
+        outcome: 'correct',
+        question_index: 0,
+      },
+    ]);
+  });
+
+  it('accepts the results of one question in separate batches and counts identical retries once', async () => {
+    const roundId = randomUUID();
+    const [zi, di] = ji(roundId);
+    await record(alice, [zi]).expect(200, { duplicates: 0, recorded: 1 });
+    await record(alice, [zi, di]).expect(200, { duplicates: 1, recorded: 1 });
+    await record(alice, [di, zi]).expect(200, { duplicates: 2, recorded: 0 });
+    expect(await storedCount()).toBe(2);
+  });
+
+  it('refuses a conflicting retry of one kana result, naming that kana only', async () => {
+    const roundId = randomUUID();
+    const [zi, di] = ji(roundId);
+    await record(alice, [zi, di]).expect(200);
+
+    const response = await record(alice, [
+      zi,
+      { ...di, corrected: false, hintUsed: true },
+    ]).expect(409);
+    expect(response.body).toMatchObject({
+      conflicts: [{ kanaId: 'hiragana:di', questionIndex: 0, roundId }],
+    });
+    const { rows } = await pool.query<{ hint_used: boolean }>(
+      "select hint_used from kana_attempt where kana_id = 'hiragana:di'",
+    );
+    expect(rows).toEqual([{ hint_used: false }]);
+  });
+
+  it('refuses another kana for a recorded kana → romaji question', async () => {
+    const recorded = attempt();
+    await record(alice, [recorded]).expect(200);
+
+    const response = await record(alice, [
+      { ...recorded, answer: 'i', kanaId: 'hiragana:i' },
+    ]).expect(409);
+    expect(response.body).toMatchObject({
+      conflicts: [
+        { kanaId: 'hiragana:i', questionIndex: 0, roundId: recorded.roundId },
+      ],
+    });
+    expect(await storedCount()).toBe(1);
+  });
+
+  it('stores each kana result once for concurrent submissions of one question', async () => {
+    const roundId = randomUUID();
+    const responses = await Promise.all([
+      record(alice, ji(roundId)),
+      record(alice, ji(roundId).reverse()),
+      record(alice, [ji(roundId)[1]]),
+    ]);
+    expect(responses.map(({ status }) => status)).toEqual([200, 200, 200]);
+    expect(await storedCount()).toBe(2);
+  });
+
+  it('names invalid entries of a mixed batch and records nothing from it', async () => {
+    const roundId = randomUUID();
+    const [zi, di] = ji(roundId);
+    const response = await record(alice, [
+      zi,
+      reverse({ answer: 'じ', kanaId: 'hiragana:di', roundId }),
+      reverse({ answer: 'ず', kanaId: 'hiragana:zu', roundId }),
+      reverse({
+        answer: 'ジ',
+        kanaId: 'katakana:zi',
+        questionIndex: 1,
+        roundId,
+      }),
+      attempt({
+        answer: 'zu',
+        kanaId: 'hiragana:du',
+        questionIndex: 2,
+        roundId,
+      }),
+      reverse({
+        answer: 'じ',
+        kanaId: 'hiragana:zu',
+        outcome: 'incorrect',
+        questionIndex: 2,
+        roundId,
+      }),
+    ]).expect(400);
+
+    expect(response.body).toMatchObject({ invalidIndexes: [1, 2, 5] });
+    expect(await storedCount()).toBe(0);
+    await record(alice, [zi, di]).expect(200);
+    expect(await storedCount()).toBe(2);
+  });
+
+  it('keeps the results of one round id apart between users', async () => {
+    const roundId = randomUUID();
+    await record(alice, ji(roundId)).expect(200, {
+      duplicates: 0,
+      recorded: 2,
+    });
+    await record(bob, ji(roundId)).expect(200, { duplicates: 0, recorded: 2 });
+    await record(bob, [ji(roundId)[0]], alice.id).expect(403);
+
+    const { rows } = await pool.query<{ count: string; user_id: string }>(
+      'select user_id, count(*) from kana_attempt group by user_id order by user_id',
+    );
+    expect(rows.map(({ count }) => Number(count))).toEqual([2, 2]);
+  });
+
+  it('aggregates each direction apart, defaulting to kana → romaji', async () => {
+    const roundId = randomUUID();
+    await record(alice, [
+      ...ji(roundId, 0),
+      reverse({
+        answer: 'ぢ',
+        kanaId: 'hiragana:di',
+        questionIndex: 1,
+        roundId,
+      }),
+      reverse({ answer: 'じ', questionIndex: 1, roundId }),
+      attempt({
+        answer: 'ji',
+        kanaId: 'hiragana:di',
+        questionIndex: 2,
+        roundId,
+      }),
+    ]).expect(200);
+
+    const forward = await progressIn();
+    expect(forward).toMatchObject({ direction: 'kana-to-romaji' });
+    expect(forward.kana).toEqual([
+      expect.objectContaining({
+        attempts: 1,
+        independentCorrect: 1,
+        kanaId: 'hiragana:di',
+      }),
+    ]);
+    expect(await progressIn('kana-to-romaji')).toEqual(forward);
+
+    const backward = await progressIn('romaji-to-kana');
+    expect(backward).toMatchObject({ direction: 'romaji-to-kana' });
+    expect(backward.kana).toEqual([
+      expect.objectContaining({
+        attempts: 2,
+        corrected: 1,
+        incorrect: 1,
+        independentCorrect: 1,
+        kanaId: 'hiragana:di',
+      }),
+      expect.objectContaining({
+        attempts: 2,
+        independentCorrect: 2,
+        kanaId: 'hiragana:zi',
+      }),
+    ]);
+    await progress(alice).query({ direction: 'both' }).expect(400);
   });
 });

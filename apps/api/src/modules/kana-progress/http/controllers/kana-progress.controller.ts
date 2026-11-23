@@ -51,8 +51,6 @@ import {
   recordKanaAttemptsResponseSchema,
 } from '../dto/record-kana-attempts.dto.js';
 
-const [KANA_TO_ROMAJI] = KANA_ATTEMPT_DIRECTIONS;
-
 @ApiTags('Kana progress')
 @ApiUnauthorizedResponse({
   description: 'No valid session.',
@@ -63,15 +61,20 @@ export class KanaProgressController {
   constructor(@Inject(DATABASE) private readonly db: Database) {}
 
   @ApiBadRequestResponse({
-    description: 'Missing or unknown script.',
+    description: 'Missing or unknown script, or unknown direction.',
     schema: toOpenApiSchema(errorResponseSchema(HttpStatus.BAD_REQUEST)),
   })
   @ApiOkResponse({
     description:
-      'Per-kana statistics of the current user for one script, Kana → romaji. Kana without recorded attempts are omitted.',
+      'Per-kana statistics of the current user for one script and one direction (default `kana-to-romaji`). Kana without recorded results in that direction are omitted.',
     schema: toOpenApiSchema(kanaProgressResponseSchema),
   })
   @ApiOperation({ operationId: 'getKanaProgress', summary: 'Kana progress' })
+  @ApiQuery({
+    enum: KANA_ATTEMPT_DIRECTIONS,
+    name: 'direction',
+    required: false,
+  })
   @ApiQuery({ enum: KANA_SCRIPTS, name: 'script', required: true })
   @Get()
   @Header('Cache-Control', 'no-store')
@@ -80,16 +83,13 @@ export class KanaProgressController {
     @Query() query: unknown,
   ): Promise<KanaProgressResponse> {
     const parsed = kanaProgressQuerySchema.safeParse(query);
-    if (!parsed.success) throw new BadRequestException('Invalid script');
-    const { script } = parsed.data;
-    const entries = await getKanaProgress(
-      this.db,
-      user.id,
-      script,
-      KANA_TO_ROMAJI,
-    );
+    if (!parsed.success) {
+      throw new BadRequestException('Invalid script or direction');
+    }
+    const { direction, script } = parsed.data;
+    const entries = await getKanaProgress(this.db, user.id, script, direction);
     return {
-      direction: KANA_TO_ROMAJI,
+      direction,
       kana: entries.map(({ lastPracticedAt, ...entry }) => ({
         ...entry,
         lastPracticedAt: lastPracticedAt.toISOString(),
@@ -100,13 +100,13 @@ export class KanaProgressController {
 
   @ApiBadRequestResponse({
     description:
-      'Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.',
+      'Malformed batch, unknown kana, an outcome that contradicts the answer, a kana result listed twice, or several kana for one question that are not one romaji → kana reading. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.',
     schema: toOpenApiSchema(kanaAttemptsInvalidResponseSchema),
   })
   @ApiBody({ schema: toOpenApiSchema(recordKanaAttemptsRequestSchema) })
   @ApiConflictResponse({
     description:
-      'An occurrence is already recorded with different data. Nothing from this batch is recorded.',
+      'A kana result of a question is already recorded with different data (or, for `kana-to-romaji`, the question is recorded for another kana). Nothing from this batch is recorded.',
     schema: toOpenApiSchema(kanaAttemptsConflictResponseSchema),
   })
   @ApiForbiddenResponse({

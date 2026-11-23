@@ -11,7 +11,30 @@ export interface Kana {
   soundId: string;
 }
 
+export interface KanaAnswerMatch {
+  answer: string;
+  correct: boolean;
+  kana: Kana;
+}
+
+export type KanaDirection = 'kana-to-romaji' | 'romaji-to-kana';
+
 export type KanaId = `${KanaScript}:${string}`;
+
+export type KanaPracticeMode = 'both' | KanaDirection;
+
+export type KanaQuestion =
+  | { direction: 'kana-to-romaji'; kanaId: KanaId }
+  | { direction: 'romaji-to-kana'; readingId: KanaReadingId };
+
+export interface KanaReadingGroup {
+  id: KanaReadingId;
+  kana: readonly Kana[];
+  romaji: string;
+  script: KanaScript;
+}
+
+export type KanaReadingId = `${KanaScript}/${string}`;
 
 export interface KanaRow {
   id: string;

@@ -1,4 +1,9 @@
-export const KANA_ATTEMPT_DIRECTIONS = ['kana-to-romaji'] as const;
+import type { KanaDirection } from '@shiori/kana';
+
+export const KANA_ATTEMPT_DIRECTIONS = [
+  'kana-to-romaji',
+  'romaji-to-kana',
+] as const satisfies readonly KanaDirection[];
 export const KANA_ATTEMPT_OUTCOMES = [
   'correct',
   'incorrect',

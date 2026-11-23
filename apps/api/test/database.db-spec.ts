@@ -71,8 +71,9 @@ describe('database', () => {
   });
 });
 
-const MIGRATION_COUNT = 5;
+const MIGRATION_COUNT = 6;
 const MIGRATIONS_BEFORE_ADMIN_BOOTSTRAP = 2;
+const MIGRATIONS_BEFORE_KANA_DIRECTIONS = 5;
 
 function migrationsUpTo(count: number): string {
   const folder = mkdtempSync(join(tmpdir(), 'shiori-migrations-'));
@@ -112,6 +113,61 @@ describe('committed migrations', () => {
       expect(rows).toEqual([{ id: 'initial' }]);
     } finally {
       await pool.query('truncate "user", admin_bootstrap cascade');
+      await pool.end();
+      rmSync(olderMigrations, { force: true, recursive: true });
+    }
+  });
+
+  it('keep M03 kana attempts and their progress when romaji → kana results are introduced', async () => {
+    const pool = new Pool({ connectionString: testDatabaseUrl() });
+    const db = drizzle({ client: pool });
+    const olderMigrations = migrationsUpTo(MIGRATIONS_BEFORE_KANA_DIRECTIONS);
+    const roundId = '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10';
+    const rows = () =>
+      pool.query(
+        'select user_id, round_id, question_index, kana_id, script, direction, outcome, corrected, hint_used, created_at from kana_attempt order by question_index',
+      );
+    try {
+      await pool.query(
+        'drop schema public cascade; create schema public; drop schema drizzle cascade',
+      );
+      await migrate(db, { migrationsFolder: olderMigrations });
+      await pool.query(
+        "insert into \"user\" (id, email, name) values ('m03', 'm03@example.test', 'M03')",
+      );
+      await pool.query(
+        `insert into kana_attempt (user_id, round_id, question_index, kana_id, script, direction, outcome, corrected, hint_used)
+         values ('m03', $1, 0, 'hiragana:zi', 'hiragana', 'kana-to-romaji', 'correct', false, false),
+                ('m03', $1, 1, 'hiragana:di', 'hiragana', 'kana-to-romaji', 'incorrect', true, true),
+                ('m03', $1, 2, 'hiragana:zi', 'hiragana', 'kana-to-romaji', 'skipped', false, false)`,
+        [roundId],
+      );
+      const before = await rows();
+
+      await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
+
+      expect((await rows()).rows).toEqual(before.rows);
+      await expect(
+        pool.query(
+          "insert into kana_attempt (user_id, round_id, question_index, kana_id, script, direction, outcome, corrected, hint_used) values ('m03', $1, 0, 'hiragana:a', 'hiragana', 'kana-to-romaji', 'correct', false, false)",
+          [roundId],
+        ),
+      ).rejects.toMatchObject({
+        constraint: 'kana_attempt_kana_to_romaji_question_idx',
+      });
+      await pool.query(
+        "insert into kana_attempt (user_id, round_id, question_index, kana_id, script, direction, outcome, corrected, hint_used) values ('m03', $1, 3, 'hiragana:zi', 'hiragana', 'romaji-to-kana', 'correct', false, false), ('m03', $1, 3, 'hiragana:di', 'hiragana', 'romaji-to-kana', 'incorrect', false, false)",
+        [roundId],
+      );
+      const { rows: counts } = await pool.query(
+        'select direction, count(*)::int as count from kana_attempt group by direction order by direction',
+      );
+      expect(counts).toEqual([
+        { count: 3, direction: 'kana-to-romaji' },
+        { count: 2, direction: 'romaji-to-kana' },
+      ]);
+    } finally {
+      await pool.query('truncate "user" cascade');
       await pool.end();
       rmSync(olderMigrations, { force: true, recursive: true });
     }

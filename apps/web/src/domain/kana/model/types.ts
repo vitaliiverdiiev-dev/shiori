@@ -1,5 +1,5 @@
 import type { RecordKanaAttemptsData } from '@shiori/api-client';
-import type { KanaId } from '@shiori/kana';
+import type { KanaId, KanaPracticeMode, KanaQuestion } from '@shiori/kana';
 
 export type AttemptSyncSnapshot = {
   pending: number;
@@ -28,7 +28,7 @@ export type KanaPaths = {
 export type KanaPracticeAction =
   | { session: KanaPracticeSession; type: 'start' }
   | { type: 'hint' }
-  | { type: 'input'; value: string }
+  | { field?: number; type: 'input'; value: string }
   | { from?: KanaPracticeSession; type: 'next' }
   | { type: 'skip' }
   | { type: 'submit' };
@@ -36,13 +36,14 @@ export type KanaPracticeAction =
 export type KanaPracticePhase = 'answering' | 'complete' | 'feedback';
 
 export type KanaPracticeSession = {
-  attempts: readonly KanaAttempt[];
   hintShown: boolean;
   hintUsed: boolean;
-  input: string;
-  order: readonly KanaId[];
+  inputs: readonly string[];
+  mode: KanaPracticeMode;
+  order: readonly KanaQuestion[];
   position: number;
   questionCount: number;
+  results: readonly KanaQuestionResult[];
   roundId: string;
   selection: readonly KanaId[];
 };
@@ -66,6 +67,8 @@ export type KanaProgressStats = {
   lastPracticedAt: string;
   skipped: number;
 };
+
+export type KanaQuestionResult = readonly KanaAttempt[];
 
 export type PendingKanaAttempt =
   RecordKanaAttemptsData['body']['attempts'][number];

@@ -11,7 +11,10 @@ import type { PendingKanaAttempt, PendingKanaAttempts } from '../model/types';
 
 const EMPTY: PendingKanaAttempts = { invalid: [], pending: [], rejected: [] };
 
-type Occurrence = Pick<PendingKanaAttempt, 'questionIndex' | 'roundId'>;
+type KanaResult = Pick<
+  PendingKanaAttempt,
+  'kanaId' | 'questionIndex' | 'roundId'
+>;
 
 export function addPendingAttempts(
   queue: PendingKanaAttempts,
@@ -24,10 +27,10 @@ export function appendAttempts(
   list: readonly PendingKanaAttempt[],
   attempts: readonly PendingKanaAttempt[],
 ): PendingKanaAttempt[] {
-  const listed = new Set(list.map(occurrenceKey));
+  const listed = new Set(list.map(resultKey));
   const result = [...list];
   for (const attempt of attempts) {
-    const key = occurrenceKey(attempt);
+    const key = resultKey(attempt);
     if (listed.has(key)) continue;
     listed.add(key);
     result.push(attempt);
@@ -43,15 +46,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export function occurrenceKey({ questionIndex, roundId }: Occurrence): string {
-  return `${roundId.toLowerCase()}#${String(questionIndex)}`;
-}
-
 function pendingAttemptsKey(userId: string): string {
   return `${PENDING_ATTEMPTS_PREFIX}${userId}`;
 }
 
-export function readConflicts(data: unknown): Occurrence[] | null {
+export function readConflicts(data: unknown): KanaResult[] | null {
   const parsed = attemptConflictSchema.safeParse(data);
   return parsed.success && parsed.data.conflicts.length > 0
     ? parsed.data.conflicts
@@ -104,10 +103,18 @@ export function readResponseData(error: unknown): unknown {
 
 export function removeAttempts(
   attempts: readonly PendingKanaAttempt[],
-  removed: readonly Occurrence[],
+  removed: readonly KanaResult[],
 ): PendingKanaAttempt[] {
-  const keys = new Set(removed.map(occurrenceKey));
-  return attempts.filter((attempt) => !keys.has(occurrenceKey(attempt)));
+  const keys = new Set(removed.map(resultKey));
+  return attempts.filter((attempt) => !keys.has(resultKey(attempt)));
+}
+
+export function resultKey({
+  kanaId,
+  questionIndex,
+  roundId,
+}: KanaResult): string {
+  return `${roundId.toLowerCase()}#${String(questionIndex)}#${kanaId}`;
 }
 
 export function writePendingAttempts(

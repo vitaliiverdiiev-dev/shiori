@@ -113,13 +113,14 @@ export type GetKanaProgressData = {
     path?: never;
     query: {
         script: 'hiragana' | 'katakana';
+        direction?: 'kana-to-romaji' | 'romaji-to-kana';
     };
     url: '/api/kana-progress';
 };
 
 export type GetKanaProgressErrors = {
     /**
-     * Missing or unknown script.
+     * Missing or unknown script, or unknown direction.
      */
     400: {
         message: string;
@@ -138,17 +139,17 @@ export type GetKanaProgressError = GetKanaProgressErrors[keyof GetKanaProgressEr
 
 export type GetKanaProgressResponses = {
     /**
-     * Per-kana statistics of the current user for one script, Kana → romaji. Kana without recorded attempts are omitted.
+     * Per-kana statistics of the current user for one script and one direction (default `kana-to-romaji`). Kana without recorded results in that direction are omitted.
      */
     200: {
-        direction: 'kana-to-romaji';
+        direction: 'kana-to-romaji' | 'romaji-to-kana';
         kana: Array<{
             /**
              * Correct on the first attempt after the hint was shown.
              */
             assistedCorrect: number;
             /**
-             * Recorded questions; independentCorrect + assistedCorrect + incorrect + skipped.
+             * Recorded results of this kana in this direction, one per question that expected it; independentCorrect + assistedCorrect + incorrect + skipped. A romaji → kana question with several expected kana gives each of them one result, so these counts are not numbers of questions.
              */
             attempts: number;
             /**
@@ -184,9 +185,15 @@ export type RecordKanaAttemptsData = {
         attempts: Array<{
             questionIndex: number;
             roundId: string;
+            /**
+             * The first answer: romaji for `kana-to-romaji`, the kana typed for this expected kana for `romaji-to-kana`.
+             */
             answer: string;
             corrected: boolean;
-            direction: 'kana-to-romaji';
+            /**
+             * The concrete direction of the question. In `romaji-to-kana` one question (card) yields one entry per expected kana, all with the same `roundId` and `questionIndex`.
+             */
+            direction: 'kana-to-romaji' | 'romaji-to-kana';
             hintUsed: boolean;
             kanaId: string;
             outcome: 'correct' | 'incorrect' | 'skipped';
@@ -203,7 +210,7 @@ export type RecordKanaAttemptsData = {
 
 export type RecordKanaAttemptsErrors = {
     /**
-     * Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.
+     * Malformed batch, unknown kana, an outcome that contradicts the answer, a kana result listed twice, or several kana for one question that are not one romaji → kana reading. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.
      */
     400: {
         /**
@@ -228,12 +235,13 @@ export type RecordKanaAttemptsErrors = {
         statusCode: 403;
     };
     /**
-     * An occurrence is already recorded with different data. Nothing from this batch is recorded.
+     * A kana result of a question is already recorded with different data (or, for `kana-to-romaji`, the question is recorded for another kana). Nothing from this batch is recorded.
      */
     409: {
         conflicts: Array<{
             questionIndex: number;
             roundId: string;
+            kanaId: string;
         }>;
         message: string;
         statusCode: 409;

@@ -42,7 +42,11 @@ export interface KanaProgressEntry {
   skipped: number;
 }
 
+export interface KanaResultOccurrence extends KanaOccurrence {
+  kanaId: string;
+}
+
 export type RecordKanaAttemptsResult =
-  | { conflicts: KanaOccurrence[]; ok: false; reason: 'conflict' }
+  | { conflicts: KanaResultOccurrence[]; ok: false; reason: 'conflict' }
   | { duplicates: number; ok: true; recorded: number }
   | { indexes: number[]; ok: false; reason: 'invalid-attempts' };

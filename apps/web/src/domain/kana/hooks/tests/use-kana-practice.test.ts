@@ -1,3 +1,4 @@
+import { type KanaId, questionKey } from '@shiori/kana';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSession } from '../../helpers/session';
@@ -9,12 +10,21 @@ import type {
 import { useKanaPractice } from '../use-kana-practice';
 
 const keepOrder = () => 0.999;
-const awaitingCorrect = (ids: KanaPracticeSession['order']) => {
+const awaitingCorrect = (ids: KanaId[]): KanaPracticeSession => {
   const round = createSession(ids, { random: keepOrder });
-  const first = round.order[0] ?? 'hiragana:a';
+  const [first] = round.order;
   return {
     ...round,
-    attempts: [{ answer: 'x', kanaId: first, outcome: 'correct' as const }],
+    results: [
+      [
+        {
+          answer: 'x',
+          kanaId:
+            first?.direction === 'kana-to-romaji' ? first.kanaId : 'hiragana:a',
+          outcome: 'correct',
+        },
+      ],
+    ],
   };
 };
 
@@ -47,7 +57,7 @@ describe('useKanaPractice', () => {
       vi.advanceTimersByTime(400);
     });
     expect(result.current.session?.position).toBe(0);
-    expect(result.current.session?.attempts).toEqual([]);
+    expect(result.current.session?.results).toEqual([]);
   });
 
   it('restarts the delay for a new round that is itself awaiting advance', () => {
@@ -66,7 +76,10 @@ describe('useKanaPractice', () => {
       });
       vi.advanceTimersByTime(100);
     });
-    expect(result.current.session?.order[0]).toBe('hiragana:u');
+    expect(result.current.session?.order[0]).toEqual({
+      direction: 'kana-to-romaji',
+      kanaId: 'hiragana:u',
+    });
     expect(result.current.session?.position).toBe(0);
 
     act(() => {
@@ -78,7 +91,7 @@ describe('useKanaPractice', () => {
       vi.advanceTimersByTime(1);
     });
     expect(result.current.session?.position).toBe(1);
-    expect(result.current.session?.attempts).toHaveLength(1);
+    expect(result.current.session?.results).toHaveLength(1);
   });
 
   it('hands over a right answer at once, before the delay, and only once', () => {
@@ -93,7 +106,8 @@ describe('useKanaPractice', () => {
       useKanaPractice('hiragana', 'alice', onFinalized),
     );
     const finalized = () => onFinalized.mock.calls.flatMap(([items]) => items);
-    const first = result.current.session?.order[0] ?? 'hiragana:a';
+    const [question] = result.current.session?.order ?? [];
+    const first = question ? questionKey(question) : 'hiragana:a';
 
     act(() => {
       result.current.dispatch({

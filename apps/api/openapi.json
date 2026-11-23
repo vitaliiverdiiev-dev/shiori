@@ -246,11 +246,23 @@
               ],
               "type": "string"
             }
+          },
+          {
+            "name": "direction",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "kana-to-romaji",
+                "romaji-to-kana"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Per-kana statistics of the current user for one script, Kana → romaji. Kana without recorded attempts are omitted.",
+            "description": "Per-kana statistics of the current user for one script and one direction (default `kana-to-romaji`). Kana without recorded results in that direction are omitted.",
             "content": {
               "application/json": {
                 "schema": {
@@ -259,7 +271,8 @@
                     "direction": {
                       "type": "string",
                       "enum": [
-                        "kana-to-romaji"
+                        "kana-to-romaji",
+                        "romaji-to-kana"
                       ]
                     },
                     "kana": {
@@ -277,7 +290,7 @@
                             "type": "integer",
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991,
-                            "description": "Recorded questions; independentCorrect + assistedCorrect + incorrect + skipped."
+                            "description": "Recorded results of this kana in this direction, one per question that expected it; independentCorrect + assistedCorrect + incorrect + skipped. A romaji → kana question with several expected kana gives each of them one result, so these counts are not numbers of questions."
                           },
                           "corrected": {
                             "type": "integer",
@@ -345,7 +358,7 @@
             }
           },
           "400": {
-            "description": "Missing or unknown script.",
+            "description": "Missing or unknown script, or unknown direction.",
             "content": {
               "application/json": {
                 "schema": {
@@ -433,7 +446,8 @@
                         },
                         "answer": {
                           "type": "string",
-                          "maxLength": 32
+                          "maxLength": 32,
+                          "description": "The first answer: romaji for `kana-to-romaji`, the kana typed for this expected kana for `romaji-to-kana`."
                         },
                         "corrected": {
                           "type": "boolean"
@@ -441,8 +455,10 @@
                         "direction": {
                           "type": "string",
                           "enum": [
-                            "kana-to-romaji"
-                          ]
+                            "kana-to-romaji",
+                            "romaji-to-kana"
+                          ],
+                          "description": "The concrete direction of the question. In `romaji-to-kana` one question (card) yields one entry per expected kana, all with the same `roundId` and `questionIndex`."
                         },
                         "hintUsed": {
                           "type": "boolean"
@@ -518,7 +534,7 @@
             }
           },
           "400": {
-            "description": "Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.",
+            "description": "Malformed batch, unknown kana, an outcome that contradicts the answer, a kana result listed twice, or several kana for one question that are not one romaji → kana reading. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.",
             "content": {
               "application/json": {
                 "schema": {
@@ -606,7 +622,7 @@
             }
           },
           "409": {
-            "description": "An occurrence is already recorded with different data. Nothing from this batch is recorded.",
+            "description": "A kana result of a question is already recorded with different data (or, for `kana-to-romaji`, the question is recorded for another kana). Nothing from this batch is recorded.",
             "content": {
               "application/json": {
                 "schema": {
@@ -626,11 +642,16 @@
                             "type": "string",
                             "format": "uuid",
                             "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kanaId": {
+                            "type": "string",
+                            "maxLength": 32
                           }
                         },
                         "required": [
                           "questionIndex",
-                          "roundId"
+                          "roundId",
+                          "kanaId"
                         ],
                         "additionalProperties": false
                       }

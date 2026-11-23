@@ -1,4 +1,4 @@
-import type { KanaId } from '@shiori/kana';
+import { type KanaId, questionKey } from '@shiori/kana';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -72,7 +72,16 @@ const input = () => screen.getByRole('textbox');
 const feedback = () => screen.getByRole('status');
 const field = () => input().closest('[data-slot="input-group"]');
 const hintButton = () => screen.getByRole('button', { name: 'Reading hint' });
-const stored = () => readKanaState('hiragana', 'alice').session;
+const stored = () => {
+  const session = readKanaState('hiragana', 'alice').session;
+  return (
+    session && {
+      ...session,
+      attempts: session.results.flat(),
+      order: session.order.map(questionKey),
+    }
+  );
+};
 const wait = (ms: number) => {
   act(() => {
     vi.advanceTimersByTime(ms);
@@ -295,7 +304,7 @@ describe('KanaPractice', () => {
       'Type the reading first, or choose Skip.',
     );
     expect(screen.getByRole('button', { name: 'Check' })).toBeVisible();
-    expect(readKanaState('hiragana', 'alice').session?.attempts).toEqual([]);
+    expect(stored()?.attempts).toEqual([]);
   });
 
   it('ignores extra Enter presses and typing while a correct answer is shown', async () => {
@@ -469,7 +478,7 @@ describe('KanaPractice', () => {
     });
     setup({
       ...round,
-      attempts: [{ answer: 'shi', kanaId: 'hiragana:si', outcome: 'correct' }],
+      results: [[{ answer: 'shi', kanaId: 'hiragana:si', outcome: 'correct' }]],
     });
 
     expect(field()).toHaveAttribute('data-correct');
@@ -490,7 +499,7 @@ describe('KanaPractice', () => {
     await user.type(input(), 'sh');
     await user.click(screen.getByRole('link', { name: 'Leave' }));
     expect(screen.getByRole('heading', { name: 'Selection' })).toBeVisible();
-    expect(readKanaState('hiragana', 'alice').session?.input).toBe('sh');
+    expect(readKanaState('hiragana', 'alice').session?.inputs).toEqual(['sh']);
   });
 
   describe('saving results', () => {

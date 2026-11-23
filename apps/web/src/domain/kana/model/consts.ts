@@ -17,9 +17,9 @@ export const CORRECT_ADVANCE_DELAY_MS = 400;
 export const MAX_QUESTION_COUNT = 1_000;
 
 export const KANA_STORAGE_PREFIX = 'shiori:kana:';
-export const KANA_STORAGE_VERSION = 1;
+export const KANA_STORAGE_VERSION = 2;
+export const LEGACY_KANA_STORAGE_VERSION = 1;
 
-export const KANA_DIRECTION = 'kana-to-romaji';
 export const MAX_ANSWER_LENGTH = 32;
 
 export const ATTEMPT_BATCH_SIZE = 100;

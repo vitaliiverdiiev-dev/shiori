@@ -1,3 +1,4 @@
+import { getExpectedKana } from '@shiori/kana';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
@@ -45,12 +46,15 @@ export const Answering: Story = {};
 
 const finished: KanaPracticeSession = {
   ...round,
-  attempts: round.order.map((kanaId, index) => ({
-    answer: index === 0 ? 'x' : 'ok',
-    kanaId,
-    outcome: index === 0 ? 'incorrect' : index === 1 ? 'skipped' : 'correct',
-  })),
+  inputs: [],
   position: round.order.length,
+  results: round.order.map((question, index) =>
+    getExpectedKana(question).map(({ id }) => ({
+      answer: index === 0 ? 'x' : 'ok',
+      kanaId: id,
+      outcome: index === 0 ? 'incorrect' : index === 1 ? 'skipped' : 'correct',
+    })),
+  ),
 };
 
 export const Complete: Story = { beforeEach: seed(finished) };
@@ -61,12 +65,12 @@ export const CompleteWithUnsavedResults: Story = {
     window.localStorage.setItem(
       `shiori:kana-attempts:${USER}`,
       JSON.stringify({
-        pending: round.order.map((kanaId, questionIndex) => ({
+        pending: round.order.map((question, questionIndex) => ({
           answer: '',
           corrected: false,
-          direction: 'kana-to-romaji',
+          direction: question.direction,
           hintUsed: false,
-          kanaId,
+          kanaId: getExpectedKana(question)[0]?.id,
           outcome: 'skipped',
           questionIndex,
           roundId: round.roundId,

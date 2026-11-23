@@ -78,6 +78,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             setFocusInputOnMount(true);
             dispatch({
               session: createSession(session.selection, {
+                mode: session.mode,
                 questionCount: session.questionCount,
               }),
               type: 'start',
@@ -97,7 +98,12 @@ export const KanaPractice = ({ script, userId }: Props) => {
     );
   }
 
-  const kana = findKana(session.order[session.position] ?? '');
+  const question = session.order[session.position];
+  const kana =
+    question?.direction === 'kana-to-romaji'
+      ? findKana(question.kanaId)
+      : undefined;
+  const input = session.inputs[0] ?? '';
   const correcting = isAwaitingCorrection(session);
   const keepTyping = () => {
     inputRef.current?.focus();
@@ -130,7 +136,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
           if (composing.current) return;
           keepTyping();
           if (awaitingAdvance) return;
-          const answer = session.input.trim();
+          const answer = input.trim();
           if (answer.length > MAX_ANSWER_LENGTH) {
             setAnswerProblem('too-long');
             return;
@@ -194,7 +200,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             }}
             ref={inputRef}
             spellCheck={false}
-            value={session.input}
+            value={input}
           />
           <InputGroupAddon align="inline-end">
             <InputGroupButton

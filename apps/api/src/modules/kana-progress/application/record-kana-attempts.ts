@@ -1,13 +1,15 @@
 import type { Database } from '#infrastructure/database/database.module.js';
 import {
+  canShareQuestion,
   isSameKanaAttempt,
   occurrenceKey,
+  resultKey,
   toKanaAttemptRecord,
 } from '../model/helpers/kana-attempt.policy.js';
 import type {
   KanaAttemptInput,
   KanaAttemptRecord,
-  KanaOccurrence,
+  KanaResultOccurrence,
   RecordKanaAttemptsResult,
 } from '../model/types/kana-attempt.types.js';
 import {
@@ -16,9 +18,17 @@ import {
 } from '../persistence/queries/kana-attempt.queries.js';
 
 class KanaAttemptConflict extends Error {
-  constructor(readonly conflicts: KanaOccurrence[]) {
+  constructor(readonly conflicts: KanaResultOccurrence[]) {
     super('Kana attempt conflicts with a recorded attempt');
   }
+}
+
+function inLockOrder(
+  records: readonly KanaAttemptRecord[],
+): KanaAttemptRecord[] {
+  return records.toSorted((a, b) =>
+    resultKey(a) < resultKey(b) ? -1 : Number(resultKey(a) > resultKey(b)),
+  );
 }
 
 export async function recordKanaAttempts(
@@ -28,14 +38,21 @@ export async function recordKanaAttempts(
 ): Promise<RecordKanaAttemptsResult> {
   const records: KanaAttemptRecord[] = [];
   const invalid: number[] = [];
-  const keys = new Set<string>();
+  const results = new Set<string>();
+  const questions = new Map<string, KanaAttemptRecord>();
   for (const [index, input] of inputs.entries()) {
     const record = toKanaAttemptRecord(input);
-    if (!record || keys.has(occurrenceKey(record))) {
+    const sameQuestion = record && questions.get(occurrenceKey(record));
+    if (
+      !record ||
+      results.has(resultKey(record)) ||
+      (sameQuestion && !canShareQuestion(sameQuestion, record))
+    ) {
       invalid.push(index);
       continue;
     }
-    keys.add(occurrenceKey(record));
+    results.add(resultKey(record));
+    if (!sameQuestion) questions.set(occurrenceKey(record), record);
     records.push(record);
   }
   if (invalid.length > 0) {
@@ -45,10 +62,12 @@ export async function recordKanaAttempts(
   try {
     return await db.transaction(async (tx) => {
       const inserted = new Set(
-        (await insertNewKanaAttempts(tx, userId, records)).map(occurrenceKey),
+        (await insertNewKanaAttempts(tx, userId, inLockOrder(records))).map(
+          resultKey,
+        ),
       );
       const repeated = records.filter(
-        (record) => !inserted.has(occurrenceKey(record)),
+        (record) => !inserted.has(resultKey(record)),
       );
       if (repeated.length > 0) {
         await rejectConflicts(tx, userId, repeated);
@@ -70,20 +89,20 @@ async function rejectConflicts(
   userId: string,
   repeated: readonly KanaAttemptRecord[],
 ): Promise<void> {
-  const stored = new Map(
-    (await selectKanaAttempts(tx, userId, repeated)).map((row) => [
-      occurrenceKey(row),
-      row,
-    ]),
-  );
+  const stored = await selectKanaAttempts(tx, userId, repeated);
+  const byResult = new Map(stored.map((row) => [resultKey(row), row]));
+  const questions = new Set(stored.map(occurrenceKey));
   const conflicts = repeated.filter((record) => {
-    const existing = stored.get(occurrenceKey(record));
-    if (!existing) throw new Error('A conflicting kana attempt is missing');
-    return !isSameKanaAttempt(existing, record);
+    if (!questions.has(occurrenceKey(record))) {
+      throw new Error('A conflicting kana attempt is missing');
+    }
+    const existing = byResult.get(resultKey(record));
+    return !existing || !isSameKanaAttempt(existing, record);
   });
   if (conflicts.length > 0) {
     throw new KanaAttemptConflict(
-      conflicts.map(({ questionIndex, roundId }) => ({
+      conflicts.map(({ kanaId, questionIndex, roundId }) => ({
+        kanaId,
         questionIndex,
         roundId,
       })),

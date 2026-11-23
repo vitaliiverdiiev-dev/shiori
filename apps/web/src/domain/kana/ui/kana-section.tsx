@@ -1,12 +1,14 @@
 import { useId } from 'react';
+import type { Kana, KanaId, KanaSectionGroup } from '@shiori/kana';
 import { Checkbox } from '@/shared/ui';
 import { countSelected, getGroupState } from '../helpers/selection';
-import type { Kana, KanaId, KanaSectionGroup } from '../model/types';
+import type { KanaProgressStats } from '../model/types';
 import { KanaRow } from './kana-row';
 
 type Props = {
   onRowChange: (row: readonly Kana[], pressedIds: readonly string[]) => void;
   onSelectGroup: (kana: readonly Kana[], selected: boolean) => void;
+  progress: ReadonlyMap<string, KanaProgressStats>;
   section: KanaSectionGroup;
   selection: ReadonlySet<KanaId>;
 };
@@ -14,6 +16,7 @@ type Props = {
 export const KanaSection = ({
   onRowChange,
   onSelectGroup,
+  progress,
   section,
   selection,
 }: Props) => {
@@ -51,6 +54,7 @@ export const KanaSection = ({
             key={row.id}
             onRowChange={onRowChange}
             onSelectGroup={onSelectGroup}
+            progress={progress}
             row={row}
             section={section.id}
             selection={selection}

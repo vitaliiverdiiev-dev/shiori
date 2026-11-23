@@ -2,7 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSession } from '../../helpers/session';
 import { writeKanaState } from '../../helpers/storage';
-import type { KanaPracticeSession } from '../../model/types';
+import type {
+  KanaPracticeSession,
+  PendingKanaAttempt,
+} from '../../model/types';
 import { useKanaPractice } from '../use-kana-practice';
 
 const keepOrder = () => 0.999;
@@ -28,7 +31,9 @@ describe('useKanaPractice', () => {
     writeKanaState('hiragana', 'alice', {
       session: awaitingCorrect(['hiragana:a', 'hiragana:i']),
     });
-    const { result } = renderHook(() => useKanaPractice('hiragana', 'alice'));
+    const { result } = renderHook(() =>
+      useKanaPractice('hiragana', 'alice', vi.fn()),
+    );
     expect(result.current.awaitingAdvance).toBe(true);
 
     act(() => {
@@ -49,7 +54,9 @@ describe('useKanaPractice', () => {
     writeKanaState('hiragana', 'alice', {
       session: awaitingCorrect(['hiragana:a', 'hiragana:i']),
     });
-    const { result } = renderHook(() => useKanaPractice('hiragana', 'alice'));
+    const { result } = renderHook(() =>
+      useKanaPractice('hiragana', 'alice', vi.fn()),
+    );
 
     act(() => {
       vi.advanceTimersByTime(300);
@@ -72,5 +79,46 @@ describe('useKanaPractice', () => {
     });
     expect(result.current.session?.position).toBe(1);
     expect(result.current.session?.attempts).toHaveLength(1);
+  });
+
+  it('hands over a question once, when the round moves past it', () => {
+    writeKanaState('hiragana', 'alice', {
+      session: awaitingCorrect(['hiragana:a', 'hiragana:i']),
+    });
+    const onFinalized =
+      vi.fn<(attempts: readonly PendingKanaAttempt[]) => void>();
+    const { rerender, result } = renderHook(() =>
+      useKanaPractice('hiragana', 'alice', onFinalized),
+    );
+    const finalized = () => onFinalized.mock.calls.flatMap(([items]) => items);
+    expect(finalized()).toEqual([]);
+
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    rerender();
+    expect(finalized()).toEqual([
+      expect.objectContaining({ outcome: 'correct', questionIndex: 0 }),
+    ]);
+
+    act(() => {
+      result.current.dispatch({ type: 'skip' });
+    });
+    expect(finalized()).toEqual([
+      expect.objectContaining({ questionIndex: 0 }),
+      expect.objectContaining({ outcome: 'skipped', questionIndex: 1 }),
+    ]);
+  });
+
+  it('does not hand over questions finalized before a reload', () => {
+    const round = awaitingCorrect(['hiragana:a', 'hiragana:i']);
+    writeKanaState('hiragana', 'alice', {
+      session: { ...round, attempts: round.attempts, position: 1 },
+    });
+    const onFinalized =
+      vi.fn<(attempts: readonly PendingKanaAttempt[]) => void>();
+    renderHook(() => useKanaPractice('hiragana', 'alice', onFinalized));
+
+    expect(onFinalized.mock.calls.flatMap(([items]) => items)).toEqual([]);
   });
 });

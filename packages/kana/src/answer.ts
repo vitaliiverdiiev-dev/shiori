@@ -1,4 +1,4 @@
-import type { Kana } from '../model/types';
+import type { Kana } from './types.js';
 
 export function isAcceptedReading(kana: Kana, answer: string): boolean {
   const normalized = normalizeAnswer(answer);

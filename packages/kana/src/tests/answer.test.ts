@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { isAcceptedReading, normalizeAnswer } from '../answer';
-import { findKana } from '../catalog';
+import { isAcceptedReading, normalizeAnswer } from '../answer.js';
+import { findKana } from '../catalog.js';
 
 function accepts(id: string, answer: string): boolean {
   const kana = findKana(id);

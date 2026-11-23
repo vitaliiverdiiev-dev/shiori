@@ -519,6 +519,28 @@ describe('App routes', () => {
 });
 
 describe('Kana practice', () => {
+  const recordedFor: string[] = [];
+
+  beforeEach(() => {
+    recordedFor.length = 0;
+    server.use(
+      http.get('*/api/kana-progress', () =>
+        HttpResponse.json({
+          direction: 'kana-to-romaji',
+          kana: [],
+          script: 'katakana',
+        }),
+      ),
+      http.post('*/api/kana-progress/attempts', async ({ request }) => {
+        const { userId } = (await request.json()) as { userId: string };
+        recordedFor.push(userId);
+        return userId === 'bob'
+          ? HttpResponse.json({ duplicates: 0, recorded: 1 })
+          : HttpResponse.error();
+      }),
+    );
+  });
+
   it.each(practiceRoutes)(
     'sends a signed-in user without a round from %s to %s selection',
     async (path, heading) => {
@@ -587,6 +609,8 @@ describe('Kana practice', () => {
     await user.click(await screen.findByRole('button', { name: 'カ ka' }));
     await user.click(screen.getByRole('button', { name: 'Start practice' }));
     expect(await screen.findByText('Question 1 of 1')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Skip' }));
+    expect(await screen.findByText(/1 result is not saved yet/)).toBeVisible();
 
     cleanup();
     stubApi({ [SESSION]: () => sessionResponse({ id: 'bob', name: 'Bob' }) });
@@ -595,9 +619,23 @@ describe('Kana practice', () => {
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Katakana' }),
     ).toBeVisible();
-    expect(screen.getByRole('status')).toHaveTextContent('0 of 104 selected');
+    expect(screen.getAllByRole('status')[0]).toHaveTextContent(
+      '0 of 104 selected',
+    );
     expect(
       screen.queryByRole('link', { name: /Resume practice/ }),
     ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing recorded yet.', { exact: false }),
+    ).toBeVisible();
+    expect(screen.queryByText(/not saved yet/)).not.toBeInTheDocument();
+    expect(recordedFor).not.toContain('bob');
+    expect(
+      JSON.parse(
+        window.localStorage.getItem('shiori:kana-attempts:alice') ?? '{}',
+      ),
+    ).toMatchObject({
+      pending: [expect.objectContaining({ outcome: 'skipped' })],
+    });
   });
 });

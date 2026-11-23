@@ -2,7 +2,7 @@
 
 import { client } from './client.gen.js';
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.js';
-import type { GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetHealthData, GetHealthResponses, GetReadyData, GetReadyErrors, GetReadyResponses, GetRegistrationData, GetRegistrationResponses } from './types.gen.js';
+import type { GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetHealthData, GetHealthResponses, GetKanaProgressData, GetKanaProgressErrors, GetKanaProgressResponses, GetReadyData, GetReadyErrors, GetReadyResponses, GetRegistrationData, GetRegistrationResponses, RecordKanaAttemptsData, RecordKanaAttemptsErrors, RecordKanaAttemptsResponses } from './types.gen.js';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -52,4 +52,26 @@ export const getReady = <ThrowOnError extends boolean = false>(options?: Options
     responseType: 'json',
     url: '/api/ready',
     ...options
+});
+
+/**
+ * Kana progress
+ */
+export const getKanaProgress = <ThrowOnError extends boolean = false>(options: Options<GetKanaProgressData, ThrowOnError>): RequestResult<GetKanaProgressResponses, GetKanaProgressErrors, ThrowOnError> => (options.client ?? client).get<GetKanaProgressResponses, GetKanaProgressErrors, ThrowOnError>({
+    responseType: 'json',
+    url: '/api/kana-progress',
+    ...options
+});
+
+/**
+ * Record finalized Kana attempts
+ */
+export const recordKanaAttempts = <ThrowOnError extends boolean = false>(options: Options<RecordKanaAttemptsData, ThrowOnError>): RequestResult<RecordKanaAttemptsResponses, RecordKanaAttemptsErrors, ThrowOnError> => (options.client ?? client).post<RecordKanaAttemptsResponses, RecordKanaAttemptsErrors, ThrowOnError>({
+    responseType: 'json',
+    url: '/api/kana-progress/attempts',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });

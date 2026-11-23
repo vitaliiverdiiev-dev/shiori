@@ -1,12 +1,21 @@
+import {
+  getKanaCatalog,
+  getKanaSections,
+  type Kana,
+  type KanaScript,
+} from '@shiori/kana';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/shared/ui';
-import { getKanaCatalog, getKanaSections } from './helpers/catalog';
+import { kanaProgressQuery } from './api/queries';
+import { toProgressMap } from './helpers/progress';
 import {
   countSelected,
   setGroupSelected,
   setRowSelection,
 } from './helpers/selection';
+import { useAttemptSync } from './hooks/use-attempt-sync';
 import { useStoredSelection } from './hooks/use-stored-selection';
-import type { Kana, KanaScript } from './model/types';
+import { KanaProgress } from './ui/kana-progress';
 import { KanaSection } from './ui/kana-section';
 import { PracticeLauncher } from './ui/practice-launcher';
 
@@ -17,6 +26,9 @@ type Props = {
 
 export const KanaSelection = ({ script, userId }: Props) => {
   const [selection, setSelection] = useStoredSelection(script, userId);
+  const attemptSync = useAttemptSync(userId);
+  const progressQuery = useQuery(kanaProgressQuery(script));
+  const progress = toProgressMap(progressQuery.data?.kana);
   const catalog = getKanaCatalog(script);
   const selectedCount = countSelected(selection, catalog);
   const selectGroup = (kana: readonly Kana[], selected: boolean) => {
@@ -68,10 +80,19 @@ export const KanaSelection = ({ script, userId }: Props) => {
           key={section.id}
           onRowChange={changeRow}
           onSelectGroup={selectGroup}
+          progress={progress}
           section={section}
           selection={selection}
         />
       ))}
+      <KanaProgress
+        catalog={catalog}
+        onReload={() => void progressQuery.refetch()}
+        onRetrySave={attemptSync.retry}
+        progress={progress}
+        saveStatus={attemptSync}
+        status={progressQuery.status}
+      />
     </div>
   );
 };

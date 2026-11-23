@@ -209,13 +209,15 @@ describe('OpenAPI contract', () => {
     expect(
       Object.entries(paths).map(([path, item]) => [
         path,
-        item.get?.operationId,
+        item.get?.operationId ?? item.post?.operationId,
       ]),
     ).toEqual([
       ['/api/me', 'getCurrentUser'],
       ['/api/registration', 'getRegistration'],
       ['/api/health', 'getHealth'],
       ['/api/ready', 'getReady'],
+      ['/api/kana-progress', 'getKanaProgress'],
+      ['/api/kana-progress/attempts', 'recordKanaAttempts'],
     ]);
   });
 });

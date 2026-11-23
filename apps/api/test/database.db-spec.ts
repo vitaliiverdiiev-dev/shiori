@@ -71,7 +71,7 @@ describe('database', () => {
   });
 });
 
-const MIGRATION_COUNT = 4;
+const MIGRATION_COUNT = 5;
 const MIGRATIONS_BEFORE_ADMIN_BOOTSTRAP = 2;
 
 function migrationsUpTo(count: number): string {
@@ -117,7 +117,7 @@ describe('committed migrations', () => {
     }
   });
 
-  it('created the auth and invitation tables on the empty test database', async () => {
+  it('created the auth, invitation and kana attempt tables on the empty test database', async () => {
     const pool = new Pool({ connectionString: testDatabaseUrl() });
     try {
       const { rows } = await pool.query<{ table_name: string }>(
@@ -127,6 +127,7 @@ describe('committed migrations', () => {
         'account',
         'admin_bootstrap',
         'invitation',
+        'kana_attempt',
         'session',
         'user',
         'verification',

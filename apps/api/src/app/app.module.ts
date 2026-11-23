@@ -3,6 +3,7 @@ import type { Env } from '../infrastructure/config/env.js';
 import { DatabaseModule } from '../infrastructure/database/database.module.js';
 import { AuthModule } from '../modules/auth/auth.module.js';
 import { DiagnosticsModule } from '../modules/diagnostics/diagnostics.module.js';
+import { KanaProgressModule } from '../modules/kana-progress/kana-progress.module.js';
 
 export type AppEnv = Pick<
   Env,
@@ -20,6 +21,7 @@ export class AppModule {
         DatabaseModule.forRoot({ url: env.DATABASE_URL }),
         AuthModule.forRoot(env),
         DiagnosticsModule,
+        KanaProgressModule,
       ],
       module: AppModule,
     };

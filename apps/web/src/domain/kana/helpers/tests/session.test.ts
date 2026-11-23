@@ -1,10 +1,12 @@
+import type { KanaId } from '@shiori/kana';
+import { getKanaCatalog } from '@shiori/kana';
 import { describe, expect, it } from 'vitest';
-import type { KanaId, KanaPracticeSession } from '../../model/types';
-import { getKanaCatalog } from '../catalog';
+import type { KanaPracticeSession } from '../../model/types';
 import {
   buildQuestionOrder,
   createRetrySession,
   createSession,
+  getFinalizedAttempts,
   getPracticePhase,
   isAwaitingAdvance,
   isAwaitingCorrection,
@@ -14,6 +16,7 @@ import {
 } from '../session';
 
 const ids: KanaId[] = ['hiragana:a', 'hiragana:ka', 'hiragana:si'];
+const ROUND = '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10';
 const inOrder = () => 0.999;
 
 function answer(session: KanaPracticeSession, value: string) {
@@ -62,6 +65,105 @@ describe('createSession', () => {
   it('handles a single kana and removes duplicate ids', () => {
     const session = createSession(['hiragana:a', 'hiragana:a']);
     expect(session.order).toEqual(['hiragana:a']);
+  });
+});
+
+describe('round identity', () => {
+  it('gives every new round its own id, also for a retry', () => {
+    const first = createSession(ids);
+    const again = createSession(first.selection);
+
+    expect(first.roundId).toMatch(/^[\da-f-]{36}$/);
+    expect(again.roundId).not.toBe(first.roundId);
+    const finished = { ...first, position: first.order.length };
+    expect(createRetrySession(finished).roundId).not.toBe(first.roundId);
+  });
+});
+
+describe('getFinalizedAttempts', () => {
+  const start = createSession(['hiragana:a', 'hiragana:a', 'hiragana:si'], {
+    questionCount: 3,
+    random: inOrder,
+    roundId: ROUND,
+  });
+  const advance = (session: KanaPracticeSession) =>
+    required(practiceReducer(session, { type: 'next' }));
+
+  it('finalizes a question only when the round moves past it', () => {
+    const answered = required(answer(start, 'a'));
+    expect(getFinalizedAttempts(start, answered)).toEqual([]);
+
+    expect(getFinalizedAttempts(answered, advance(answered))).toEqual([
+      {
+        answer: 'a',
+        corrected: false,
+        direction: 'kana-to-romaji',
+        hintUsed: false,
+        kanaId: start.order[0],
+        outcome: 'correct',
+        questionIndex: 0,
+        roundId: ROUND,
+      },
+    ]);
+  });
+
+  it('keeps a wrong first answer as incorrect, with its correction and hint', () => {
+    const wrong = required(answer(start, 'o'));
+    const hinted = required(practiceReducer(wrong, { type: 'hint' }));
+    const corrected = required(answer(hinted, 'a'));
+
+    expect(getFinalizedAttempts(corrected, advance(corrected))).toEqual([
+      expect.objectContaining({
+        answer: 'o',
+        corrected: true,
+        hintUsed: true,
+        outcome: 'incorrect',
+      }),
+    ]);
+  });
+
+  it('records one skipped occurrence, and none for Skip after a wrong answer', () => {
+    const skipped = required(practiceReducer(start, { type: 'skip' }));
+    expect(getFinalizedAttempts(start, skipped)).toEqual([
+      expect.objectContaining({ answer: '', outcome: 'skipped' }),
+    ]);
+
+    const wrong = required(answer(start, 'o'));
+    const moved = required(practiceReducer(wrong, { type: 'skip' }));
+    expect(getFinalizedAttempts(wrong, moved)).toEqual([
+      expect.objectContaining({ corrected: false, outcome: 'incorrect' }),
+    ]);
+  });
+
+  it('identifies repeated kana by their question index', () => {
+    const twice = createSession(['hiragana:a'], {
+      questionCount: 2,
+      roundId: ROUND,
+    });
+    const first = advance(required(answer(twice, 'a')));
+    const second = required(answer(first, 'a'));
+
+    expect(twice.order).toEqual(['hiragana:a', 'hiragana:a']);
+    expect(getFinalizedAttempts(second, advance(second))).toEqual([
+      expect.objectContaining({ kanaId: 'hiragana:a', questionIndex: 1 }),
+    ]);
+  });
+
+  it('finalizes nothing for a restored or newly started round', () => {
+    const answered = required(answer(start, 'a'));
+    expect(getFinalizedAttempts(null, advance(answered))).toEqual([]);
+    expect(getFinalizedAttempts(advance(answered), createSession(ids))).toEqual(
+      [],
+    );
+  });
+
+  it('caps a long wrong answer to the length the API accepts', () => {
+    const wrong = required(answer(start, 'x'.repeat(40)));
+    const [attempt] = getFinalizedAttempts(
+      wrong,
+      required(practiceReducer(wrong, { type: 'skip' })),
+    );
+    expect(attempt?.answer).toHaveLength(32);
   });
 });
 
@@ -190,6 +292,7 @@ describe('next rounds', () => {
     order: ids,
     position: 3,
     questionCount: 3,
+    roundId: ROUND,
     selection: ids,
   };
 
@@ -379,6 +482,7 @@ describe('hints', () => {
       ],
       position: 6,
       questionCount: 6,
+      roundId: ROUND,
       selection: ids,
     };
 

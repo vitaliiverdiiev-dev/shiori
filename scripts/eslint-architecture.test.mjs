@@ -834,6 +834,55 @@ describe('backend capabilities', () => {
       ));
   });
 
+  describe("foreign keys to another module's table", () => {
+    const SCHEMA = `${API}/modules/other/persistence/schemas/example.schema.ts`;
+    const userTable =
+      "import { user } from '../../../auth/persistence/schemas/auth.schema.js';";
+
+    test("valid: a table definition imports another module's table definition", async () => {
+      await passes(SCHEMA, use(userTable));
+      await passes(
+        SCHEMA,
+        use(
+          "import { invitation } from '../../../auth/invitations/persistence/schemas/invitation.schema.js';",
+        ),
+      );
+    });
+
+    test("queries and other files may not import another module's table", async () => {
+      await rejects(
+        `${API}/modules/other/persistence/queries/example.queries.ts`,
+        use(userTable),
+        BOUNDARIES,
+      );
+      await rejects(
+        `${API}/modules/other/application/example.ts`,
+        use(
+          "import { user } from '../../auth/persistence/schemas/auth.schema.js';",
+        ),
+        BOUNDARIES,
+      );
+    });
+
+    test("a table definition may not import another module's queries", () =>
+      rejects(
+        SCHEMA,
+        use(
+          "import { isEmailRegistered } from '../../../auth/persistence/queries/user.queries.js';",
+        ),
+        BOUNDARIES,
+      ));
+
+    test('module-level schemas still may not import their own capabilities', () =>
+      rejects(
+        `${AUTH}/persistence/schemas/example.schema.ts`,
+        use(
+          "import { invitation } from '../../invitations/persistence/schemas/invitation.schema.js';",
+        ),
+        BOUNDARIES,
+      ));
+  });
+
   test('hooks may call capability application/; plugins may not', async () => {
     const application =
       "import { createInvitation } from '../../../invitations/application/create-invitation.js';";

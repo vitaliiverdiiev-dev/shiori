@@ -1,6 +1,6 @@
+import type { KanaId } from '@shiori/kana';
+import { getKanaSections } from '@shiori/kana';
 import { describe, expect, it } from 'vitest';
-import type { KanaId } from '../../model/types';
-import { getKanaSections } from '../catalog';
 import {
   countSelected,
   getGroupState,

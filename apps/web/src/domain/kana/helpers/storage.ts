@@ -1,13 +1,12 @@
+import type { KanaId, KanaScript } from '@shiori/kana';
+import { getKanaCatalog } from '@shiori/kana';
 import { KANA_STORAGE_PREFIX, KANA_STORAGE_VERSION } from '../model/consts';
 import { type StoredKanaRecord, storedKanaStateSchema } from '../model/schema';
 import type {
   KanaAttempt,
-  KanaId,
   KanaPracticeSession,
-  KanaScript,
   StoredKanaState,
 } from '../model/types';
-import { getKanaCatalog } from './catalog';
 
 const EMPTY_STATE: StoredKanaState = {
   questionCount: null,
@@ -95,6 +94,7 @@ function restoreSession(
     order,
     position,
     questionCount: stored.questionCount ?? selection.length,
+    roundId: stored.roundId ?? crypto.randomUUID(),
     selection,
   };
 }

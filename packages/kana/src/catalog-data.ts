@@ -4,7 +4,7 @@ import type {
   KanaScriptInfo,
   KanaSection,
   KanaSectionInfo,
-} from './types';
+} from './types.js';
 
 export const kanaScripts = {
   hiragana: { label: 'Hiragana', nativeLabel: 'ひらがな' },

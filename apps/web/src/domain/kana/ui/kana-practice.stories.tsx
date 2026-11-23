@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
 import { createSession } from '../helpers/session';
 import { writeKanaState } from '../helpers/storage';
@@ -6,6 +7,7 @@ import type { KanaPracticeSession } from '../model/types';
 import { KanaPractice } from './kana-practice';
 
 const USER = 'storybook';
+const queryClient = new QueryClient();
 const round = createSession([
   'hiragana:a',
   'hiragana:si',
@@ -16,6 +18,7 @@ const round = createSession([
 
 const seed = (session: KanaPracticeSession) => () => {
   window.sessionStorage.clear();
+  window.localStorage.removeItem(`shiori:kana-attempts:${USER}`);
   writeKanaState('hiragana', USER, { session });
 };
 
@@ -24,11 +27,13 @@ const meta = {
   beforeEach: seed(round),
   component: KanaPractice,
   render: (args) => (
-    <MemoryRouter>
-      <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-4 pb-6 sm:pt-8">
-        <KanaPractice {...args} />
-      </main>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-4 pb-6 sm:pt-8">
+          <KanaPractice {...args} />
+        </main>
+      </MemoryRouter>
+    </QueryClientProvider>
   ),
   title: 'Kana/KanaPractice',
 } satisfies Meta<typeof KanaPractice>;
@@ -38,14 +43,37 @@ type Story = StoryObj<typeof meta>;
 
 export const Answering: Story = {};
 
-export const Complete: Story = {
-  beforeEach: seed({
-    ...round,
-    attempts: round.order.map((kanaId, index) => ({
-      answer: index === 0 ? 'x' : 'ok',
-      kanaId,
-      outcome: index === 0 ? 'incorrect' : index === 1 ? 'skipped' : 'correct',
-    })),
-    position: round.order.length,
-  }),
+const finished: KanaPracticeSession = {
+  ...round,
+  attempts: round.order.map((kanaId, index) => ({
+    answer: index === 0 ? 'x' : 'ok',
+    kanaId,
+    outcome: index === 0 ? 'incorrect' : index === 1 ? 'skipped' : 'correct',
+  })),
+  position: round.order.length,
+};
+
+export const Complete: Story = { beforeEach: seed(finished) };
+
+export const CompleteWithUnsavedResults: Story = {
+  beforeEach: () => {
+    seed(finished)();
+    window.localStorage.setItem(
+      `shiori:kana-attempts:${USER}`,
+      JSON.stringify({
+        pending: round.order.map((kanaId, questionIndex) => ({
+          answer: '',
+          corrected: false,
+          direction: 'kana-to-romaji',
+          hintUsed: false,
+          kanaId,
+          outcome: 'skipped',
+          questionIndex,
+          roundId: round.roundId,
+        })),
+        rejected: [],
+        version: 1,
+      }),
+    );
+  },
 };

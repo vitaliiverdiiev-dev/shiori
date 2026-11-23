@@ -1,10 +1,11 @@
+import type { KanaId } from '@shiori/kana';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { createSession } from '../../helpers/session';
 import { readKanaState, writeKanaState } from '../../helpers/storage';
-import type { KanaId, KanaPracticeSession } from '../../model/types';
+import type { KanaPracticeSession } from '../../model/types';
 import { PracticeLauncher } from '../practice-launcher';
 
 function setup(selectedIds: readonly KanaId[]) {

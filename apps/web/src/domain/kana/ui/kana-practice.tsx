@@ -1,4 +1,10 @@
 import { useId, useRef, useState } from 'react';
+import {
+  findKana,
+  isAcceptedReading,
+  type KanaScript,
+  kanaScripts,
+} from '@shiori/kana';
 import { ArrowLeftIcon, CheckIcon, LightbulbIcon, XIcon } from 'lucide-react';
 import { Link, Navigate } from 'react-router';
 import {
@@ -9,18 +15,15 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from '@/shared/ui';
-import { isAcceptedReading } from '../helpers/answer';
-import { findKana } from '../helpers/catalog';
 import {
   createRetrySession,
   createSession,
   getPracticePhase,
   isAwaitingCorrection,
 } from '../helpers/session';
+import { useAttemptSync } from '../hooks/use-attempt-sync';
 import { useKanaPractice } from '../hooks/use-kana-practice';
-import { kanaScripts } from '../model/catalog';
 import { kanaPaths } from '../model/consts';
-import type { KanaScript } from '../model/types';
 import { PracticeSummary } from './practice-summary';
 
 type Props = {
@@ -29,9 +32,11 @@ type Props = {
 };
 
 export const KanaPractice = ({ script, userId }: Props) => {
+  const attemptSync = useAttemptSync(userId);
   const { awaitingAdvance, dispatch, session } = useKanaPractice(
     script,
     userId,
+    attemptSync.record,
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
@@ -79,6 +84,8 @@ export const KanaPractice = ({ script, userId }: Props) => {
             setFocusInputOnMount(true);
             dispatch({ session: createRetrySession(session), type: 'start' });
           }}
+          onRetrySave={attemptSync.retry}
+          saveStatus={attemptSync}
           selectionPath={paths.selection}
           session={session}
         />
@@ -139,6 +146,9 @@ export const KanaPractice = ({ script, userId }: Props) => {
             <span className="-ml-[0.3rem] flex size-8 items-center justify-center pointer-coarse:size-10">
               {correcting && (
                 <XIcon aria-hidden="true" className="size-4 text-destructive" />
+              )}
+              {awaitingAdvance && (
+                <CheckIcon aria-hidden="true" className="size-4 text-success" />
               )}
             </span>
           </InputGroupAddon>
@@ -205,10 +215,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             </p>
           )}
           {awaitingAdvance && (
-            <p className="flex items-center gap-2 font-medium text-success">
-              <CheckIcon aria-hidden="true" className="size-4 shrink-0" />
-              Correct: {kana?.romaji}
-            </p>
+            <p className="sr-only">Correct: {kana?.romaji}</p>
           )}
           {correcting && <p className="sr-only">Incorrect. Try again.</p>}
           {session.hintShown && (

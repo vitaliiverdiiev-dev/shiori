@@ -29,6 +29,13 @@
       "when": 1794738123061,
       "tag": "0003_backfill_admin_bootstrap",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795395379354,
+      "tag": "0004_kana_attempts",
+      "breakpoints": true
     }
   ]
 }

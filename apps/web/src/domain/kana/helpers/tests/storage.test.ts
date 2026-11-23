@@ -1,10 +1,11 @@
+import { getKanaCatalog } from '@shiori/kana';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { KanaPracticeSession } from '../../model/types';
-import { getKanaCatalog } from '../catalog';
 import { createSession } from '../session';
 import { readKanaState, writeKanaState } from '../storage';
 
 const KEY = 'shiori:kana:hiragana';
+const ROUND = '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10';
 const session: KanaPracticeSession = {
   attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
   hintShown: false,
@@ -13,6 +14,7 @@ const session: KanaPracticeSession = {
   order: ['hiragana:a', 'hiragana:ka'],
   position: 1,
   questionCount: 2,
+  roundId: ROUND,
   selection: ['hiragana:a', 'hiragana:ka'],
 };
 
@@ -212,7 +214,7 @@ describe('kana state storage', () => {
     });
   });
 
-  it('restores a round saved before question counts and hints existed', () => {
+  it('restores a round saved before question counts, hints and round ids existed', () => {
     storeRaw(
       record({
         session: {
@@ -227,8 +229,17 @@ describe('kana state storage', () => {
     expect(readKanaState('hiragana', 'alice')).toEqual({
       questionCount: null,
       selection: ['hiragana:a', 'hiragana:ka'],
-      session: { ...session, input: 'k' },
+      session: {
+        ...session,
+        input: 'k',
+        roundId: expect.any(String) as unknown,
+      },
     });
+  });
+
+  it.each(['round-1', 42])('discards a stored round id of %j', (roundId) => {
+    storeRaw(record({ session: { ...session, roundId } }));
+    expect(readKanaState('hiragana', 'alice').session).toBeNull();
   });
 
   it.each([0, 1001, 2.5, '10'])(

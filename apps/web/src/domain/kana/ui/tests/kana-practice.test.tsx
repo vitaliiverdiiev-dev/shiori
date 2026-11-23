@@ -1,13 +1,38 @@
+import type { KanaId } from '@shiori/kana';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { server } from '@/test/msw';
+import { readPendingAttempts } from '../../helpers/pending-attempts';
 import { createSession } from '../../helpers/session';
 import { readKanaState, writeKanaState } from '../../helpers/storage';
-import type { KanaId, KanaPracticeSession } from '../../model/types';
+import type {
+  KanaPracticeSession,
+  PendingKanaAttempt,
+} from '../../model/types';
 import { KanaPractice } from '../kana-practice';
 
 const keepOrder = () => 0.999;
+
+type RecordedBody = { attempts: PendingKanaAttempt[]; userId: string };
+
+function ok() {
+  return HttpResponse.json({ duplicates: 0, recorded: 1 });
+}
+
+function recordAttempts(respond: () => Response | Promise<Response> = ok) {
+  const bodies: RecordedBody[] = [];
+  server.use(
+    http.post('*/api/kana-progress/attempts', async ({ request }) => {
+      bodies.push((await request.json()) as RecordedBody);
+      return respond();
+    }),
+  );
+  return bodies;
+}
 
 function setup(
   session: KanaPracticeSession | null = createSession(
@@ -21,19 +46,27 @@ function setup(
       vi.advanceTimersByTime(ms);
     },
   });
+  const queryClient = new QueryClient();
   const view = render(
-    <MemoryRouter initialEntries={['/kana/hiragana/practice']}>
-      <Routes>
-        <Route
-          element={<KanaPractice script="hiragana" userId="alice" />}
-          path="/kana/hiragana/practice"
-        />
-        <Route element={<h1>Selection</h1>} path="/kana/hiragana" />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/kana/hiragana/practice']}>
+        <Routes>
+          <Route
+            element={<KanaPractice script="hiragana" userId="alice" />}
+            path="/kana/hiragana/practice"
+          />
+          <Route element={<h1>Selection</h1>} path="/kana/hiragana" />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
-  return { user, view };
+  return { queryClient, user, view };
 }
+
+const sent = (bodies: readonly RecordedBody[]) =>
+  bodies
+    .flatMap(({ attempts }) => attempts)
+    .filter(({ roundId }) => roundId === stored()?.roundId);
 
 const input = () => screen.getByRole('textbox');
 const feedback = () => screen.getByRole('status');
@@ -48,7 +81,8 @@ const wait = (ms: number) => {
 
 describe('KanaPractice', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
+    recordAttempts();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
     // WORKAROUND(@testing-library/react@16): its async wrapper only advances Jest fake timers; remove when it detects Vitest's.
     vi.stubGlobal('jest', {
       advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms),
@@ -89,7 +123,9 @@ describe('KanaPractice', () => {
 
     await user.click(input());
     await user.keyboard('SI{Enter}');
-    expect(feedback()).toHaveTextContent('Correct: shi');
+    expect(feedback()).toHaveTextContent(/^Correct: shi$/);
+    expect(screen.getByText('Correct: shi')).toHaveClass('sr-only');
+    expect(field()?.querySelector('.lucide-check')).toBeInTheDocument();
     expect(field()).toHaveAttribute('data-correct');
     expect(input()).toHaveValue('SI');
     expect(input()).toHaveFocus();
@@ -455,5 +491,117 @@ describe('KanaPractice', () => {
     await user.click(screen.getByRole('link', { name: 'Leave' }));
     expect(screen.getByRole('heading', { name: 'Selection' })).toBeVisible();
     expect(readKanaState('hiragana', 'alice').session?.input).toBe('sh');
+  });
+
+  describe('saving results', () => {
+    it('sends each finished question once, without delaying the next one', async () => {
+      let release = () => undefined as unknown;
+      const bodies = recordAttempts(
+        () =>
+          new Promise<Response>((resolve) => {
+            release = () => {
+              resolve(ok());
+            };
+          }),
+      );
+      const { user } = setup();
+
+      await user.type(input(), 'shi{Enter}');
+      expect(bodies).toEqual([]);
+      wait(400);
+      expect(screen.getByText('Question 2 of 2')).toBeVisible();
+      await vi.waitFor(() => {
+        expect(sent(bodies)).toHaveLength(1);
+      });
+      expect(bodies[0]?.userId).toBe('alice');
+      expect(sent(bodies)[0]).toMatchObject({
+        answer: 'shi',
+        corrected: false,
+        hintUsed: false,
+        kanaId: 'hiragana:si',
+        outcome: 'correct',
+        questionIndex: 0,
+        roundId: stored()?.roundId,
+      });
+      expect(readPendingAttempts('alice').pending).toHaveLength(1);
+
+      release();
+      await vi.waitFor(() => {
+        expect(readPendingAttempts('alice').pending).toEqual([]);
+      });
+      expect(sent(bodies)).toHaveLength(1);
+    });
+
+    it('records a corrected wrong answer as incorrect, and Skip after it adds nothing', async () => {
+      const bodies = recordAttempts();
+      const { user } = setup();
+
+      await user.type(input(), 'chi{Enter}');
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+      await user.type(input(), '{Enter}');
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+
+      await vi.waitFor(() => {
+        expect(sent(bodies)).toHaveLength(2);
+      });
+      expect(sent(bodies).map(({ outcome }) => outcome)).toEqual([
+        'incorrect',
+        'skipped',
+      ]);
+    });
+
+    it('says when results are saved, and when they are only waiting', async () => {
+      let fail = true;
+      recordAttempts(() => (fail ? HttpResponse.error() : ok()));
+      const { user } = setup(
+        createSession(['hiragana:si'], { random: keepOrder }),
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+      await vi.waitFor(() => {
+        expect(
+          screen.getByText(
+            '1 result is not saved yet. Shiori will keep trying.',
+          ),
+        ).toBeVisible();
+      });
+      expect(screen.queryByText(/All results saved/)).not.toBeInTheDocument();
+      expect(readPendingAttempts('alice').pending).toHaveLength(1);
+
+      fail = false;
+      await user.click(screen.getByRole('button', { name: 'Try again now' }));
+      await vi.waitFor(() => {
+        expect(
+          screen.getByText('All results saved to your progress.'),
+        ).toBeVisible();
+      });
+      expect(readPendingAttempts('alice').pending).toEqual([]);
+      expect(
+        screen.queryByRole('button', { name: 'Try again now' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('sends an unsaved result again after a reload, for the same occurrence', async () => {
+      recordAttempts(() => HttpResponse.error());
+      const { user, view } = setup();
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+      await vi.waitFor(() => {
+        expect(readPendingAttempts('alice').pending).toHaveLength(1);
+      });
+      view.unmount();
+
+      const bodies = recordAttempts();
+      setup(null);
+      await vi.waitFor(() => {
+        expect(readPendingAttempts('alice').pending).toEqual([]);
+      });
+      expect(sent(bodies)).toContainEqual(
+        expect.objectContaining({ outcome: 'skipped', questionIndex: 0 }),
+      );
+      expect(
+        new Set(sent(bodies).map(({ questionIndex }) => questionIndex)),
+      ).toEqual(new Set([0]));
+      expect(screen.getByText('Question 2 of 2')).toBeVisible();
+    });
   });
 });

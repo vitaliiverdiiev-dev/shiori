@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { kanaRows } from '../catalog';
-import type { KanaSection, KanaSoundDefinition } from '../types';
+import { kanaRows } from '../catalog-data.js';
+import type { KanaSection, KanaSoundDefinition } from '../types.js';
 
 const sounds = kanaRows.flatMap(({ sounds }) =>
   sounds.filter((sound) => sound !== null),

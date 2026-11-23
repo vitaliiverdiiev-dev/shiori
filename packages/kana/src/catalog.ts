@@ -1,11 +1,11 @@
-import { kanaRows, kanaSectionOrder, kanaSections } from '../model/catalog';
+import { kanaRows, kanaSectionOrder, kanaSections } from './catalog-data.js';
 import type {
   Kana,
   KanaId,
   KanaRow,
   KanaScript,
   KanaSectionGroup,
-} from '../model/types';
+} from './types.js';
 
 const sectionsByScript: Record<KanaScript, readonly KanaSectionGroup[]> = {
   hiragana: buildSections('hiragana'),

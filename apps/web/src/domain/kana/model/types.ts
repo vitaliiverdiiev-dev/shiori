@@ -1,14 +1,10 @@
-export type Kana = {
-  id: KanaId;
-  alternatives: readonly string[];
-  counterpartId: KanaId;
-  form: string;
-  order: number;
-  romaji: string;
-  rowId: string;
-  script: KanaScript;
-  section: KanaSection;
-  soundId: string;
+import type { RecordKanaAttemptsData } from '@shiori/api-client';
+import type { KanaId } from '@shiori/kana';
+
+export type AttemptSyncSnapshot = {
+  pending: number;
+  rejected: number;
+  status: 'idle' | 'saving' | 'waiting';
 };
 
 export type KanaAttempt = {
@@ -20,8 +16,6 @@ export type KanaAttempt = {
 };
 
 export type KanaGroupState = 'all' | 'none' | 'some';
-
-export type KanaId = `${KanaScript}:${string}`;
 
 export type KanaOutcome = 'correct' | 'incorrect' | 'skipped';
 
@@ -48,6 +42,7 @@ export type KanaPracticeSession = {
   order: readonly KanaId[];
   position: number;
   questionCount: number;
+  roundId: string;
   selection: readonly KanaId[];
 };
 
@@ -60,47 +55,23 @@ export type KanaPracticeSummary = {
   total: number;
 };
 
-export type KanaRow = {
-  id: string;
-  cells: readonly (Kana | null)[];
-  kana: readonly Kana[];
-  label: string;
+export type KanaProgressStats = {
+  assistedCorrect: number;
+  attempts: number;
+  corrected: number;
+  incorrect: number;
+  independentCorrect: number;
+  kanaId: string;
+  lastPracticedAt: string;
+  skipped: number;
 };
 
-export type KanaRowDefinition = {
-  id: string;
-  section: KanaSection;
-  sounds: readonly (KanaSoundDefinition | null)[];
-};
+export type PendingKanaAttempt =
+  RecordKanaAttemptsData['body']['attempts'][number];
 
-export type KanaScript = 'hiragana' | 'katakana';
-
-export type KanaScriptInfo = {
-  label: string;
-  nativeLabel: string;
-};
-
-export type KanaSection = 'basic' | 'dakuten' | 'yoon';
-
-export type KanaSectionGroup = {
-  id: KanaSection;
-  description: string;
-  kana: readonly Kana[];
-  rows: readonly KanaRow[];
-  title: string;
-};
-
-export type KanaSectionInfo = {
-  description: string;
-  title: string;
-};
-
-export type KanaSoundDefinition = {
-  id: string;
-  alternatives?: readonly string[];
-  hiragana: string;
-  katakana: string;
-  romaji: string;
+export type PendingKanaAttempts = {
+  pending: readonly PendingKanaAttempt[];
+  rejected: readonly PendingKanaAttempt[];
 };
 
 export type StoredKanaState = {

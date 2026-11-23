@@ -1,13 +1,15 @@
 import { useEffect, useId, useRef } from 'react';
+import { findKana } from '@shiori/kana';
 import { Link } from 'react-router';
 import { Button, buttonVariants } from '@/shared/ui';
-import { findKana } from '../helpers/catalog';
 import { summarizeSession } from '../helpers/session';
-import type { KanaPracticeSession } from '../model/types';
+import type { AttemptSyncSnapshot, KanaPracticeSession } from '../model/types';
 
 type Props = {
   onRestart: () => void;
   onRetry: () => void;
+  onRetrySave: () => void;
+  saveStatus: AttemptSyncSnapshot;
   selectionPath: string;
   session: KanaPracticeSession;
 };
@@ -15,6 +17,8 @@ type Props = {
 export const PracticeSummary = ({
   onRestart,
   onRetry,
+  onRetrySave,
+  saveStatus,
   selectionPath,
   session,
 }: Props) => {
@@ -53,6 +57,29 @@ export const PracticeSummary = ({
           </div>
         ))}
       </dl>
+      <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <p className="text-muted-foreground" role="status">
+          {saveStatus.status === 'saving' && 'Saving results…'}
+          {saveStatus.status === 'idle' &&
+            saveStatus.pending === 0 &&
+            'All results saved to your progress.'}
+          {saveStatus.status === 'waiting' &&
+            `${String(saveStatus.pending)} ${saveStatus.pending === 1 ? 'result is' : 'results are'} not saved yet. Shiori will keep trying.`}
+          {saveStatus.rejected > 0 && (
+            <span className="text-destructive">
+              {' '}
+              {saveStatus.rejected}{' '}
+              {saveStatus.rejected === 1 ? 'result was' : 'results were'}{' '}
+              refused by the server and kept on this device.
+            </span>
+          )}
+        </p>
+        {saveStatus.status === 'waiting' && (
+          <Button onClick={onRetrySave} size="sm" variant="outline">
+            Try again now
+          </Button>
+        )}
+      </div>
       {missed.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-medium">To review</h2>

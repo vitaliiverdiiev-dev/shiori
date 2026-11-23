@@ -230,6 +230,426 @@
           "Diagnostics"
         ]
       }
+    },
+    "/api/kana-progress": {
+      "get": {
+        "operationId": "getKanaProgress",
+        "parameters": [
+          {
+            "name": "script",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "hiragana",
+                "katakana"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Per-kana statistics of the current user for one script, Kana → romaji. Kana without recorded attempts are omitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "direction": {
+                      "type": "string",
+                      "enum": [
+                        "kana-to-romaji"
+                      ]
+                    },
+                    "kana": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "assistedCorrect": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Correct on the first attempt after the hint was shown."
+                          },
+                          "attempts": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Recorded questions; independentCorrect + assistedCorrect + incorrect + skipped."
+                          },
+                          "corrected": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Incorrect first attempts that were later retyped correctly."
+                          },
+                          "incorrect": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Incorrect on the first attempt, even if corrected later."
+                          },
+                          "independentCorrect": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Correct on the first attempt without the hint."
+                          },
+                          "kanaId": {
+                            "type": "string"
+                          },
+                          "lastPracticedAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                          },
+                          "skipped": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Skipped before any answer was submitted."
+                          }
+                        },
+                        "required": [
+                          "assistedCorrect",
+                          "attempts",
+                          "corrected",
+                          "incorrect",
+                          "independentCorrect",
+                          "kanaId",
+                          "lastPracticedAt",
+                          "skipped"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "script": {
+                      "type": "string",
+                      "enum": [
+                        "hiragana",
+                        "katakana"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "direction",
+                    "kana",
+                    "script"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or unknown script.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        400
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        401
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Kana progress",
+        "tags": [
+          "Kana progress"
+        ]
+      }
+    },
+    "/api/kana-progress/attempts": {
+      "post": {
+        "operationId": "recordKanaAttempts",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "attempts": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "questionIndex": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 999
+                        },
+                        "roundId": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "answer": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "corrected": {
+                          "type": "boolean"
+                        },
+                        "direction": {
+                          "type": "string",
+                          "enum": [
+                            "kana-to-romaji"
+                          ]
+                        },
+                        "hintUsed": {
+                          "type": "boolean"
+                        },
+                        "kanaId": {
+                          "type": "string",
+                          "maxLength": 32
+                        },
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "correct",
+                            "incorrect",
+                            "skipped"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "questionIndex",
+                        "roundId",
+                        "answer",
+                        "corrected",
+                        "direction",
+                        "hintUsed",
+                        "kanaId",
+                        "outcome"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "userId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "description": "The user the client recorded these attempts for. It must equal the session user; ownership always comes from the session."
+                  }
+                },
+                "required": [
+                  "attempts",
+                  "userId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Every occurrence is recorded: `recorded` new ones, `duplicates` identical to earlier submissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "duplicates": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "recorded": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "duplicates",
+                    "recorded"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        400
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        401
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The batch was recorded for another user than the session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        403
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "An occurrence is already recorded with different data. Nothing from this batch is recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "conflicts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "questionIndex": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 999
+                          },
+                          "roundId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "questionIndex",
+                          "roundId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "statusCode": {
+                      "type": "number",
+                      "enum": [
+                        409
+                      ]
+                    }
+                  },
+                  "required": [
+                    "conflicts",
+                    "message",
+                    "statusCode"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record finalized Kana attempts",
+        "tags": [
+          "Kana progress"
+        ]
+      }
     }
   },
   "info": {

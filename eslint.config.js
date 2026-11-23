@@ -197,6 +197,25 @@ const backendPolicies = [
     from: fromModuleArea('integrations', { fileInternalPath: '*/hooks/*' }),
   },
   {
+    // INVARIANT: a table definition may import another module's table definition only to declare a foreign key, never to query or write it.
+    allow: {
+      to: {
+        element: {
+          captured: { area: 'persistence', module: `!${SAME_MODULE}` },
+          fileInternalPath: 'schemas/*.schema.ts',
+          type: ['api-module-area', 'api-capability-area'],
+        },
+      },
+    },
+    from: {
+      element: {
+        captured: { area: 'persistence' },
+        fileInternalPath: 'schemas/*.schema.ts',
+        type: ['api-module-area', 'api-capability-area'],
+      },
+    },
+  },
+  {
     allow: [
       {
         to: [

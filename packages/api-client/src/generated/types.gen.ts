@@ -107,3 +107,142 @@ export type GetReadyResponses = {
 };
 
 export type GetReadyResponse = GetReadyResponses[keyof GetReadyResponses];
+
+export type GetKanaProgressData = {
+    body?: never;
+    path?: never;
+    query: {
+        script: 'hiragana' | 'katakana';
+    };
+    url: '/api/kana-progress';
+};
+
+export type GetKanaProgressErrors = {
+    /**
+     * Missing or unknown script.
+     */
+    400: {
+        message: string;
+        statusCode: 400;
+    };
+    /**
+     * No valid session.
+     */
+    401: {
+        message: string;
+        statusCode: 401;
+    };
+};
+
+export type GetKanaProgressError = GetKanaProgressErrors[keyof GetKanaProgressErrors];
+
+export type GetKanaProgressResponses = {
+    /**
+     * Per-kana statistics of the current user for one script, Kana → romaji. Kana without recorded attempts are omitted.
+     */
+    200: {
+        direction: 'kana-to-romaji';
+        kana: Array<{
+            /**
+             * Correct on the first attempt after the hint was shown.
+             */
+            assistedCorrect: number;
+            /**
+             * Recorded questions; independentCorrect + assistedCorrect + incorrect + skipped.
+             */
+            attempts: number;
+            /**
+             * Incorrect first attempts that were later retyped correctly.
+             */
+            corrected: number;
+            /**
+             * Incorrect on the first attempt, even if corrected later.
+             */
+            incorrect: number;
+            /**
+             * Correct on the first attempt without the hint.
+             */
+            independentCorrect: number;
+            kanaId: string;
+            lastPracticedAt: string;
+            /**
+             * Skipped before any answer was submitted.
+             */
+            skipped: number;
+        }>;
+        script: 'hiragana' | 'katakana';
+    };
+};
+
+export type GetKanaProgressResponse = GetKanaProgressResponses[keyof GetKanaProgressResponses];
+
+export type RecordKanaAttemptsData = {
+    body: {
+        attempts: Array<{
+            questionIndex: number;
+            roundId: string;
+            answer: string;
+            corrected: boolean;
+            direction: 'kana-to-romaji';
+            hintUsed: boolean;
+            kanaId: string;
+            outcome: 'correct' | 'incorrect' | 'skipped';
+        }>;
+        /**
+         * The user the client recorded these attempts for. It must equal the session user; ownership always comes from the session.
+         */
+        userId: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/kana-progress/attempts';
+};
+
+export type RecordKanaAttemptsErrors = {
+    /**
+     * Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded.
+     */
+    400: {
+        message: string;
+        statusCode: 400;
+    };
+    /**
+     * No valid session.
+     */
+    401: {
+        message: string;
+        statusCode: 401;
+    };
+    /**
+     * The batch was recorded for another user than the session.
+     */
+    403: {
+        message: string;
+        statusCode: 403;
+    };
+    /**
+     * An occurrence is already recorded with different data. Nothing from this batch is recorded.
+     */
+    409: {
+        conflicts: Array<{
+            questionIndex: number;
+            roundId: string;
+        }>;
+        message: string;
+        statusCode: 409;
+    };
+};
+
+export type RecordKanaAttemptsError = RecordKanaAttemptsErrors[keyof RecordKanaAttemptsErrors];
+
+export type RecordKanaAttemptsResponses = {
+    /**
+     * Every occurrence is recorded: `recorded` new ones, `duplicates` identical to earlier submissions.
+     */
+    200: {
+        duplicates: number;
+        recorded: number;
+    };
+};
+
+export type RecordKanaAttemptsResponse = RecordKanaAttemptsResponses[keyof RecordKanaAttemptsResponses];

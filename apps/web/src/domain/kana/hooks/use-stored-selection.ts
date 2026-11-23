@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { KanaId, KanaScript } from '@shiori/kana';
 import { readKanaState, writeKanaState } from '../helpers/storage';
-import type { KanaId, KanaScript } from '../model/types';
 
 export function useStoredSelection(
   script: KanaScript,

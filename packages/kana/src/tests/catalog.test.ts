@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getKanaCatalog, getKanaSections } from '../catalog';
+import { getKanaCatalog, getKanaSections } from '../catalog.js';
 
 describe('getKanaCatalog', () => {
   it.each(['hiragana', 'katakana'] as const)(

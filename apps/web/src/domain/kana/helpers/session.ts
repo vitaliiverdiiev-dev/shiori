@@ -1,13 +1,14 @@
+import type { KanaId } from '@shiori/kana';
+import { findKana, isAcceptedReading } from '@shiori/kana';
+import { KANA_DIRECTION, MAX_ANSWER_LENGTH } from '../model/consts';
 import type {
   KanaAttempt,
-  KanaId,
   KanaPracticeAction,
   KanaPracticePhase,
   KanaPracticeSession,
   KanaPracticeSummary,
+  PendingKanaAttempt,
 } from '../model/types';
-import { isAcceptedReading } from './answer';
-import { findKana } from './catalog';
 
 export function buildQuestionOrder(
   kanaIds: readonly KanaId[],
@@ -46,7 +47,8 @@ export function createSession(
   {
     questionCount,
     random = Math.random,
-  }: { questionCount?: number; random?: () => number } = {},
+    roundId = crypto.randomUUID(),
+  }: { questionCount?: number; random?: () => number; roundId?: string } = {},
 ): KanaPracticeSession {
   const selection = [...new Set(kanaIds)];
   const count = questionCount ?? selection.length;
@@ -58,8 +60,28 @@ export function createSession(
     order: buildQuestionOrder(selection, count, random),
     position: 0,
     questionCount: count,
+    roundId,
     selection,
   };
+}
+
+export function getFinalizedAttempts(
+  previous: KanaPracticeSession | null,
+  next: KanaPracticeSession,
+): PendingKanaAttempt[] {
+  if (previous?.roundId !== next.roundId) return [];
+  return next.attempts
+    .slice(previous.position, next.position)
+    .map((attempt, offset) => ({
+      answer: attempt.answer.slice(0, MAX_ANSWER_LENGTH),
+      corrected: attempt.corrected === true,
+      direction: KANA_DIRECTION,
+      hintUsed: attempt.hintUsed === true,
+      kanaId: attempt.kanaId,
+      outcome: attempt.outcome,
+      questionIndex: previous.position + offset,
+      roundId: next.roundId,
+    }));
 }
 
 export function getPracticePhase(

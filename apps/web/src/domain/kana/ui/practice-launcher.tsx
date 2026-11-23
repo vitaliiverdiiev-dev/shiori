@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import type { KanaId, KanaScript } from '@shiori/kana';
 import { Link, useNavigate } from 'react-router';
 import { Button, buttonVariants, Input } from '@/shared/ui';
 import {
@@ -8,7 +9,6 @@ import {
 import { createSession, getPracticePhase } from '../helpers/session';
 import { readKanaState, writeKanaState } from '../helpers/storage';
 import { kanaPaths, MAX_QUESTION_COUNT } from '../model/consts';
-import type { KanaId, KanaScript } from '../model/types';
 
 type Props = {
   script: KanaScript;

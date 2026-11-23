@@ -1,4 +1,5 @@
-import type { Kana, KanaGroupState, KanaId } from '../model/types';
+import type { Kana, KanaId } from '@shiori/kana';
+import type { KanaGroupState } from '../model/types';
 
 export function countSelected(
   selection: ReadonlySet<KanaId>,

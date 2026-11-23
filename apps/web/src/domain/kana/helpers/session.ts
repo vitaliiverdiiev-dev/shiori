@@ -53,6 +53,7 @@ export function createSession(
   return {
     attempts: [],
     hintShown: false,
+    hintUsed: false,
     input: '',
     order: buildQuestionOrder(selection, count, random),
     position: 0,
@@ -97,19 +98,22 @@ export function practiceReducer(
   const advanced = {
     ...session,
     hintShown: false,
+    hintUsed: false,
     input: '',
     position: session.position + 1,
   };
 
   switch (action.type) {
     case 'hint':
-      if (session.hintShown || (!answering && !correcting)) return session;
+      if (!answering && !correcting) return session;
+      if (session.hintShown) return { ...session, hintShown: false };
       return {
         ...session,
         attempts: correcting
           ? updateCurrentAttempt(session, { hintUsed: true })
           : session.attempts,
         hintShown: true,
+        hintUsed: true,
       };
     case 'input':
       return answering || correcting
@@ -130,7 +134,7 @@ export function practiceReducer(
             answer: '',
             kanaId,
             outcome: 'skipped',
-            ...(session.hintShown && { hintUsed: true }),
+            ...(session.hintUsed && { hintUsed: true }),
           },
         ],
       };
@@ -152,7 +156,7 @@ export function practiceReducer(
         answer,
         kanaId,
         outcome: accepted ? 'correct' : 'incorrect',
-        ...(session.hintShown && { hintUsed: true }),
+        ...(session.hintUsed && { hintUsed: true }),
       };
       return { ...session, attempts: [...session.attempts, attempt] };
     }

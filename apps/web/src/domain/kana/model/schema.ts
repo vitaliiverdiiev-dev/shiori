@@ -14,6 +14,7 @@ const storedSessionSchema = z.object({
     }),
   ),
   hintShown: z.optional(z.boolean()),
+  hintUsed: z.optional(z.boolean()),
   input: z.string(),
   order: z.array(z.string()),
   position: z.int().check(z.nonnegative()),

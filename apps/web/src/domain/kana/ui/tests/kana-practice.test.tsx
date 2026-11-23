@@ -38,8 +38,7 @@ function setup(
 const input = () => screen.getByRole('textbox');
 const feedback = () => screen.getByRole('status');
 const field = () => input().closest('[data-slot="input-group"]');
-const hintButton = () =>
-  screen.getByRole('button', { name: 'Show the reading' });
+const hintButton = () => screen.getByRole('button', { name: 'Reading hint' });
 const stored = () => readKanaState('hiragana', 'alice').session;
 const wait = (ms: number) => {
   act(() => {
@@ -110,12 +109,14 @@ describe('KanaPractice', () => {
     expect(stored()?.attempts).toHaveLength(1);
   });
 
-  it('says “Try again” after a wrong answer, without revealing the reading', async () => {
+  it('marks a wrong answer in the field and announces it, without visible text or the reading', async () => {
     const { user } = setup();
 
     await user.type(input(), 'chi{Enter}');
-    expect(feedback()).toHaveTextContent(/^Try again$/);
+    expect(feedback()).toHaveTextContent(/^Incorrect\. Try again\.$/);
+    expect(screen.getByText('Incorrect. Try again.')).toHaveClass('sr-only');
     expect(feedback()).not.toHaveTextContent('shi');
+    expect(field()?.querySelector('.lucide-x')).toBeInTheDocument();
     expect(input()).toHaveAttribute('aria-invalid', 'true');
     expect(field()).not.toHaveAttribute('data-correct');
     expect(input()).toHaveFocus();
@@ -189,6 +190,13 @@ describe('KanaPractice', () => {
     expect(screen.getByText('Question 1 of 2')).toBeVisible();
     expect(stored()?.attempts).toEqual([]);
 
+    await user.click(hintButton());
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(feedback()).not.toHaveTextContent('Reading');
+    expect(input()).toHaveValue('sh');
+    expect(input()).toHaveFocus();
+    expect(stored()?.hintUsed).toBe(true);
+
     await user.keyboard('i{Enter}');
     expect(stored()?.attempts).toEqual([
       {
@@ -203,7 +211,7 @@ describe('KanaPractice', () => {
     expect(feedback()).not.toHaveTextContent('Reading');
   });
 
-  it('opens the hint from the keyboard and after a wrong answer', async () => {
+  it('toggles the hint from the keyboard after a wrong answer and keeps it as used', async () => {
     const { user } = setup();
 
     await user.type(input(), 'su{Enter}');
@@ -221,6 +229,17 @@ describe('KanaPractice', () => {
         outcome: 'incorrect',
       },
     ]);
+    await user.tab();
+    await user.keyboard(' ');
+    expect(hintButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(feedback()).not.toHaveTextContent('Reading');
+    expect(input()).toHaveFocus();
+    await user.keyboard('shi{Enter}');
+    expect(stored()?.attempts[0]).toMatchObject({
+      corrected: true,
+      hintUsed: true,
+      outcome: 'incorrect',
+    });
   });
 
   it('keeps an open hint after a reload', () => {

@@ -8,6 +8,7 @@ const KEY = 'shiori:kana:hiragana';
 const session: KanaPracticeSession = {
   attempts: [{ answer: 'a', kanaId: 'hiragana:a', outcome: 'correct' }],
   hintShown: false,
+  hintUsed: false,
   input: '',
   order: ['hiragana:a', 'hiragana:ka'],
   position: 1,
@@ -184,6 +185,7 @@ describe('kana state storage', () => {
         },
       ],
       hintShown: true,
+      hintUsed: true,
       order: ['hiragana:a', 'hiragana:ka', 'hiragana:a', 'hiragana:ka'],
       position: 3,
       questionCount: 4,
@@ -197,6 +199,16 @@ describe('kana state storage', () => {
       questionCount: 4,
       selection: [],
       session: repeated,
+    });
+  });
+
+  it('treats a hint open in an older save as used', () => {
+    storeRaw(
+      record({ session: { ...session, hintShown: true, hintUsed: undefined } }),
+    );
+    expect(readKanaState('hiragana', 'alice').session).toMatchObject({
+      hintShown: true,
+      hintUsed: true,
     });
   });
 

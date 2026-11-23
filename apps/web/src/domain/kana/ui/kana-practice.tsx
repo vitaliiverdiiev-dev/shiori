@@ -135,6 +135,13 @@ export const KanaPractice = ({ script, userId }: Props) => {
           className="h-12 pointer-coarse:h-12 data-correct:border-success data-correct:ring-3 data-correct:ring-success/30 data-correct:has-[[data-slot=input-group-control]:focus-visible]:border-success data-correct:has-[[data-slot=input-group-control]:focus-visible]:ring-success/50 has-[[data-slot][aria-invalid=true]:focus-visible]:ring-destructive/50 dark:has-[[data-slot][aria-invalid=true]:focus-visible]:ring-destructive/50"
           data-correct={awaitingAdvance ? '' : undefined}
         >
+          <InputGroupAddon align="inline-start">
+            <span className="-ml-[0.3rem] flex size-8 items-center justify-center pointer-coarse:size-10">
+              {correcting && (
+                <XIcon aria-hidden="true" className="size-4 text-destructive" />
+              )}
+            </span>
+          </InputGroupAddon>
           <InputGroupInput
             aria-describedby={feedbackId}
             aria-invalid={correcting ? true : undefined}
@@ -144,7 +151,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             autoComplete="off"
             autoCorrect="off"
             autoFocus={focusInputOnMount}
-            className="h-full rounded-l-[inherit] pl-11 text-center text-lg md:text-lg"
+            className="h-full text-center text-lg md:text-lg"
             enterKeyHint="go"
             id={inputId}
             onChange={(event) => {
@@ -172,7 +179,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
           <InputGroupAddon align="inline-end">
             <InputGroupButton
               aria-expanded={session.hintShown}
-              aria-label="Show the reading"
+              aria-label="Reading hint"
               onClick={() => {
                 dispatch({ type: 'hint' });
                 keepTyping();
@@ -203,12 +210,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
               Correct: {kana?.romaji}
             </p>
           )}
-          {correcting && (
-            <p className="flex items-center gap-2 font-medium text-destructive">
-              <XIcon aria-hidden="true" className="size-4 shrink-0" />
-              Try again
-            </p>
-          )}
+          {correcting && <p className="sr-only">Incorrect. Try again.</p>}
           {session.hintShown && (
             <p className="flex items-center gap-2 text-muted-foreground">
               <LightbulbIcon aria-hidden="true" className="size-4 shrink-0" />

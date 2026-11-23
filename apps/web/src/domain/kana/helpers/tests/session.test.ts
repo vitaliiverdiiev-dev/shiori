@@ -185,6 +185,7 @@ describe('next rounds', () => {
       { answer: '', kanaId: 'hiragana:si', outcome: 'skipped' },
     ],
     hintShown: false,
+    hintUsed: false,
     input: '',
     order: ids,
     position: 3,
@@ -315,14 +316,19 @@ describe('hints', () => {
     const start = createSession(ids, { random: inOrder });
     const hinted = required(practiceReducer(start, { type: 'hint' }));
     expect(hinted.hintShown).toBe(true);
-    expect(practiceReducer(hinted, { type: 'hint' })).toBe(hinted);
 
-    const answered = required(answer(hinted, 'a'));
+    const hidden = required(practiceReducer(hinted, { type: 'hint' }));
+    expect(hidden.hintShown).toBe(false);
+    expect(hidden.hintUsed).toBe(true);
+
+    const answered = required(answer(hidden, 'a'));
     expect(answered.attempts).toEqual([
       { answer: 'a', hintUsed: true, kanaId: 'hiragana:a', outcome: 'correct' },
     ]);
+    expect(practiceReducer(answered, { type: 'hint' })).toBe(answered);
     const next = required(practiceReducer(answered, { type: 'next' }));
     expect(next.hintShown).toBe(false);
+    expect(next.hintUsed).toBe(false);
   });
 
   it('records a hint shown after a wrong answer on that attempt', () => {
@@ -330,7 +336,9 @@ describe('hints', () => {
       answer(createSession(ids, { random: inOrder }), 'o'),
     );
     const hinted = required(practiceReducer(wrong, { type: 'hint' }));
-    const corrected = required(answer(hinted, 'a'));
+    const closed = required(practiceReducer(hinted, { type: 'hint' }));
+    expect(closed.attempts[0]?.hintUsed).toBe(true);
+    const corrected = required(answer(closed, 'a'));
 
     expect(corrected.attempts).toEqual([
       {
@@ -359,6 +367,7 @@ describe('hints', () => {
         { answer: 'si', kanaId: 'hiragana:si', outcome: 'correct' },
       ],
       hintShown: false,
+      hintUsed: false,
       input: '',
       order: [
         'hiragana:a',

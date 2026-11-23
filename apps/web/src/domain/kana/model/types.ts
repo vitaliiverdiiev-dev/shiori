@@ -43,6 +43,7 @@ export type KanaPracticePhase = 'answering' | 'complete' | 'feedback';
 export type KanaPracticeSession = {
   attempts: readonly KanaAttempt[];
   hintShown: boolean;
+  hintUsed: boolean;
   input: string;
   order: readonly KanaId[];
   position: number;

@@ -90,6 +90,7 @@ function restoreSession(
   return {
     attempts,
     hintShown: stored.hintShown === true,
+    hintUsed: stored.hintUsed === true || stored.hintShown === true,
     input: stored.input,
     order,
     position,

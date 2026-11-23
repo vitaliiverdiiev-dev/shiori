@@ -2,7 +2,6 @@ import { ChangePasswordForm, RevokeOtherSessions } from '@/domain/auth';
 
 export const SecuritySettingsPage = () => (
   <div className="flex w-full max-w-lg flex-col gap-10">
-    <h1 className="text-2xl font-semibold tracking-tight">Security</h1>
     <section aria-labelledby="change-password" className="flex flex-col gap-5">
       <div className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold" id="change-password">

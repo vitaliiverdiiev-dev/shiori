@@ -45,8 +45,8 @@ export const PracticeSummary = ({
         {(
           [
             ['Questions', summary.total],
-            ['Correct', summary.correct],
-            ['With hint', summary.assisted],
+            ['Correct, no hint', summary.correct],
+            ['Correct with hint', summary.assisted],
             ['Incorrect', summary.incorrect],
             ['Skipped', summary.skipped],
           ] as const

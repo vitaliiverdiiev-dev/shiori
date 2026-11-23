@@ -28,7 +28,7 @@ async function renderAt(path: string) {
 }
 
 const protectedRoutes = [
-  ['/', product.name],
+  ['/', 'Home'],
   ['/kana/hiragana', 'Hiragana'],
   ['/kana/katakana', 'Katakana'],
   ['/settings/account', 'Account'],
@@ -61,7 +61,7 @@ describe('App routes', () => {
     await renderAt('/');
 
     expect(
-      await screen.findByRole('heading', { name: product.name }),
+      await screen.findByRole('heading', { level: 1, name: 'Home' }),
     ).toBeInTheDocument();
     expect(screen.getByText(product.nameJa)).toBeInTheDocument();
     expect(screen.getByText(product.tagline)).toBeInTheDocument();
@@ -80,6 +80,8 @@ describe('App routes', () => {
       });
       expect(title).toBeVisible();
       expect(screen.getByRole('main')).toContainElement(title);
+      expect(title.closest('header')).not.toBeNull();
+      expect(screen.getAllByRole('heading', { level: 1 })).toEqual([title]);
       const nav = screen.getByRole('navigation', { name: 'Main' });
       expect(within(nav).getAllByRole('link')).toHaveLength(
         navigationItems().length,
@@ -130,15 +132,15 @@ describe('App routes', () => {
       await renderAt(path);
 
       expect(
-        await screen.findByRole('heading', { name: product.name }),
+        await screen.findByRole('heading', { level: 1, name: 'Home' }),
       ).toBeVisible();
     },
   );
 
   it.each([
     ['/sign-in?redirect=%2Fsettings%2Fsecurity', 'Security'],
-    ['/sign-in?redirect=https%3A%2F%2Fevil.example%2F', product.name],
-    ['/sign-in?redirect=%2F%2Fevil.example', product.name],
+    ['/sign-in?redirect=https%3A%2F%2Fevil.example%2F', 'Home'],
+    ['/sign-in?redirect=%2F%2Fevil.example', 'Home'],
   ])('signs in from %s and lands on %s', async (path, heading) => {
     let session = signedOut;
     stubApi({
@@ -295,7 +297,7 @@ describe('App routes', () => {
     const user = userEvent.setup();
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: product.name }),
+      await screen.findByRole('heading', { level: 1, name: 'Home' }),
     ).toBeVisible();
     expect(
       screen.queryByRole('navigation', { name: 'Main' }),
@@ -320,6 +322,23 @@ describe('App routes', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
+  });
+
+  it('updates the header title when navigating between pages', async () => {
+    stubApi({ [SESSION]: signedIn });
+    await renderAt('/kana/hiragana');
+    const user = userEvent.setup();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Hiragana' }),
+    ).toBeVisible();
+
+    const nav = screen.getByRole('navigation', { name: 'Main' });
+    await user.click(within(nav).getByRole('link', { name: /Katakana/ }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Katakana' }),
+    ).toBeVisible();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(document.title).toBe(`Katakana — ${product.name}`);
   });
 
   it('closes the mobile navigation with Escape and returns focus to its trigger', async () => {
@@ -514,7 +533,9 @@ describe('App routes', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not sign out. Try again.',
     );
-    expect(screen.getByRole('heading', { name: product.name })).toBeVisible();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Home' }),
+    ).toBeVisible();
   });
 });
 
@@ -580,6 +601,8 @@ describe('Kana practice', () => {
       await screen.findByRole('heading', { name: 'Hiragana practice' }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
+    expect(document.querySelector('header')).toBeNull();
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(screen.getByText('Question 1 of 1')).toBeVisible();
     await user.type(screen.getByRole('textbox'), 'ki{Enter}');
     expect(screen.getByRole('status')).toHaveTextContent('Try again');

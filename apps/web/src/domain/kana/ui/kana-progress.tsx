@@ -1,6 +1,15 @@
 import { useId } from 'react';
 import type { Kana } from '@shiori/kana';
-import { Button } from '@/shared/ui';
+import {
+  Button,
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/shared/ui';
 import { formatPracticeDate, plural } from '../helpers/progress';
 import type { AttemptSyncSnapshot, KanaProgressStats } from '../model/types';
 
@@ -47,7 +56,10 @@ export const KanaProgress = ({
           {status === 'success' &&
             (practised.length === 0
               ? 'Nothing recorded yet. Each question is saved when you finish it.'
-              : `${String(practised.length)} kana practised.`)}
+              : `${String(practised.length)} kana practised, ${plural(
+                  practised.reduce((sum, { stats }) => sum + stats.attempts, 0),
+                  'question',
+                )} recorded.`)}
           {saveStatus.pending > 0 &&
             ` ${plural(saveStatus.pending, 'result')} from this device not saved yet.`}
           {saveStatus.rejected > 0 &&
@@ -71,71 +83,68 @@ export const KanaProgress = ({
             Details per kana
           </summary>
           <p className="border-t px-3 py-2 text-xs text-muted-foreground">
-            Correct: first try without a hint. With hint: first try after
-            showing the reading. Incorrect: wrong first answer, even if retyped
-            correctly later. Skipped: skipped before answering.
+            Each question counts once, by its first answer. Correct, no hint:
+            right on the first try. Correct with hint: right on the first try
+            after showing the reading. Incorrect: wrong first answer, even if a
+            hint was used afterwards and it was retyped correctly. Skipped:
+            skipped before answering.
           </p>
-          <div className="overflow-x-auto border-t">
-            <table className="w-full text-sm tabular-nums">
-              <caption className="sr-only">Statistics per kana</caption>
-              <thead className="text-xs text-muted-foreground">
-                <tr className="border-t">
-                  <th className="px-3 py-2 text-left font-medium" scope="col">
-                    Kana
-                  </th>
-                  <th className="px-2 py-2 text-right font-medium" scope="col">
-                    Questions
-                  </th>
-                  <th className="px-2 py-2 text-right font-medium" scope="col">
-                    Correct
-                  </th>
-                  <th className="px-2 py-2 text-right font-medium" scope="col">
-                    With hint
-                  </th>
-                  <th className="px-2 py-2 text-right font-medium" scope="col">
-                    Incorrect
-                  </th>
-                  <th className="px-2 py-2 text-right font-medium" scope="col">
-                    Skipped
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium" scope="col">
-                    Last practised
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {practised.map(({ kana, stats }) => (
-                  <tr className="border-t" key={kana.id}>
-                    <th
-                      className="px-3 py-1.5 text-left font-normal whitespace-nowrap"
-                      scope="row"
-                    >
-                      <span className="text-lg" lang="ja">
-                        {kana.form}
-                      </span>{' '}
-                      <span className="text-xs text-muted-foreground">
-                        {kana.romaji}
-                      </span>
-                    </th>
-                    <td className="px-2 py-1.5 text-right">{stats.attempts}</td>
-                    <td className="px-2 py-1.5 text-right">
-                      {stats.independentCorrect}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      {stats.assistedCorrect}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">
-                      {stats.incorrect}
-                    </td>
-                    <td className="px-2 py-1.5 text-right">{stats.skipped}</td>
-                    <td className="px-3 py-1.5 text-right whitespace-nowrap">
-                      {formatPracticeDate(stats.lastPracticedAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table className="tabular-nums">
+            <TableCaption className="sr-only">Statistics per kana</TableCaption>
+            <TableHeader>
+              <TableRow className="border-t hover:bg-transparent">
+                <TableHead className="px-3" scope="col">
+                  Kana
+                </TableHead>
+                <TableHead className="text-right" scope="col">
+                  Questions
+                </TableHead>
+                <TableHead className="text-right" scope="col">
+                  Correct, no hint
+                </TableHead>
+                <TableHead className="text-right" scope="col">
+                  Correct with hint
+                </TableHead>
+                <TableHead className="text-right" scope="col">
+                  Incorrect
+                </TableHead>
+                <TableHead className="text-right" scope="col">
+                  Skipped
+                </TableHead>
+                <TableHead className="px-3 text-right" scope="col">
+                  Last practised
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {practised.map(({ kana, stats }) => (
+                <TableRow key={kana.id}>
+                  <TableHead className="px-3 font-normal" scope="row">
+                    <span className="text-lg" lang="ja">
+                      {kana.form}
+                    </span>{' '}
+                    <span className="text-xs text-muted-foreground">
+                      {kana.romaji}
+                    </span>
+                  </TableHead>
+                  <TableCell className="text-right">{stats.attempts}</TableCell>
+                  <TableCell className="text-right">
+                    {stats.independentCorrect}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {stats.assistedCorrect}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {stats.incorrect}
+                  </TableCell>
+                  <TableCell className="text-right">{stats.skipped}</TableCell>
+                  <TableCell className="px-3 text-right">
+                    {formatPracticeDate(stats.lastPracticedAt)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </details>
       )}
     </section>

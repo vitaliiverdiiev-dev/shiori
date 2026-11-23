@@ -373,8 +373,8 @@ describe('KanaPractice', () => {
     const value = (term: string) =>
       screen.getByText(term).nextElementSibling?.textContent;
     expect(value('Questions')).toBe('3');
-    expect(value('Correct')).toBe('1');
-    expect(value('With hint')).toBe('0');
+    expect(value('Correct, no hint')).toBe('1');
+    expect(value('Correct with hint')).toBe('0');
     expect(value('Incorrect')).toBe('1');
     expect(value('Skipped')).toBe('1');
 
@@ -530,6 +530,70 @@ describe('KanaPractice', () => {
         expect(readPendingAttempts('alice').pending).toEqual([]);
       });
       expect(sent(bodies)).toHaveLength(1);
+    });
+
+    it('queues a right answer before the advance and keeps it once through Leave and a reload', async () => {
+      recordAttempts(() => HttpResponse.error());
+      const { user, view } = setup();
+      const queued = () =>
+        readPendingAttempts('alice').pending.filter(
+          ({ roundId }) => roundId === stored()?.roundId,
+        );
+
+      await user.type(input(), 'shi{Enter}');
+      expect(field()).toHaveAttribute('data-correct');
+      expect(queued()).toEqual([
+        expect.objectContaining({ outcome: 'correct', questionIndex: 0 }),
+      ]);
+
+      await user.click(screen.getByRole('link', { name: 'Leave' }));
+      expect(queued()).toHaveLength(1);
+      view.unmount();
+
+      setup(null);
+      expect(screen.getByText('Question 1 of 2')).toBeVisible();
+      wait(400);
+      expect(screen.getByText('Question 2 of 2')).toBeVisible();
+      expect(queued()).toHaveLength(1);
+    });
+
+    it('sends a hint opened before a right first answer as correct with hint', async () => {
+      const bodies = recordAttempts();
+      const { user } = setup();
+
+      await user.click(hintButton());
+      await user.click(hintButton());
+      await user.type(input(), 'shi{Enter}');
+      wait(400);
+
+      await vi.waitFor(() => {
+        expect(sent(bodies)).toHaveLength(1);
+      });
+      expect(sent(bodies)[0]).toMatchObject({
+        corrected: false,
+        hintUsed: true,
+        outcome: 'correct',
+      });
+    });
+
+    it('sends a hint opened while correcting as incorrect, corrected, with hint', async () => {
+      const bodies = recordAttempts();
+      const { user } = setup();
+
+      await user.type(input(), 'chi{Enter}');
+      await user.click(hintButton());
+      await user.keyboard('shi{Enter}');
+      wait(400);
+
+      await vi.waitFor(() => {
+        expect(sent(bodies)).toHaveLength(1);
+      });
+      expect(sent(bodies)[0]).toMatchObject({
+        answer: 'chi',
+        corrected: true,
+        hintUsed: true,
+        outcome: 'incorrect',
+      });
     });
 
     it('records a corrected wrong answer as incorrect, and Skip after it adds nothing', async () => {

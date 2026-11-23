@@ -39,8 +39,8 @@ export const KanaSelection = ({ script, userId }: Props) => {
   };
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-background py-3">
+    <div className="@container flex flex-col gap-8 [&_*]:scroll-mt-64">
+      <div className="sticky top-(--app-header-height,0px) z-10 flex flex-wrap items-center gap-x-4 gap-y-2 border-b bg-background py-3">
         <p className="text-sm" role="status">
           <span className="font-semibold tabular-nums">{selectedCount}</span> of{' '}
           {catalog.length} selected
@@ -75,16 +75,18 @@ export const KanaSelection = ({ script, userId }: Props) => {
           userId={userId}
         />
       </div>
-      {getKanaSections(script).map((section) => (
-        <KanaSection
-          key={section.id}
-          onRowChange={changeRow}
-          onSelectGroup={selectGroup}
-          progress={progress}
-          section={section}
-          selection={selection}
-        />
-      ))}
+      <div className="grid items-start gap-8 @2xl:grid-cols-2 @4xl:grid-cols-[5fr_5fr_4fr]">
+        {getKanaSections(script).map((section) => (
+          <KanaSection
+            key={section.id}
+            onRowChange={changeRow}
+            onSelectGroup={selectGroup}
+            progress={progress}
+            section={section}
+            selection={selection}
+          />
+        ))}
+      </div>
       <KanaProgress
         catalog={catalog}
         onReload={() => void progressQuery.refetch()}

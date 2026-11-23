@@ -89,11 +89,9 @@ describe('getFinalizedAttempts', () => {
   const advance = (session: KanaPracticeSession) =>
     required(practiceReducer(session, { type: 'next' }));
 
-  it('finalizes a question only when the round moves past it', () => {
+  it('finalizes a right first answer at once, not again when the round advances', () => {
     const answered = required(answer(start, 'a'));
-    expect(getFinalizedAttempts(start, answered)).toEqual([]);
-
-    expect(getFinalizedAttempts(answered, advance(answered))).toEqual([
+    expect(getFinalizedAttempts(start, answered)).toEqual([
       {
         answer: 'a',
         corrected: false,
@@ -105,6 +103,24 @@ describe('getFinalizedAttempts', () => {
         roundId: ROUND,
       },
     ]);
+    expect(getFinalizedAttempts(answered, advance(answered))).toEqual([]);
+  });
+
+  it('keeps a hint opened and closed before a right first answer', () => {
+    const hinted = required(practiceReducer(start, { type: 'hint' }));
+    const closed = required(practiceReducer(hinted, { type: 'hint' }));
+    const answered = required(answer(closed, 'a'));
+
+    expect(getFinalizedAttempts(closed, answered)).toEqual([
+      expect.objectContaining({ hintUsed: true, outcome: 'correct' }),
+    ]);
+  });
+
+  it('does not finalize a wrong answer while it can still be corrected', () => {
+    const wrong = required(answer(start, 'o'));
+    expect(getFinalizedAttempts(start, wrong)).toEqual([]);
+    const hinted = required(practiceReducer(wrong, { type: 'hint' }));
+    expect(getFinalizedAttempts(wrong, hinted)).toEqual([]);
   });
 
   it('keeps a wrong first answer as incorrect, with its correction and hint', () => {
@@ -112,7 +128,8 @@ describe('getFinalizedAttempts', () => {
     const hinted = required(practiceReducer(wrong, { type: 'hint' }));
     const corrected = required(answer(hinted, 'a'));
 
-    expect(getFinalizedAttempts(corrected, advance(corrected))).toEqual([
+    expect(getFinalizedAttempts(corrected, advance(corrected))).toEqual([]);
+    expect(getFinalizedAttempts(hinted, corrected)).toEqual([
       expect.objectContaining({
         answer: 'o',
         corrected: true,
@@ -144,7 +161,7 @@ describe('getFinalizedAttempts', () => {
     const second = required(answer(first, 'a'));
 
     expect(twice.order).toEqual(['hiragana:a', 'hiragana:a']);
-    expect(getFinalizedAttempts(second, advance(second))).toEqual([
+    expect(getFinalizedAttempts(first, second)).toEqual([
       expect.objectContaining({ kanaId: 'hiragana:a', questionIndex: 1 }),
     ]);
   });

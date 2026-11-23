@@ -4,6 +4,7 @@ import { Checkbox } from '@/shared/ui';
 import { countSelected, getGroupState } from '../helpers/selection';
 import type { KanaProgressStats } from '../model/types';
 import { KanaRow } from './kana-row';
+import { kanaSectionVariants } from './kana-section-variants';
 
 type Props = {
   onRowChange: (row: readonly Kana[], pressedIds: readonly string[]) => void;
@@ -24,7 +25,10 @@ export const KanaSection = ({
   const state = getGroupState(selection, section.kana);
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+    <section
+      aria-labelledby={headingId}
+      className={kanaSectionVariants({ section: section.id })}
+    >
       <div className="flex items-start gap-3">
         <div className="flex min-w-0 flex-1 flex-col">
           <h2 className="text-lg font-semibold tracking-tight" id={headingId}>

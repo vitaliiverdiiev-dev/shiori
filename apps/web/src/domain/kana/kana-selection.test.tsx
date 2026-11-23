@@ -195,7 +195,9 @@ describe('KanaSelection', () => {
       );
       setup();
 
-      expect(await screen.findByText('2 kana practised.')).toBeVisible();
+      expect(
+        await screen.findByText('2 kana practised, 5 questions recorded.'),
+      ).toBeVisible();
       expect(kana('し shi')).toHaveAccessibleDescription(
         'Practised 4 times, 1 correct on the first try without a hint.',
       );
@@ -230,7 +232,7 @@ describe('KanaSelection', () => {
       await user.click(await screen.findByText('Details per kana'));
       const rows = within(screen.getByRole('table')).getAllByRole('row');
       expect(rows.map((row) => row.textContent)).toEqual([
-        'KanaQuestionsCorrectWith hintIncorrectSkippedLast practised',
+        'KanaQuestionsCorrect, no hintCorrect with hintIncorrectSkippedLast practised',
         expect.stringMatching(/^あ a44000/) as unknown,
         expect.stringMatching(/^し shi41111/) as unknown,
       ]);
@@ -255,7 +257,7 @@ describe('KanaSelection', () => {
 
       server.use(progressResponse([stats('hiragana:si')]));
       await user.click(screen.getByRole('button', { name: 'Reload progress' }));
-      expect(await screen.findByText('1 kana practised.')).toBeVisible();
+      expect(await screen.findByText(/^1 kana practised, /)).toBeVisible();
     });
 
     it('reports results from this device that are not saved yet', async () => {
@@ -327,7 +329,7 @@ describe('KanaSelection', () => {
       );
       setup();
 
-      expect(await screen.findByText('1 kana practised.')).toBeVisible();
+      expect(await screen.findByText(/^1 kana practised, /)).toBeVisible();
       expect(
         window.localStorage.getItem('shiori:kana-attempts:alice'),
       ).toBeNull();

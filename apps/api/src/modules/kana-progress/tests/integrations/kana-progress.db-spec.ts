@@ -241,6 +241,53 @@ describe('progress aggregation', () => {
     ]);
   });
 
+  it('counts a hint opened before a right first answer as correct with hint', async () => {
+    const response = await record(alice, [
+      attempt({ answer: 'shi', hintUsed: true, kanaId: 'hiragana:si' }),
+    ]).expect(200);
+    expect(response.body).toEqual({ duplicates: 0, recorded: 1 });
+
+    const { rows } = await pool.query<Record<string, unknown>>(
+      'select outcome, hint_used, corrected from kana_attempt',
+    );
+    expect(rows).toEqual([
+      { corrected: false, hint_used: true, outcome: 'correct' },
+    ]);
+    expect(await progressKana(alice)).toEqual([
+      expect.objectContaining({
+        assistedCorrect: 1,
+        attempts: 1,
+        corrected: 0,
+        incorrect: 0,
+        independentCorrect: 0,
+        kanaId: 'hiragana:si',
+        skipped: 0,
+      }),
+    ]);
+  });
+
+  it('counts a hint opened while correcting a wrong first answer as incorrect only', async () => {
+    await record(alice, [
+      attempt({
+        answer: 'chi',
+        corrected: true,
+        hintUsed: true,
+        kanaId: 'hiragana:si',
+        outcome: 'incorrect',
+      }),
+    ]).expect(200);
+
+    expect(await progressKana(alice)).toEqual([
+      expect.objectContaining({
+        assistedCorrect: 0,
+        attempts: 1,
+        corrected: 1,
+        incorrect: 1,
+        independentCorrect: 0,
+      }),
+    ]);
+  });
+
   it('adds new rounds to an existing history', async () => {
     await record(alice, [attempt()]).expect(200);
     await record(alice, [

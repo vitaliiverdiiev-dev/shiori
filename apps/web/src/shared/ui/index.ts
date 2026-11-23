@@ -40,6 +40,15 @@ export {
   useSidebar,
 } from './primitives/sidebar/sidebar';
 export {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from './primitives/table/table';
+export {
   ToggleGroup,
   ToggleGroupItem,
 } from './primitives/toggle-group/toggle-group';

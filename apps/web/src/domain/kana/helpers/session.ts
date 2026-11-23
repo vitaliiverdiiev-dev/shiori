@@ -31,6 +31,10 @@ export function buildQuestionOrder(
   return order;
 }
 
+function countFinalized(session: KanaPracticeSession): number {
+  return session.position + (isAwaitingAdvance(session) ? 1 : 0);
+}
+
 export function createRetrySession(
   session: KanaPracticeSession,
   random: () => number = Math.random,
@@ -70,8 +74,9 @@ export function getFinalizedAttempts(
   next: KanaPracticeSession,
 ): PendingKanaAttempt[] {
   if (previous?.roundId !== next.roundId) return [];
+  const from = countFinalized(previous);
   return next.attempts
-    .slice(previous.position, next.position)
+    .slice(from, countFinalized(next))
     .map((attempt, offset) => ({
       answer: attempt.answer.slice(0, MAX_ANSWER_LENGTH),
       corrected: attempt.corrected === true,
@@ -79,7 +84,7 @@ export function getFinalizedAttempts(
       hintUsed: attempt.hintUsed === true,
       kanaId: attempt.kanaId,
       outcome: attempt.outcome,
-      questionIndex: previous.position + offset,
+      questionIndex: from + offset,
       roundId: next.roundId,
     }));
 }

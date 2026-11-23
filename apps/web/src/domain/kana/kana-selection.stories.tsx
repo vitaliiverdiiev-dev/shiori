@@ -43,7 +43,7 @@ const meta = {
   render: (args) => (
     <QueryClientProvider client={queryClient}>
       <MemoryRouter>
-        <div className="max-w-2xl p-4">
+        <div className="p-4">
           <KanaSelection {...args} />
         </div>
       </MemoryRouter>

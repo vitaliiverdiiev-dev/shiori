@@ -13,9 +13,8 @@ describe('HomePage', () => {
   it('shows the product identity it is given', () => {
     render(<HomePage {...identity} />);
 
-    expect(
-      screen.getByRole('heading', { name: identity.name }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(identity.name)).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.getByText(identity.nameJa)).toHaveAttribute('lang', 'ja');
     expect(screen.getByText(identity.tagline)).toBeInTheDocument();
     expect(screen.getByText(identity.logoGlyph)).toBeInTheDocument();

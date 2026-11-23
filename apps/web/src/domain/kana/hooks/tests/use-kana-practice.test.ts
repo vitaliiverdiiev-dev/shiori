@@ -81,26 +81,36 @@ describe('useKanaPractice', () => {
     expect(result.current.session?.attempts).toHaveLength(1);
   });
 
-  it('hands over a question once, when the round moves past it', () => {
+  it('hands over a right answer at once, before the delay, and only once', () => {
     writeKanaState('hiragana', 'alice', {
-      session: awaitingCorrect(['hiragana:a', 'hiragana:i']),
+      session: createSession(['hiragana:a', 'hiragana:i'], {
+        random: keepOrder,
+      }),
     });
     const onFinalized =
       vi.fn<(attempts: readonly PendingKanaAttempt[]) => void>();
-    const { rerender, result } = renderHook(() =>
+    const { result, unmount } = renderHook(() =>
       useKanaPractice('hiragana', 'alice', onFinalized),
     );
     const finalized = () => onFinalized.mock.calls.flatMap(([items]) => items);
-    expect(finalized()).toEqual([]);
+    const first = result.current.session?.order[0] ?? 'hiragana:a';
 
     act(() => {
-      vi.advanceTimersByTime(400);
+      result.current.dispatch({
+        type: 'input',
+        value: first.split(':')[1] ?? '',
+      });
+      result.current.dispatch({ type: 'submit' });
     });
-    rerender();
+    expect(result.current.awaitingAdvance).toBe(true);
     expect(finalized()).toEqual([
       expect.objectContaining({ outcome: 'correct', questionIndex: 0 }),
     ]);
 
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    expect(result.current.session?.position).toBe(1);
     act(() => {
       result.current.dispatch({ type: 'skip' });
     });
@@ -108,16 +118,43 @@ describe('useKanaPractice', () => {
       expect.objectContaining({ questionIndex: 0 }),
       expect.objectContaining({ outcome: 'skipped', questionIndex: 1 }),
     ]);
+    unmount();
   });
 
-  it('does not hand over questions finalized before a reload', () => {
-    const round = awaitingCorrect(['hiragana:a', 'hiragana:i']);
+  it('has handed over a right answer when practice unmounts during the delay', () => {
     writeKanaState('hiragana', 'alice', {
-      session: { ...round, attempts: round.attempts, position: 1 },
+      session: createSession(['hiragana:a'], { random: keepOrder }),
+    });
+    const onFinalized =
+      vi.fn<(attempts: readonly PendingKanaAttempt[]) => void>();
+    const { result, unmount } = renderHook(() =>
+      useKanaPractice('hiragana', 'alice', onFinalized),
+    );
+
+    act(() => {
+      result.current.dispatch({ type: 'input', value: 'a' });
+      result.current.dispatch({ type: 'submit' });
+    });
+    unmount();
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(onFinalized.mock.calls.flatMap(([items]) => items)).toEqual([
+      expect.objectContaining({ outcome: 'correct', questionIndex: 0 }),
+    ]);
+  });
+
+  it('does not hand over a right answer restored inside its delay again', () => {
+    writeKanaState('hiragana', 'alice', {
+      session: awaitingCorrect(['hiragana:a', 'hiragana:i']),
     });
     const onFinalized =
       vi.fn<(attempts: readonly PendingKanaAttempt[]) => void>();
     renderHook(() => useKanaPractice('hiragana', 'alice', onFinalized));
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
 
     expect(onFinalized.mock.calls.flatMap(([items]) => items)).toEqual([]);
   });

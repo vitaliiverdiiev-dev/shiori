@@ -17,7 +17,7 @@ export const HomePage = ({ logoGlyph, name, nameJa, tagline }: Props) => (
         size="xl"
         variant="symbol"
       />
-      <h1 className="mt-6 text-4xl font-semibold tracking-tight">{name}</h1>
+      <p className="mt-6 text-4xl font-semibold tracking-tight">{name}</p>
       <p className="mt-1 font-display text-xl text-muted-foreground" lang="ja">
         {nameJa}
       </p>

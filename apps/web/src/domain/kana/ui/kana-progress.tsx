@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { Kana } from '@shiori/kana';
 import {
   Button,
@@ -34,6 +35,7 @@ export const KanaProgress = ({
   saveStatus,
   status,
 }: Props) => {
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const practised = catalog.flatMap((kana) => {
     const stats = progress.get(kana.id);
     return stats ? [{ kana, stats }] : [];
@@ -42,7 +44,12 @@ export const KanaProgress = ({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <p className="text-muted-foreground" role="status">
+        <p
+          className="text-muted-foreground outline-none"
+          ref={statusRef}
+          role="status"
+          tabIndex={-1}
+        >
           {status === 'pending' && 'Loading statistics…'}
           {status === 'error' && 'Statistics could not be loaded.'}
           {status === 'success' &&
@@ -66,6 +73,7 @@ export const KanaProgress = ({
           </Button>
         )}
         <RefusedResults
+          focusAfterRemove={statusRef}
           onRemove={onDiscardRejected}
           onRetry={onRetryRejected}
           rejected={saveStatus.rejected}

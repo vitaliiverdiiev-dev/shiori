@@ -17,14 +17,22 @@ export function addPendingAttempts(
   queue: PendingKanaAttempts,
   attempts: readonly PendingKanaAttempt[],
 ): PendingKanaAttempts {
-  const queued = new Set(queue.pending.map(occurrenceKey));
-  return {
-    ...queue,
-    pending: [
-      ...queue.pending,
-      ...attempts.filter((attempt) => !queued.has(occurrenceKey(attempt))),
-    ],
-  };
+  return { ...queue, pending: appendAttempts(queue.pending, attempts) };
+}
+
+export function appendAttempts(
+  list: readonly PendingKanaAttempt[],
+  attempts: readonly PendingKanaAttempt[],
+): PendingKanaAttempt[] {
+  const listed = new Set(list.map(occurrenceKey));
+  const result = [...list];
+  for (const attempt of attempts) {
+    const key = occurrenceKey(attempt);
+    if (listed.has(key)) continue;
+    listed.add(key);
+    result.push(attempt);
+  }
+  return result;
 }
 
 export function isPendingAttemptsKey(key: null | string, userId: string) {

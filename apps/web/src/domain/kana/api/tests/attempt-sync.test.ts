@@ -293,6 +293,84 @@ describe('createAttemptSync', () => {
     expect(bodies).toHaveLength(2);
   });
 
+  it('applies the named indexes to the batch that was sent, not to attempts queued meanwhile', async () => {
+    let respond: (response: Response) => void = () => undefined;
+    const bodies = recordRequests(() => HttpResponse.error());
+    server.use(
+      http.post(ENDPOINT, async ({ request }) => {
+        bodies.push((await request.json()) as Body);
+        return bodies.length === 1
+          ? new Promise<Response>((resolve) => {
+              respond = resolve;
+            })
+          : HttpResponse.json({ duplicates: 0, recorded: 2 });
+      }),
+    );
+    const { sync } = started();
+
+    sync.record([attempt(0), attempt(1)]);
+    await vi.waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    sync.record([attempt(2), attempt(3)]);
+    expect(pending()).toEqual([0, 1, 2, 3].map(attempt));
+    respond(
+      HttpResponse.json(
+        { invalidIndexes: [0], message: 'Invalid attempts', statusCode: 400 },
+        { status: 400 },
+      ),
+    );
+
+    await vi.waitFor(() => {
+      expect(sync.getSnapshot()).toMatchObject({ pending: 0, status: 'idle' });
+    });
+    expect(bodies.map(({ attempts }) => attempts)).toEqual([
+      [attempt(0), attempt(1)],
+      [attempt(1), attempt(2), attempt(3)],
+    ]);
+    expect(readPendingAttempts('alice').invalid).toEqual([attempt(0)]);
+  });
+
+  it('keeps one refused copy of an occurrence when two tabs receive the same 400', async () => {
+    let arrived = 0;
+    let release: (value: unknown) => void = () => undefined;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.post(ENDPOINT, async () => {
+        arrived += 1;
+        await gate;
+        return HttpResponse.json(
+          { invalidIndexes: [0], message: 'Invalid attempts', statusCode: 400 },
+          { status: 400 },
+        );
+      }),
+    );
+    window.localStorage.setItem(
+      'shiori:kana-attempts:alice',
+      JSON.stringify({
+        pending: [attempt(0)],
+        rejected: [],
+        version: 1,
+      }),
+    );
+    const first = started();
+    const second = started();
+    await vi.waitFor(() => {
+      expect(arrived).toBe(2);
+    });
+    release(undefined);
+    await settled(first.sync);
+    await settled(second.sync);
+
+    expect(readPendingAttempts('alice')).toEqual({
+      invalid: [attempt(0)],
+      pending: [],
+      rejected: [],
+    });
+  });
+
   it.each([
     ['an index outside the batch', [0, 2]],
     ['a repeated index', [0, 0]],

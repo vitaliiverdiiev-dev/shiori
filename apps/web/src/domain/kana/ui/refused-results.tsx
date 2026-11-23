@@ -1,14 +1,20 @@
+import { type RefObject, useState } from 'react';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
   Button,
-  Popover,
-  PopoverContent,
-  PopoverDescription,
-  PopoverTitle,
-  PopoverTrigger,
 } from '@/shared/ui';
 import { plural } from '../helpers/progress';
 
 type Props = {
+  focusAfterRemove: RefObject<HTMLElement | null>;
   onRemove: () => void;
   onRetry: () => void;
   rejected: number;
@@ -16,11 +22,15 @@ type Props = {
 };
 
 export const RefusedResults = ({
+  focusAfterRemove,
   onRemove,
   onRetry,
   rejected,
   retryable,
 }: Props) => {
+  const [open, setOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
   if (rejected === 0) return null;
 
   return (
@@ -34,27 +44,41 @@ export const RefusedResults = ({
           Send again
         </Button>
       )}
-      <Popover>
-        <PopoverTrigger render={<Button size="sm" variant="ghost" />}>
+      <AlertDialog
+        onOpenChange={setOpen}
+        onOpenChangeComplete={(isOpen) => {
+          if (isOpen || !removing) return;
+          setRemoving(false);
+          onRemove();
+        }}
+        open={open}
+      >
+        <AlertDialogTrigger render={<Button size="sm" variant="ghost" />}>
           Remove…
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-72">
-          <PopoverTitle>Remove refused results?</PopoverTitle>
-          <PopoverDescription>
-            {plural(rejected, 'refused result')} will be deleted from this
-            device and never added to your progress. Results still waiting to be
-            saved are kept.
-          </PopoverDescription>
-          <Button
-            className="self-start"
-            onClick={onRemove}
-            size="sm"
-            variant="destructive"
-          >
-            Remove refused results
-          </Button>
-        </PopoverContent>
-      </Popover>
+        </AlertDialogTrigger>
+        <AlertDialogContent finalFocus={removing ? focusAfterRemove : true}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove refused results?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {plural(rejected, 'refused result')} will be deleted from this
+              device and never added to your progress. Results still waiting to
+              be saved are kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setRemoving(true);
+                setOpen(false);
+              }}
+              variant="destructive"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

@@ -161,14 +161,13 @@ describe('kana state storage', () => {
     });
   });
 
-  it('restores a round with an oversized typed answer as an empty field', () => {
-    storeRaw(record({ session: { ...session, input: 'a'.repeat(33) } }));
-    expect(readKanaState('hiragana', 'alice').session).toEqual(session);
-
-    storeRaw(record({ session: { ...session, input: 'a'.repeat(32) } }));
-    expect(readKanaState('hiragana', 'alice').session?.input).toBe(
-      'a'.repeat(32),
-    );
+  it('restores typed text longer than an answer may be, unchanged', () => {
+    const typed = `shi${' '.repeat(29)}x`;
+    storeRaw(record({ session: { ...session, input: typed } }));
+    expect(readKanaState('hiragana', 'alice').session).toEqual({
+      ...session,
+      input: typed,
+    });
   });
 
   it('restores a corrected wrong answer awaiting advance', () => {

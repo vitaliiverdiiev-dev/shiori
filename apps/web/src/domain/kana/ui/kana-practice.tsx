@@ -40,7 +40,9 @@ export const KanaPractice = ({ script, userId }: Props) => {
   );
   const inputRef = useRef<HTMLInputElement>(null);
   const composing = useRef(false);
-  const [emptyAnswer, setEmptyAnswer] = useState(false);
+  const [answerProblem, setAnswerProblem] = useState<
+    'empty' | 'too-long' | null
+  >(null);
   const [focusInputOnMount, setFocusInputOnMount] = useState(
     () => window.matchMedia('(pointer: fine)').matches,
   );
@@ -129,7 +131,11 @@ export const KanaPractice = ({ script, userId }: Props) => {
           keepTyping();
           if (awaitingAdvance) return;
           const answer = session.input.trim();
-          if (!correcting) setEmptyAnswer(answer === '');
+          if (answer.length > MAX_ANSWER_LENGTH) {
+            setAnswerProblem('too-long');
+            return;
+          }
+          setAnswerProblem(!correcting && answer === '' ? 'empty' : null);
           if (answer === '') return;
           dispatch({ type: 'submit' });
           if (kana && !isAcceptedReading(kana, answer)) {
@@ -156,7 +162,9 @@ export const KanaPractice = ({ script, userId }: Props) => {
           </InputGroupAddon>
           <InputGroupInput
             aria-describedby={feedbackId}
-            aria-invalid={correcting ? true : undefined}
+            aria-invalid={
+              correcting || answerProblem === 'too-long' ? true : undefined
+            }
             aria-labelledby={`${promptId} ${labelId}`}
             aria-readonly={awaitingAdvance ? true : undefined}
             autoCapitalize="none"
@@ -166,9 +174,8 @@ export const KanaPractice = ({ script, userId }: Props) => {
             className="h-full text-center text-lg md:text-lg"
             enterKeyHint="go"
             id={inputId}
-            maxLength={MAX_ANSWER_LENGTH}
             onChange={(event) => {
-              setEmptyAnswer(false);
+              setAnswerProblem(null);
               dispatch({ type: 'input', value: event.target.value });
             }}
             onCompositionEnd={() => {
@@ -212,9 +219,15 @@ export const KanaPractice = ({ script, userId }: Props) => {
           id={feedbackId}
           role="status"
         >
-          {emptyAnswer && (
+          {answerProblem === 'empty' && (
             <p className="text-muted-foreground">
               Type the reading first, or choose Skip.
+            </p>
+          )}
+          {answerProblem === 'too-long' && (
+            <p className="text-destructive">
+              The answer is longer than {MAX_ANSWER_LENGTH} characters. Shorten
+              it, or choose Skip.
             </p>
           )}
           {awaitingAdvance && (
@@ -238,7 +251,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
           <Button
             className="flex-1"
             onClick={() => {
-              setEmptyAnswer(false);
+              setAnswerProblem(null);
               dispatch({ type: 'skip' });
               keepTyping();
             }}

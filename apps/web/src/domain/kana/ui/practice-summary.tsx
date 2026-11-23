@@ -67,6 +67,7 @@ export const PracticeSummary = ({
           {saveStatus.status === 'saving' && 'Saving results…'}
           {saveStatus.status === 'idle' &&
             saveStatus.pending === 0 &&
+            saveStatus.rejected === 0 &&
             'All results saved to your progress.'}
           {saveStatus.status === 'waiting' &&
             `${String(saveStatus.pending)} ${saveStatus.pending === 1 ? 'result is' : 'results are'} not saved yet. Shiori will keep trying.`}
@@ -77,6 +78,7 @@ export const PracticeSummary = ({
           </Button>
         )}
         <RefusedResults
+          focusAfterRemove={headingRef}
           onRemove={onDiscardRejected}
           onRetry={onRetryRejected}
           rejected={saveStatus.rejected}

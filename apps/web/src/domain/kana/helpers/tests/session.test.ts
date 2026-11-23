@@ -180,12 +180,18 @@ describe('getFinalizedAttempts', () => {
     const tooLong = `shi${' '.repeat(29)}x`;
     expect(tooLong).toHaveLength(33);
 
-    const refused = required(
+    const typed = required(
       practiceReducer(si, { type: 'input', value: tooLong }),
     );
-    expect(refused.input).toBe('');
-    expect(required(practiceReducer(refused, { type: 'submit' }))).toBe(
-      refused,
+    expect(typed.input).toBe(tooLong);
+    expect(required(practiceReducer(typed, { type: 'submit' }))).toBe(typed);
+
+    const wrong = required(answer(si, 'chi'));
+    const retyped = required(
+      practiceReducer(wrong, { type: 'input', value: tooLong }),
+    );
+    expect(required(practiceReducer(retyped, { type: 'submit' }))).toBe(
+      retyped,
     );
 
     const capped = required(answer(si, tooLong.slice(0, 32)));

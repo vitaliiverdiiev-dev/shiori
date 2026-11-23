@@ -3,6 +3,17 @@ export { FormField } from './composites/form-field/form-field';
 export { LoadingScreen } from './composites/loading-screen/loading-screen';
 export { Logo } from './composites/logo/logo';
 export { PasswordInput } from './composites/password-input/password-input';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from './primitives/alert-dialog/alert-dialog';
 export { Button, buttonVariants } from './primitives/button/button';
 export { Checkbox } from './primitives/checkbox/checkbox';
 export {

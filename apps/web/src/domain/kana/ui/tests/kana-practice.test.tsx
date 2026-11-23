@@ -557,17 +557,30 @@ describe('KanaPractice', () => {
       expect(queued()).toHaveLength(1);
     });
 
-    it('limits the answer to what the server accepts and sends exactly what it judged', async () => {
+    it('refuses an answer longer than the server accepts, keeps the text and records nothing', async () => {
       const bodies = recordAttempts();
       const { user } = setup(
         createSession(['hiragana:si'], { random: keepOrder }),
       );
       const tooLong = `shi${' '.repeat(29)}x`;
 
-      expect(input()).toHaveAttribute('maxLength', '32');
       await user.type(input(), `${tooLong}{Enter}`);
 
-      expect(input()).toHaveValue(tooLong.slice(0, 32));
+      expect(input()).toHaveValue(tooLong);
+      expect(input()).toHaveAttribute('aria-invalid', 'true');
+      expect(input()).toHaveAccessibleDescription(
+        'The answer is longer than 32 characters. Shorten it, or choose Skip.',
+      );
+      expect(field()).not.toHaveAttribute('data-correct');
+      wait(400);
+      expect(screen.getByText('Question 1 of 1')).toBeVisible();
+      expect(stored()?.attempts).toEqual([]);
+      expect(readPendingAttempts('alice').pending).toEqual([]);
+      expect(sent(bodies)).toEqual([]);
+
+      await user.clear(input());
+      expect(input()).not.toHaveAttribute('aria-invalid');
+      await user.type(input(), 'shi{Enter}');
       expect(field()).toHaveAttribute('data-correct');
       await vi.waitFor(() => {
         expect(sent(bodies)).toHaveLength(1);
@@ -664,6 +677,56 @@ describe('KanaPractice', () => {
       expect(
         screen.queryByRole('button', { name: 'Try again now' }),
       ).not.toBeInTheDocument();
+    });
+
+    it('removes refused results after confirmation and returns focus to the summary', async () => {
+      window.localStorage.setItem(
+        'shiori:kana-attempts:alice',
+        JSON.stringify({
+          invalid: [
+            {
+              answer: 'o',
+              corrected: false,
+              direction: 'kana-to-romaji',
+              hintUsed: false,
+              kanaId: 'hiragana:a',
+              outcome: 'correct',
+              questionIndex: 0,
+              roundId: '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10',
+            },
+          ],
+          pending: [],
+          rejected: [],
+          version: 1,
+        }),
+      );
+      const { user } = setup(
+        createSession(['hiragana:si'], { random: keepOrder }),
+      );
+      await user.click(screen.getByRole('button', { name: 'Skip' }));
+      await vi.waitFor(() => {
+        expect(readPendingAttempts('alice').pending).toEqual([]);
+      });
+      expect(
+        screen.getByText(
+          '1 result was refused by the server and kept on this device.',
+        ),
+      ).toBeVisible();
+      expect(screen.queryByText(/All results saved/)).toBeNull();
+
+      await user.click(screen.getByRole('button', { name: 'Remove…' }));
+      await user.click(await screen.findByRole('button', { name: 'Remove' }));
+
+      await vi.waitFor(() => {
+        expect(
+          screen.getByRole('heading', { name: 'Round complete' }),
+        ).toHaveFocus();
+      });
+      expect(screen.queryByText(/refused by the server/)).toBeNull();
+      expect(readPendingAttempts('alice').invalid).toEqual([]);
+      expect(
+        screen.getByText('All results saved to your progress.'),
+      ).toBeVisible();
     });
 
     it('sends an unsaved result again after a reload, for the same occurrence', async () => {

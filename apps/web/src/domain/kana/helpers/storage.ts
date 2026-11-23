@@ -95,7 +95,7 @@ function restoreSession(
     attempts,
     hintShown: stored.hintShown === true,
     hintUsed: stored.hintUsed === true || stored.hintShown === true,
-    input: stored.input.length > MAX_ANSWER_LENGTH ? '' : stored.input,
+    input: stored.input,
     order,
     position,
     questionCount: stored.questionCount ?? selection.length,

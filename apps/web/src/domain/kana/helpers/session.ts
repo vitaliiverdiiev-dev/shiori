@@ -144,8 +144,7 @@ export function practiceReducer(
         hintUsed: true,
       };
     case 'input':
-      return (answering || correcting) &&
-        action.value.length <= MAX_ANSWER_LENGTH
+      return answering || correcting
         ? { ...session, input: action.value }
         : session;
     case 'next':

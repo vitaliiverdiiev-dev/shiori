@@ -526,15 +526,13 @@ describe('KanaSelection', () => {
       await openStatistics(user);
 
       await user.click(await screen.findByRole('button', { name: 'Remove…' }));
-      const confirmation = await screen.findByRole('dialog', {
+      const confirmation = await screen.findByRole('alertdialog', {
         name: 'Remove refused results?',
       });
       expect(readPendingAttempts('alice').rejected).toHaveLength(1);
 
       await user.click(
-        within(confirmation).getByRole('button', {
-          name: 'Remove refused results',
-        }),
+        within(confirmation).getByRole('button', { name: 'Remove' }),
       );
 
       await waitFor(() => {
@@ -548,6 +546,54 @@ describe('KanaSelection', () => {
       expect(statisticsStatus()).toHaveTextContent(
         '1 result from this device not saved yet.',
       );
+    });
+    it('confirms removal from the keyboard, starting on the safe choice', async () => {
+      storeQueue({ rejected: [pendingAttempt(0)] });
+      const { user } = setup();
+      await openStatistics(user);
+      const trigger = await screen.findByRole('button', { name: 'Remove…' });
+
+      trigger.focus();
+      await user.keyboard('{Enter}');
+      const confirmation = await screen.findByRole('alertdialog', {
+        name: 'Remove refused results?',
+      });
+      const keep = within(confirmation).getByRole('button', { name: 'Keep' });
+      const remove = within(confirmation).getByRole('button', {
+        name: 'Remove',
+      });
+      await waitFor(() => {
+        expect(keep).toHaveFocus();
+      });
+      await user.tab();
+      expect(remove).toHaveFocus();
+      await user.tab();
+      await waitFor(() => {
+        expect(keep).toHaveFocus();
+      });
+
+      await user.keyboard('{Escape}');
+      await waitFor(() => {
+        expect(confirmation).not.toBeInTheDocument();
+      });
+      expect(trigger).toHaveFocus();
+      expect(readPendingAttempts('alice').rejected).toHaveLength(1);
+
+      await user.keyboard('{Enter}');
+      await user.keyboard('{Enter}');
+      expect(readPendingAttempts('alice').rejected).toHaveLength(1);
+      await waitFor(() => {
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      });
+
+      await user.keyboard('{Enter}');
+      await user.tab();
+      await user.keyboard('{Enter}');
+      await waitFor(() => {
+        expect(screen.queryByText(/refused by the server/)).toBeNull();
+      });
+      expect(readPendingAttempts('alice').rejected).toEqual([]);
+      expect(statisticsStatus()).toHaveFocus();
     });
   });
 

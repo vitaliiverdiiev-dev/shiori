@@ -1,6 +1,7 @@
 import { recordKanaAttempts } from '@shiori/api-client';
 import {
   addPendingAttempts,
+  appendAttempts,
   isPendingAttemptsKey,
   readConflicts,
   readHttpStatus,
@@ -113,13 +114,13 @@ export function createAttemptSync(
           invalid
             ? {
                 ...queue,
-                invalid: [...queue.invalid, ...invalid],
+                invalid: appendAttempts(queue.invalid, invalid),
                 pending: removeAttempts(queue.pending, invalid),
               }
             : {
                 ...queue,
                 pending: removeAttempts(queue.pending, batch),
-                rejected: [...queue.rejected, ...batch],
+                rejected: appendAttempts(queue.rejected, batch),
               },
         );
         return true;

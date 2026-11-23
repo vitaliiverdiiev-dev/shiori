@@ -32,7 +32,9 @@ export const kanaProgressResponseSchema = z.object({
         .int()
         .describe('Correct on the first attempt without the hint.'),
       kanaId: z.string(),
-      lastPracticedAt: z.iso.datetime(),
+      lastPracticedAt: z.iso
+        .datetime()
+        .describe('When the server saved the latest attempt.'),
       skipped: z.int().describe('Skipped before any answer was submitted.'),
     }),
   ),

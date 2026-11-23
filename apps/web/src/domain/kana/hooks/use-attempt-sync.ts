@@ -14,5 +14,11 @@ export function useAttemptSync(userId: string | undefined) {
 
   useEffect(() => sync.start(), [sync]);
 
-  return { ...snapshot, record: sync.record, retry: sync.retry };
+  return {
+    ...snapshot,
+    discardRejected: sync.discardRejected,
+    record: sync.record,
+    retry: sync.retry,
+    retryRejected: sync.retryRejected,
+  };
 }

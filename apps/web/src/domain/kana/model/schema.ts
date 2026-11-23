@@ -51,6 +51,7 @@ const pendingAttemptSchema = z.object({
 });
 
 export const pendingAttemptsSchema = z.object({
+  invalid: z.optional(z.array(pendingAttemptSchema)),
   pending: z.array(pendingAttemptSchema),
   rejected: z.array(pendingAttemptSchema),
   version: z.literal(PENDING_ATTEMPTS_VERSION),
@@ -60,4 +61,8 @@ export const attemptConflictSchema = z.object({
   conflicts: z.array(
     z.object({ questionIndex: z.number(), roundId: z.string() }),
   ),
+});
+
+export const invalidAttemptsSchema = z.object({
+  invalidIndexes: z.array(z.int().check(z.nonnegative())),
 });

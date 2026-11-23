@@ -1,11 +1,12 @@
 import type { KanaId } from '@shiori/kana';
-import { getKanaCatalog } from '@shiori/kana';
+import { findKana, getKanaCatalog, isAcceptedReading } from '@shiori/kana';
 import { describe, expect, it } from 'vitest';
 import type { KanaPracticeSession } from '../../model/types';
 import {
   buildQuestionOrder,
   createRetrySession,
   createSession,
+  getAbandonedAttempts,
   getFinalizedAttempts,
   getPracticePhase,
   isAwaitingAdvance,
@@ -174,13 +175,72 @@ describe('getFinalizedAttempts', () => {
     );
   });
 
-  it('caps a long wrong answer to the length the API accepts', () => {
-    const wrong = required(answer(start, 'x'.repeat(40)));
-    const [attempt] = getFinalizedAttempts(
-      wrong,
-      required(practiceReducer(wrong, { type: 'skip' })),
+  it('never sends an answer that the server would judge differently', () => {
+    const si = createSession(['hiragana:si'], { roundId: ROUND });
+    const tooLong = `shi${' '.repeat(29)}x`;
+    expect(tooLong).toHaveLength(33);
+
+    const refused = required(
+      practiceReducer(si, { type: 'input', value: tooLong }),
     );
-    expect(attempt?.answer).toHaveLength(32);
+    expect(refused.input).toBe('');
+    expect(required(practiceReducer(refused, { type: 'submit' }))).toBe(
+      refused,
+    );
+
+    const capped = required(answer(si, tooLong.slice(0, 32)));
+    const longWrong = required(answer(si, `${'x'.repeat(31)}s`));
+    for (const [before, after] of [
+      [si, capped],
+      [longWrong, required(practiceReducer(longWrong, { type: 'skip' }))],
+    ] as const) {
+      for (const sent of getFinalizedAttempts(before, after)) {
+        const kana = findKana(sent.kanaId);
+        expect(sent.answer.length).toBeLessThanOrEqual(32);
+        expect(kana && isAcceptedReading(kana, sent.answer)).toBe(
+          sent.outcome === 'correct',
+        );
+      }
+    }
+    expect(getFinalizedAttempts(si, capped)).toEqual([
+      expect.objectContaining({ answer: 'shi', outcome: 'correct' }),
+    ]);
+  });
+});
+
+describe('getAbandonedAttempts', () => {
+  const start = createSession(['hiragana:a', 'hiragana:ka'], {
+    random: inOrder,
+    roundId: ROUND,
+  });
+
+  it('finalizes a wrong answer awaiting correction as incorrect, keeping its hint', () => {
+    const wrong = required(answer(start, 'o'));
+    const hinted = required(practiceReducer(wrong, { type: 'hint' }));
+
+    expect(getAbandonedAttempts(hinted)).toEqual([
+      {
+        answer: 'o',
+        corrected: false,
+        direction: 'kana-to-romaji',
+        hintUsed: true,
+        kanaId: start.order[0],
+        outcome: 'incorrect',
+        questionIndex: 0,
+        roundId: ROUND,
+      },
+    ]);
+  });
+
+  it('finalizes nothing that is unanswered, already final or complete', () => {
+    const hinted = required(practiceReducer(start, { type: 'hint' }));
+    const right = required(answer(start, 'a'));
+    const corrected = required(answer(required(answer(start, 'o')), 'a'));
+    const skipped = required(practiceReducer(start, { type: 'skip' }));
+
+    for (const session of [start, hinted, right, corrected, skipped]) {
+      expect(getAbandonedAttempts(session)).toEqual([]);
+    }
   });
 });
 

@@ -44,6 +44,8 @@ import {
   errorResponseSchema,
   type KanaAttemptsConflictResponse,
   kanaAttemptsConflictResponseSchema,
+  type KanaAttemptsInvalidResponse,
+  kanaAttemptsInvalidResponseSchema,
   recordKanaAttemptsRequestSchema,
   type RecordKanaAttemptsResponse,
   recordKanaAttemptsResponseSchema,
@@ -98,8 +100,8 @@ export class KanaProgressController {
 
   @ApiBadRequestResponse({
     description:
-      'Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded.',
-    schema: toOpenApiSchema(errorResponseSchema(HttpStatus.BAD_REQUEST)),
+      'Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.',
+    schema: toOpenApiSchema(kanaAttemptsInvalidResponseSchema),
   })
   @ApiBody({ schema: toOpenApiSchema(recordKanaAttemptsRequestSchema) })
   @ApiConflictResponse({
@@ -127,7 +129,9 @@ export class KanaProgressController {
     @Body() body: unknown,
   ): Promise<RecordKanaAttemptsResponse> {
     const parsed = recordKanaAttemptsRequestSchema.safeParse(body);
-    if (!parsed.success) throw new BadRequestException('Invalid attempts');
+    if (!parsed.success) {
+      throw invalidAttempts(attemptIndexes(parsed.error.issues));
+    }
     if (parsed.data.userId !== user.id) {
       throw new ForbiddenException('Attempts belong to another user');
     }
@@ -140,10 +144,8 @@ export class KanaProgressController {
     if (result.ok) {
       return { duplicates: result.duplicates, recorded: result.recorded };
     }
-    if (result.reason === 'invalid-attempt') {
-      throw new BadRequestException(
-        `Invalid attempt at index ${String(result.index)}`,
-      );
+    if (result.reason === 'invalid-attempts') {
+      throw invalidAttempts(result.indexes);
     }
     const conflict: KanaAttemptsConflictResponse = {
       conflicts: result.conflicts,
@@ -152,4 +154,27 @@ export class KanaProgressController {
     };
     throw new ConflictException(conflict);
   }
+}
+
+function attemptIndexes(
+  issues: readonly { path: readonly PropertyKey[] }[],
+): number[] | undefined {
+  const indexes = new Set<number>();
+  for (const { path } of issues) {
+    const [field, index] = path;
+    if (field !== 'attempts' || typeof index !== 'number') return undefined;
+    indexes.add(index);
+  }
+  return indexes.size > 0 ? [...indexes].sort((a, b) => a - b) : undefined;
+}
+
+function invalidAttempts(
+  indexes: readonly number[] | undefined,
+): BadRequestException {
+  const response: KanaAttemptsInvalidResponse = {
+    ...(indexes && { invalidIndexes: [...indexes] }),
+    message: 'Invalid attempts',
+    statusCode: HttpStatus.BAD_REQUEST,
+  };
+  return new BadRequestException(response);
 }

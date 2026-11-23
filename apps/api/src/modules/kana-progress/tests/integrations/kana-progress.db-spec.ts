@@ -388,6 +388,26 @@ describe('idempotency', () => {
     ).toBe(50);
     expect(await storedCount()).toBe(50);
   });
+
+  it('keeps exactly one version of an occurrence submitted concurrently with different data', async () => {
+    const plain = attempt();
+    const hinted = { ...plain, hintUsed: true };
+    const responses = await Promise.all([
+      record(alice, [plain]),
+      record(alice, [hinted]),
+    ]);
+
+    expect(responses.map(({ status }) => status).sort()).toEqual([200, 409]);
+    const winner = responses[0].status === 200 ? plain : hinted;
+    const { rows } = await pool.query<{ hint_used: boolean }>(
+      'select hint_used from kana_attempt',
+    );
+    expect(rows).toEqual([{ hint_used: winner.hintUsed }]);
+    const conflict = responses.find(({ status }) => status === 409);
+    expect(conflict?.body).toMatchObject({
+      conflicts: [{ questionIndex: 0, roundId: plain.roundId }],
+    });
+  });
 });
 
 describe('validation', () => {
@@ -425,10 +445,66 @@ describe('validation', () => {
     expect(await storedCount()).toBe(0);
   });
 
-  it('rejects an occurrence listed twice in one batch', async () => {
+  it('rejects an occurrence listed twice in one batch, naming the repetition', async () => {
     const twice = attempt();
-    await record(alice, [twice, { ...twice, hintUsed: true }]).expect(400);
+    const response = await record(alice, [
+      twice,
+      { ...twice, hintUsed: true },
+    ]).expect(400);
+    expect(response.body).toMatchObject({ invalidIndexes: [1] });
     expect(await storedCount()).toBe(0);
+  });
+
+  it('names every invalid entry of a mixed batch, records nothing, and accepts the valid rest', async () => {
+    const roundId = randomUUID();
+    const first = attempt({ questionIndex: 0, roundId });
+    const third = attempt({ questionIndex: 2, roundId });
+
+    const response = await record(alice, [
+      first,
+      attempt({ kanaId: 'hiragana:wi', questionIndex: 1, roundId }),
+      third,
+      attempt({ answer: 'o', questionIndex: 3, roundId }),
+    ]).expect(400);
+    expect(response.body).toEqual({
+      invalidIndexes: [1, 3],
+      message: 'Invalid attempts',
+      statusCode: 400,
+    });
+    expect(await storedCount()).toBe(0);
+
+    await record(alice, [first, third]).expect(200);
+    expect(await storedCount()).toBe(2);
+  });
+
+  it('names an entry that fails the request schema', async () => {
+    const response = await record(alice, [
+      attempt(),
+      attempt({ answer: 'a'.repeat(33), outcome: 'incorrect' }),
+      attempt({ questionIndex: 2, roundId: 'round-2' }),
+    ]).expect(400);
+
+    expect(response.body).toMatchObject({ invalidIndexes: [1, 2] });
+    expect(await storedCount()).toBe(0);
+  });
+
+  it('names no entry when the request is invalid as a whole', async () => {
+    const oversized = await record(
+      alice,
+      Array.from({ length: 101 }, (_, questionIndex) =>
+        attempt({ answer: 'x', questionIndex }),
+      ),
+    ).expect(400);
+    const extraField = await request(app.getHttpServer())
+      .post('/api/kana-progress/attempts')
+      .set('Origin', TEST_ORIGIN)
+      .set('Cookie', alice.cookie)
+      .send({ attempts: [attempt()], extra: true, userId: alice.id })
+      .expect(400);
+
+    for (const { body } of [oversized, extraField]) {
+      expect(body).toEqual({ message: 'Invalid attempts', statusCode: 400 });
+    }
   });
 
   it('rejects unknown fields and a user id inside an attempt', async () => {

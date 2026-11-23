@@ -4,6 +4,7 @@ import {
   isPendingAttemptsKey,
   readConflicts,
   readHttpStatus,
+  readInvalidAttempts,
   readPendingAttempts,
   readResponseData,
   removeAttempts,
@@ -25,7 +26,11 @@ import type {
 
 export type AttemptSync = ReturnType<typeof createAttemptSync>;
 
-const NO_ATTEMPTS: PendingKanaAttempts = { pending: [], rejected: [] };
+const NO_ATTEMPTS: PendingKanaAttempts = {
+  invalid: [],
+  pending: [],
+  rejected: [],
+};
 
 export function createAttemptSync(
   userId: string | undefined,
@@ -37,7 +42,12 @@ export function createAttemptSync(
   let timer: number | undefined;
   let memory: null | PendingKanaAttempts = null;
   let status: AttemptSyncSnapshot['status'] = 'idle';
-  let snapshot: AttemptSyncSnapshot = { pending: 0, rejected: 0, status };
+  let snapshot: AttemptSyncSnapshot = {
+    pending: 0,
+    rejected: 0,
+    retryable: 0,
+    status,
+  };
   const listeners = new Set<() => void>();
   const isActive = () => active;
 
@@ -54,15 +64,22 @@ export function createAttemptSync(
 
   const publish = (next = status) => {
     status = next;
-    const { pending, rejected } = read();
+    const { invalid, pending, rejected } = read();
+    const counts: AttemptSyncSnapshot = {
+      pending: pending.length,
+      rejected: rejected.length + invalid.length,
+      retryable: rejected.length,
+      status,
+    };
     if (
-      snapshot.pending === pending.length &&
-      snapshot.rejected === rejected.length &&
-      snapshot.status === status
+      snapshot.pending === counts.pending &&
+      snapshot.rejected === counts.rejected &&
+      snapshot.retryable === counts.retryable &&
+      snapshot.status === counts.status
     ) {
       return;
     }
-    snapshot = { pending: pending.length, rejected: rejected.length, status };
+    snapshot = counts;
     for (const listener of listeners) listener();
   };
 
@@ -91,10 +108,20 @@ export function createAttemptSync(
         return true;
       }
       if (httpStatus === HTTP_BAD_REQUEST) {
-        write({
-          pending: removeAttempts(queue.pending, batch),
-          rejected: [...queue.rejected, ...batch],
-        });
+        const invalid = readInvalidAttempts(readResponseData(error), batch);
+        write(
+          invalid
+            ? {
+                ...queue,
+                invalid: [...queue.invalid, ...invalid],
+                pending: removeAttempts(queue.pending, invalid),
+              }
+            : {
+                ...queue,
+                pending: removeAttempts(queue.pending, batch),
+                rejected: [...queue.rejected, ...batch],
+              },
+        );
         return true;
       }
       return false;
@@ -147,6 +174,11 @@ export function createAttemptSync(
   };
 
   return {
+    discardRejected: () => {
+      const queue = read();
+      write({ ...queue, invalid: [], rejected: [] });
+      publish();
+    },
     getSnapshot: () => snapshot,
     record: (attempts: readonly PendingKanaAttempt[]) => {
       if (userId === undefined || attempts.length === 0) return;
@@ -155,6 +187,16 @@ export function createAttemptSync(
       void flush();
     },
     retry,
+    retryRejected: () => {
+      const queue = read();
+      if (queue.rejected.length === 0) return;
+      write({
+        ...addPendingAttempts(queue, queue.rejected),
+        rejected: [],
+      });
+      publish();
+      retry();
+    },
     start: () => {
       active = true;
       window.addEventListener('online', retry);

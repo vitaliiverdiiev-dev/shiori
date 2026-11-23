@@ -864,6 +864,55 @@ describe('backend capabilities', () => {
       );
     });
 
+    test('valid: a foreign key declared on an imported table', () =>
+      passes(
+        SCHEMA,
+        [
+          "import { pgTable, text } from 'drizzle-orm/pg-core';",
+          userTable,
+          "export const example = pgTable('example', { userId: text('user_id').references(() => user.id, { onDelete: 'cascade' }) });",
+          '',
+        ].join('\n'),
+      ));
+
+    test("a table definition may not re-export another module's table", async () => {
+      await rejects(
+        SCHEMA,
+        "export { user } from '../../../auth/persistence/schemas/auth.schema.js';\n",
+        SYNTAX,
+      );
+      await rejects(
+        SCHEMA,
+        "export * from '../../../auth/persistence/schemas/auth.schema.js';\n",
+        SYNTAX,
+      );
+      await rejects(
+        `${AUTH}/invitations/persistence/schemas/example.schema.ts`,
+        "export { user } from '../../../persistence/schemas/auth.schema.js';\n",
+        SYNTAX,
+      );
+    });
+
+    test('a table definition may not import database access', async () => {
+      for (const source of [
+        '#infrastructure/database/database.module.js',
+        'drizzle-orm/node-postgres',
+        'pg',
+      ]) {
+        await rejects(
+          SCHEMA,
+          use(`import type { Database } from '${source}';`),
+          IMPORTS,
+        );
+      }
+      await passes(
+        `${API}/modules/other/persistence/queries/example.queries.ts`,
+        use(
+          "import type { Database } from '#infrastructure/database/database.module.js';",
+        ),
+      );
+    });
+
     test("a table definition may not import another module's queries", () =>
       rejects(
         SCHEMA,

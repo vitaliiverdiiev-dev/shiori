@@ -23,7 +23,7 @@ import {
 } from '../helpers/session';
 import { useAttemptSync } from '../hooks/use-attempt-sync';
 import { useKanaPractice } from '../hooks/use-kana-practice';
-import { kanaPaths } from '../model/consts';
+import { kanaPaths, MAX_ANSWER_LENGTH } from '../model/consts';
 import { PracticeSummary } from './practice-summary';
 
 type Props = {
@@ -71,6 +71,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
       <div className="flex flex-col gap-6">
         {leave}
         <PracticeSummary
+          onDiscardRejected={attemptSync.discardRejected}
           onRestart={() => {
             setFocusInputOnMount(true);
             dispatch({
@@ -84,6 +85,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             setFocusInputOnMount(true);
             dispatch({ session: createRetrySession(session), type: 'start' });
           }}
+          onRetryRejected={attemptSync.retryRejected}
           onRetrySave={attemptSync.retry}
           saveStatus={attemptSync}
           selectionPath={paths.selection}
@@ -164,6 +166,7 @@ export const KanaPractice = ({ script, userId }: Props) => {
             className="h-full text-center text-lg md:text-lg"
             enterKeyHint="go"
             id={inputId}
+            maxLength={MAX_ANSWER_LENGTH}
             onChange={(event) => {
               setEmptyAnswer(false);
               dispatch({ type: 'input', value: event.target.value });

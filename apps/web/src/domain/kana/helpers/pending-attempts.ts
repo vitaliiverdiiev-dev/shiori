@@ -2,10 +2,14 @@ import {
   PENDING_ATTEMPTS_PREFIX,
   PENDING_ATTEMPTS_VERSION,
 } from '../model/consts';
-import { attemptConflictSchema, pendingAttemptsSchema } from '../model/schema';
+import {
+  attemptConflictSchema,
+  invalidAttemptsSchema,
+  pendingAttemptsSchema,
+} from '../model/schema';
 import type { PendingKanaAttempt, PendingKanaAttempts } from '../model/types';
 
-const EMPTY: PendingKanaAttempts = { pending: [], rejected: [] };
+const EMPTY: PendingKanaAttempts = { invalid: [], pending: [], rejected: [] };
 
 type Occurrence = Pick<PendingKanaAttempt, 'questionIndex' | 'roundId'>;
 
@@ -52,6 +56,20 @@ export function readHttpStatus(error: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
+export function readInvalidAttempts(
+  data: unknown,
+  batch: readonly PendingKanaAttempt[],
+): null | PendingKanaAttempt[] {
+  const parsed = invalidAttemptsSchema.safeParse(data);
+  if (!parsed.success) return null;
+  const indexes = new Set(parsed.data.invalidIndexes);
+  const identifiable =
+    indexes.size > 0 &&
+    indexes.size === parsed.data.invalidIndexes.length &&
+    [...indexes].every((index) => index < batch.length);
+  return identifiable ? batch.filter((_, index) => indexes.has(index)) : null;
+}
+
 export function readPendingAttempts(userId: string): PendingKanaAttempts {
   let raw: null | string;
   try {
@@ -62,7 +80,9 @@ export function readPendingAttempts(userId: string): PendingKanaAttempts {
   if (raw === null) return EMPTY;
   try {
     const parsed = pendingAttemptsSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : EMPTY;
+    if (!parsed.success) return EMPTY;
+    const { invalid = [], pending, rejected } = parsed.data;
+    return { invalid, pending, rejected };
   } catch {
     return EMPTY;
   }
@@ -88,7 +108,11 @@ export function writePendingAttempts(
 ): boolean {
   try {
     const key = pendingAttemptsKey(userId);
-    if (queue.pending.length === 0 && queue.rejected.length === 0) {
+    if (
+      queue.pending.length === 0 &&
+      queue.rejected.length === 0 &&
+      queue.invalid.length === 0
+    ) {
       window.localStorage.removeItem(key);
     } else {
       window.localStorage.setItem(

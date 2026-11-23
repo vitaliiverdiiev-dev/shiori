@@ -11,10 +11,13 @@ import {
 } from '@/shared/ui';
 import { formatPracticeDate, plural } from '../helpers/progress';
 import type { AttemptSyncSnapshot, KanaProgressStats } from '../model/types';
+import { RefusedResults } from './refused-results';
 
 type Props = {
   catalog: readonly Kana[];
+  onDiscardRejected: () => void;
   onReload: () => void;
+  onRetryRejected: () => void;
   onRetrySave: () => void;
   progress: ReadonlyMap<string, KanaProgressStats>;
   saveStatus: AttemptSyncSnapshot;
@@ -23,7 +26,9 @@ type Props = {
 
 export const KanaProgress = ({
   catalog,
+  onDiscardRejected,
   onReload,
+  onRetryRejected,
   onRetrySave,
   progress,
   saveStatus,
@@ -49,8 +54,6 @@ export const KanaProgress = ({
                 )} recorded.`)}
           {saveStatus.pending > 0 &&
             ` ${plural(saveStatus.pending, 'result')} from this device not saved yet.`}
-          {saveStatus.rejected > 0 &&
-            ` ${plural(saveStatus.rejected, 'result')} refused by the server and kept on this device.`}
         </p>
         {status === 'error' && (
           <Button onClick={onReload} size="sm" variant="outline">
@@ -62,6 +65,12 @@ export const KanaProgress = ({
             Save now
           </Button>
         )}
+        <RefusedResults
+          onRemove={onDiscardRejected}
+          onRetry={onRetryRejected}
+          rejected={saveStatus.rejected}
+          retryable={saveStatus.retryable}
+        />
       </div>
 
       {practised.length > 0 && (
@@ -93,7 +102,7 @@ export const KanaProgress = ({
                     Skipped
                   </TableHead>
                   <TableHead className="px-3 text-right" scope="col">
-                    Last practised
+                    Last saved
                   </TableHead>
                 </TableRow>
               </TableHeader>

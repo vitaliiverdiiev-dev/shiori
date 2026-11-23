@@ -557,6 +557,27 @@ describe('KanaPractice', () => {
       expect(queued()).toHaveLength(1);
     });
 
+    it('limits the answer to what the server accepts and sends exactly what it judged', async () => {
+      const bodies = recordAttempts();
+      const { user } = setup(
+        createSession(['hiragana:si'], { random: keepOrder }),
+      );
+      const tooLong = `shi${' '.repeat(29)}x`;
+
+      expect(input()).toHaveAttribute('maxLength', '32');
+      await user.type(input(), `${tooLong}{Enter}`);
+
+      expect(input()).toHaveValue(tooLong.slice(0, 32));
+      expect(field()).toHaveAttribute('data-correct');
+      await vi.waitFor(() => {
+        expect(sent(bodies)).toHaveLength(1);
+      });
+      expect(sent(bodies)[0]).toMatchObject({
+        answer: 'shi',
+        outcome: 'correct',
+      });
+    });
+
     it('sends a hint opened before a right first answer as correct with hint', async () => {
       const bodies = recordAttempts();
       const { user } = setup();

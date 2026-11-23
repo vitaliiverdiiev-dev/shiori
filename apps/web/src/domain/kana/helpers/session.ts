@@ -69,6 +69,14 @@ export function createSession(
   };
 }
 
+export function getAbandonedAttempts(
+  session: KanaPracticeSession,
+): PendingKanaAttempt[] {
+  const attempt = session.attempts[session.position];
+  if (!attempt || !isAwaitingCorrection(session)) return [];
+  return [toPendingAttempt(attempt, session.position, session.roundId)];
+}
+
 export function getFinalizedAttempts(
   previous: KanaPracticeSession | null,
   next: KanaPracticeSession,
@@ -77,16 +85,9 @@ export function getFinalizedAttempts(
   const from = countFinalized(previous);
   return next.attempts
     .slice(from, countFinalized(next))
-    .map((attempt, offset) => ({
-      answer: attempt.answer.slice(0, MAX_ANSWER_LENGTH),
-      corrected: attempt.corrected === true,
-      direction: KANA_DIRECTION,
-      hintUsed: attempt.hintUsed === true,
-      kanaId: attempt.kanaId,
-      outcome: attempt.outcome,
-      questionIndex: from + offset,
-      roundId: next.roundId,
-    }));
+    .map((attempt, offset) =>
+      toPendingAttempt(attempt, from + offset, next.roundId),
+    );
 }
 
 export function getPracticePhase(
@@ -143,7 +144,8 @@ export function practiceReducer(
         hintUsed: true,
       };
     case 'input':
-      return answering || correcting
+      return (answering || correcting) &&
+        action.value.length <= MAX_ANSWER_LENGTH
         ? { ...session, input: action.value }
         : session;
     case 'next':
@@ -167,7 +169,13 @@ export function practiceReducer(
       };
     case 'submit': {
       const answer = session.input.trim();
-      if (kanaId === undefined || answer === '') return session;
+      if (
+        kanaId === undefined ||
+        answer === '' ||
+        answer.length > MAX_ANSWER_LENGTH
+      ) {
+        return session;
+      }
       const kana = findKana(kanaId);
       const accepted = kana !== undefined && isAcceptedReading(kana, answer);
       if (correcting) {
@@ -225,6 +233,23 @@ export function summarizeSession(
     ],
     skipped: count((a) => a.outcome === 'skipped'),
     total: session.order.length,
+  };
+}
+
+function toPendingAttempt(
+  attempt: KanaAttempt,
+  questionIndex: number,
+  roundId: string,
+): PendingKanaAttempt {
+  return {
+    answer: attempt.answer,
+    corrected: attempt.corrected === true,
+    direction: KANA_DIRECTION,
+    hintUsed: attempt.hintUsed === true,
+    kanaId: attempt.kanaId,
+    outcome: attempt.outcome,
+    questionIndex,
+    roundId,
   };
 }
 

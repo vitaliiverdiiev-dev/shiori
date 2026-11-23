@@ -164,6 +164,9 @@ export type GetKanaProgressResponses = {
              */
             independentCorrect: number;
             kanaId: string;
+            /**
+             * When the server saved the latest attempt.
+             */
             lastPracticedAt: string;
             /**
              * Skipped before any answer was submitted.
@@ -200,9 +203,13 @@ export type RecordKanaAttemptsData = {
 
 export type RecordKanaAttemptsErrors = {
     /**
-     * Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded.
+     * Malformed batch, unknown kana, an outcome that contradicts the answer, or an occurrence listed twice. Nothing is recorded; `invalidIndexes` names the invalid entries when they can be identified.
      */
     400: {
+        /**
+         * Positions in `attempts` of every invalid entry. Absent when the request is invalid as a whole.
+         */
+        invalidIndexes?: Array<number>;
         message: string;
         statusCode: 400;
     };

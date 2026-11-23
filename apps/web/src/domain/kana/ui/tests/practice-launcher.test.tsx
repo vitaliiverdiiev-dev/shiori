@@ -16,6 +16,7 @@ function setup(selectedIds: readonly KanaId[]) {
         <Route
           element={
             <PracticeLauncher
+              onRecordAttempts={() => undefined}
               script="hiragana"
               selectedIds={selectedIds}
               userId="alice"

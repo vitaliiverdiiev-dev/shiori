@@ -65,6 +65,7 @@ describe('createAttemptSync', () => {
     expect(sync.getSnapshot()).toEqual({
       pending: 1,
       rejected: 0,
+      retryable: 0,
       status: 'saving',
     });
 
@@ -76,6 +77,7 @@ describe('createAttemptSync', () => {
     expect(sync.getSnapshot()).toEqual({
       pending: 0,
       rejected: 0,
+      retryable: 0,
       status: 'idle',
     });
   });
@@ -212,27 +214,188 @@ describe('createAttemptSync', () => {
     expect(bodies.map(({ attempts }) => attempts.length)).toEqual([2, 1]);
   });
 
-  it('keeps a refused batch on the device without sending it again', async () => {
+  it('keeps a batch refused as a whole, never resends it by itself, and sends it again on request', async () => {
+    let refuse = true;
     const bodies = recordRequests(() =>
-      HttpResponse.json(
-        { message: 'Invalid attempts', statusCode: 400 },
-        { status: 400 },
-      ),
+      refuse
+        ? HttpResponse.json(
+            { message: 'Invalid attempts', statusCode: 400 },
+            { status: 400 },
+          )
+        : HttpResponse.json({ duplicates: 0, recorded: 2 }),
     );
     const { sync } = started();
 
-    sync.record([attempt(0)]);
+    sync.record([attempt(0), attempt(1)]);
     await settled(sync);
-
     expect(sync.getSnapshot()).toEqual({
       pending: 0,
-      rejected: 1,
+      rejected: 2,
+      retryable: 2,
       status: 'idle',
     });
-    expect(readPendingAttempts('alice').rejected).toEqual([attempt(0)]);
+    expect(readPendingAttempts('alice').rejected).toEqual([
+      attempt(0),
+      attempt(1),
+    ]);
     sync.retry();
     await settled(sync);
     expect(bodies).toHaveLength(1);
+
+    refuse = false;
+    sync.retryRejected();
+    await vi.waitFor(() => {
+      expect(sync.getSnapshot()).toMatchObject({
+        pending: 0,
+        rejected: 0,
+        status: 'idle',
+      });
+    });
+    expect(bodies).toHaveLength(2);
+    expect(window.localStorage.length).toBe(0);
+  });
+
+  it('moves only the entries the server names as invalid and saves the rest', async () => {
+    const bodies = recordRequests(({ attempts }) => {
+      const invalidIndexes = attempts.flatMap(({ questionIndex }, index) =>
+        questionIndex === 1 || questionIndex === 3 ? [index] : [],
+      );
+      return invalidIndexes.length > 0
+        ? HttpResponse.json(
+            { invalidIndexes, message: 'Invalid attempts', statusCode: 400 },
+            { status: 400 },
+          )
+        : HttpResponse.json({ duplicates: 0, recorded: attempts.length });
+    });
+    const { onSaved, sync } = started();
+
+    sync.record([0, 1, 2, 3, 4].map(attempt));
+    await vi.waitFor(() => {
+      expect(sync.getSnapshot()).toEqual({
+        pending: 0,
+        rejected: 2,
+        retryable: 0,
+        status: 'idle',
+      });
+    });
+
+    expect(bodies.map(({ attempts }) => attempts.length)).toEqual([5, 3]);
+    expect(bodies[1]?.attempts).toEqual([0, 2, 4].map(attempt));
+    expect(readPendingAttempts('alice')).toEqual({
+      invalid: [attempt(1), attempt(3)],
+      pending: [],
+      rejected: [],
+    });
+    expect(onSaved).toHaveBeenCalledOnce();
+
+    sync.retryRejected();
+    await settled(sync);
+    expect(bodies).toHaveLength(2);
+  });
+
+  it.each([
+    ['an index outside the batch', [0, 2]],
+    ['a repeated index', [0, 0]],
+    ['a negative index', [-1]],
+    ['no index', []],
+  ])(
+    'keeps the whole batch, retryable, when the response names %s',
+    async (_, invalidIndexes) => {
+      recordRequests(() =>
+        HttpResponse.json(
+          { invalidIndexes, message: 'Invalid attempts', statusCode: 400 },
+          { status: 400 },
+        ),
+      );
+      const { sync } = started();
+
+      sync.record([attempt(0), attempt(1)]);
+      await settled(sync);
+
+      expect(readPendingAttempts('alice')).toEqual({
+        invalid: [],
+        pending: [],
+        rejected: [attempt(0), attempt(1)],
+      });
+      expect(sync.getSnapshot().retryable).toBe(2);
+    },
+  );
+
+  it('sends results refused by an earlier version again, keeping only the invalid ones', async () => {
+    window.localStorage.setItem(
+      'shiori:kana-attempts:alice',
+      JSON.stringify({
+        pending: [],
+        rejected: [attempt(0), attempt(1)],
+        version: 1,
+      }),
+    );
+    const bodies = recordRequests(({ attempts }) =>
+      attempts.length === 2
+        ? HttpResponse.json(
+            {
+              invalidIndexes: [1],
+              message: 'Invalid attempts',
+              statusCode: 400,
+            },
+            { status: 400 },
+          )
+        : HttpResponse.json({ duplicates: 0, recorded: 1 }),
+    );
+    const { sync } = started();
+    expect(sync.getSnapshot()).toMatchObject({ rejected: 2, retryable: 2 });
+    expect(bodies).toEqual([]);
+
+    sync.retryRejected();
+    await vi.waitFor(() => {
+      expect(sync.getSnapshot()).toEqual({
+        pending: 0,
+        rejected: 1,
+        retryable: 0,
+        status: 'idle',
+      });
+    });
+    expect(bodies.map(({ attempts }) => attempts)).toEqual([
+      [attempt(0), attempt(1)],
+      [attempt(0)],
+    ]);
+    expect(readPendingAttempts('alice').invalid).toEqual([attempt(1)]);
+  });
+
+  it('removes refused results on request and keeps pending ones and other accounts', async () => {
+    const queue = {
+      invalid: [attempt(1)],
+      pending: [attempt(2)],
+      rejected: [attempt(0)],
+      version: 1,
+    };
+    for (const user of ['alice', 'bob']) {
+      window.localStorage.setItem(
+        `shiori:kana-attempts:${user}`,
+        JSON.stringify(queue),
+      );
+    }
+    recordRequests(() => HttpResponse.error());
+    const { sync } = started();
+    await settled(sync);
+
+    sync.discardRejected();
+
+    expect(sync.getSnapshot()).toMatchObject({
+      pending: 1,
+      rejected: 0,
+      retryable: 0,
+    });
+    expect(readPendingAttempts('alice')).toEqual({
+      invalid: [],
+      pending: [attempt(2)],
+      rejected: [],
+    });
+    expect(readPendingAttempts('bob')).toEqual({
+      invalid: [attempt(1)],
+      pending: [attempt(2)],
+      rejected: [attempt(0)],
+    });
   });
 
   it("never reads or sends another account's attempts", async () => {

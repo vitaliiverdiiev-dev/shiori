@@ -63,6 +63,7 @@ export const KanaSelection = ({ script, userId }: Props) => {
         </div>
         <div className="sticky bottom-0 z-10 mt-auto -mb-(--app-content-bottom,0px) pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] before:absolute before:inset-y-0 before:-inset-x-[100vmax] before:-z-10 before:border-t before:border-border before:bg-background">
           <PracticeLauncher
+            onRecordAttempts={attemptSync.record}
             script={script}
             selectedIds={catalog
               .filter(({ id }) => selection.has(id))
@@ -106,7 +107,9 @@ export const KanaSelection = ({ script, userId }: Props) => {
       <TabsContent keepMounted value="statistics">
         <KanaProgress
           catalog={catalog}
+          onDiscardRejected={attemptSync.discardRejected}
           onReload={() => void progressQuery.refetch()}
+          onRetryRejected={attemptSync.retryRejected}
           onRetrySave={attemptSync.retry}
           progress={progress}
           saveStatus={attemptSync}

@@ -4,6 +4,7 @@ import type { KanaId } from '@shiori/kana';
 export type AttemptSyncSnapshot = {
   pending: number;
   rejected: number;
+  retryable: number;
   status: 'idle' | 'saving' | 'waiting';
 };
 
@@ -70,6 +71,7 @@ export type PendingKanaAttempt =
   RecordKanaAttemptsData['body']['attempts'][number];
 
 export type PendingKanaAttempts = {
+  invalid: readonly PendingKanaAttempt[];
   pending: readonly PendingKanaAttempt[];
   rejected: readonly PendingKanaAttempt[];
 };

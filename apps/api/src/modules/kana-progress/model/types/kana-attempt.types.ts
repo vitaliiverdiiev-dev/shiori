@@ -45,4 +45,4 @@ export interface KanaProgressEntry {
 export type RecordKanaAttemptsResult =
   | { conflicts: KanaOccurrence[]; ok: false; reason: 'conflict' }
   | { duplicates: number; ok: true; recorded: number }
-  | { index: number; ok: false; reason: 'invalid-attempt' };
+  | { indexes: number[]; ok: false; reason: 'invalid-attempts' };

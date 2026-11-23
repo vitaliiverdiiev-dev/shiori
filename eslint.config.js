@@ -567,6 +567,37 @@ export default defineConfig([
     },
   },
   {
+    files: [
+      `${API}/modules/*/persistence/schemas/*.schema.ts`,
+      `${API}/modules/*/*/persistence/schemas/*.schema.ts`,
+    ],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            maxThreeLevelsUpInApi,
+            infrastructureThroughAlias,
+            {
+              message:
+                'A table definition declares tables only: database access belongs in persistence/queries/.',
+              regex:
+                '^(#infrastructure/database/.+|pg|drizzle-orm/node-postgres)$',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          message:
+            "A table definition exports only its own tables; another module's table may be imported solely to declare a foreign key, never re-exported.",
+          selector: 'ExportAllDeclaration, ExportNamedDeclaration[source]',
+        },
+      ],
+    },
+  },
+  {
     files: [`${API}/modules/*/model/**/*.ts`],
     ignores: ['**/tests/**'],
     rules: vendorImports(

@@ -1,6 +1,10 @@
 import type { KanaId, KanaScript } from '@shiori/kana';
 import { getKanaCatalog } from '@shiori/kana';
-import { KANA_STORAGE_PREFIX, KANA_STORAGE_VERSION } from '../model/consts';
+import {
+  KANA_STORAGE_PREFIX,
+  KANA_STORAGE_VERSION,
+  MAX_ANSWER_LENGTH,
+} from '../model/consts';
 import { type StoredKanaRecord, storedKanaStateSchema } from '../model/schema';
 import type {
   KanaAttempt,
@@ -72,6 +76,7 @@ function restoreSession(
   for (const [index, attempt] of stored.attempts.entries()) {
     const kanaId = order[index];
     if (kanaId === undefined || attempt.kanaId !== kanaId) return null;
+    if (attempt.answer.length > MAX_ANSWER_LENGTH) return null;
     if (attempt.corrected === true && attempt.outcome !== 'incorrect') {
       return null;
     }
@@ -90,7 +95,7 @@ function restoreSession(
     attempts,
     hintShown: stored.hintShown === true,
     hintUsed: stored.hintUsed === true || stored.hintShown === true,
-    input: stored.input,
+    input: stored.input.length > MAX_ANSWER_LENGTH ? '' : stored.input,
     order,
     position,
     questionCount: stored.questionCount ?? selection.length,

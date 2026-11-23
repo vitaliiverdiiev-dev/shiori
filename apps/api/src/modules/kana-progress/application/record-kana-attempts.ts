@@ -27,14 +27,19 @@ export async function recordKanaAttempts(
   inputs: readonly KanaAttemptInput[],
 ): Promise<RecordKanaAttemptsResult> {
   const records: KanaAttemptRecord[] = [];
+  const invalid: number[] = [];
   const keys = new Set<string>();
   for (const [index, input] of inputs.entries()) {
     const record = toKanaAttemptRecord(input);
     if (!record || keys.has(occurrenceKey(record))) {
-      return { index, ok: false, reason: 'invalid-attempt' };
+      invalid.push(index);
+      continue;
     }
     keys.add(occurrenceKey(record));
     records.push(record);
+  }
+  if (invalid.length > 0) {
+    return { indexes: invalid, ok: false, reason: 'invalid-attempts' };
   }
 
   try {

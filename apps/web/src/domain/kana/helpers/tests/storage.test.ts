@@ -131,6 +131,20 @@ describe('kana state storage', () => {
       },
     ],
     [
+      'an answer longer than the API accepts',
+      {
+        ...session,
+        attempts: [
+          {
+            answer: `shi${' '.repeat(29)}x`,
+            kanaId: 'hiragana:a',
+            outcome: 'incorrect',
+          },
+        ],
+        position: 0,
+      },
+    ],
+    [
       'a skip waiting for Next',
       {
         ...session,
@@ -145,6 +159,16 @@ describe('kana state storage', () => {
       selection: ['hiragana:a', 'hiragana:ka'],
       session: null,
     });
+  });
+
+  it('restores a round with an oversized typed answer as an empty field', () => {
+    storeRaw(record({ session: { ...session, input: 'a'.repeat(33) } }));
+    expect(readKanaState('hiragana', 'alice').session).toEqual(session);
+
+    storeRaw(record({ session: { ...session, input: 'a'.repeat(32) } }));
+    expect(readKanaState('hiragana', 'alice').session?.input).toBe(
+      'a'.repeat(32),
+    );
   });
 
   it('restores a corrected wrong answer awaiting advance', () => {

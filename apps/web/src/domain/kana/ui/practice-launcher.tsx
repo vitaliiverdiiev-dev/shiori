@@ -6,11 +6,17 @@ import {
   describeQuestionCount,
   parseQuestionCount,
 } from '../helpers/question-count';
-import { createSession, getPracticePhase } from '../helpers/session';
+import {
+  createSession,
+  getAbandonedAttempts,
+  getPracticePhase,
+} from '../helpers/session';
 import { readKanaState, writeKanaState } from '../helpers/storage';
 import { kanaPaths, MAX_QUESTION_COUNT } from '../model/consts';
+import type { PendingKanaAttempt } from '../model/types';
 
 type Props = {
+  onRecordAttempts: (attempts: readonly PendingKanaAttempt[]) => void;
   script: KanaScript;
   selectedIds: readonly KanaId[];
   selectionActions?: ReactNode;
@@ -19,6 +25,7 @@ type Props = {
 };
 
 export const PracticeLauncher = ({
+  onRecordAttempts,
   script,
   selectedIds,
   selectionActions,
@@ -42,6 +49,8 @@ export const PracticeLauncher = ({
   const invalid = !nothingSelected && questionCount === null;
   const startRound = () => {
     if (questionCount === null) return;
+    const replaced = readKanaState(script, userId).session;
+    if (replaced) onRecordAttempts(getAbandonedAttempts(replaced));
     writeKanaState(script, userId, {
       session: createSession(selectedIds, { questionCount }),
     });

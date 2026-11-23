@@ -5,12 +5,44 @@ import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { server } from '@/test/msw';
-import { createSession } from './helpers/session';
+import { readPendingAttempts } from './helpers/pending-attempts';
+import { createSession, practiceReducer } from './helpers/session';
 import { readKanaState, writeKanaState } from './helpers/storage';
 import { KanaSelection } from './kana-selection';
-import type { KanaProgressStats } from './model/types';
+import type {
+  KanaPracticeAction,
+  KanaPracticeSession,
+  KanaProgressStats,
+  PendingKanaAttempt,
+} from './model/types';
 
 const PROGRESS = '*/api/kana-progress';
+const ATTEMPTS = '*/api/kana-progress/attempts';
+const ROUND = '0b8f5a3e-7c1d-4f7a-9a51-2f4a1c6d9e10';
+
+function pendingAttempt(questionIndex: number): PendingKanaAttempt {
+  return {
+    answer: 'shi',
+    corrected: false,
+    direction: 'kana-to-romaji',
+    hintUsed: false,
+    kanaId: 'hiragana:si',
+    outcome: 'correct',
+    questionIndex,
+    roundId: ROUND,
+  };
+}
+
+function play(
+  session: KanaPracticeSession,
+  ...actions: KanaPracticeAction[]
+): KanaPracticeSession {
+  return actions.reduce((current, action) => {
+    const next = practiceReducer(current, action);
+    if (!next) throw new Error('Expected a session');
+    return next;
+  }, session);
+}
 
 function progressResponse(kana: KanaProgressStats[] = []) {
   return http.get(PROGRESS, ({ request }) =>
@@ -20,6 +52,20 @@ function progressResponse(kana: KanaProgressStats[] = []) {
       script: new URL(request.url).searchParams.get('script'),
     }),
   );
+}
+
+function recordAttempts(respond: () => Response) {
+  const attempts: PendingKanaAttempt[] = [];
+  server.use(
+    http.post(ATTEMPTS, async ({ request }) => {
+      const body = (await request.json()) as {
+        attempts: PendingKanaAttempt[];
+      };
+      attempts.push(...body.attempts);
+      return respond();
+    }),
+  );
+  return attempts;
 }
 
 function setup(script: 'hiragana' | 'katakana' = 'hiragana') {
@@ -246,7 +292,7 @@ describe('KanaSelection', () => {
       expect(table).toHaveAccessibleName(/^Statistics per kana/);
       const rows = within(table).getAllByRole('row');
       expect(rows.map((row) => row.textContent)).toEqual([
-        'KanaQuestionsCorrect, no hintCorrect with hintIncorrectSkippedLast practised',
+        'KanaQuestionsCorrect, no hintCorrect with hintIncorrectSkippedLast saved',
         expect.stringMatching(/^あ a44000/) as unknown,
         expect.stringMatching(/^し shi41111/) as unknown,
       ]);
@@ -353,6 +399,155 @@ describe('KanaSelection', () => {
       expect(
         window.localStorage.getItem('shiori:kana-attempts:alice'),
       ).toBeNull();
+    });
+  });
+
+  describe('replacing an unfinished round', () => {
+    const awaitingCorrection = () =>
+      play(
+        createSession(['hiragana:a', 'hiragana:ka'], {
+          random: () => 0.999,
+          roundId: ROUND,
+        }),
+        { type: 'hint' },
+        { type: 'input', value: 'o' },
+        { type: 'submit' },
+      );
+
+    beforeEach(() => {
+      writeKanaState('hiragana', 'alice', {
+        selection: ['hiragana:a', 'hiragana:ka'],
+        session: awaitingCorrection(),
+      });
+    });
+
+    it('records a wrong answer awaiting correction once, as incorrect with its hint, when a new round starts', async () => {
+      const sent = recordAttempts(() =>
+        HttpResponse.json({ duplicates: 0, recorded: 1 }),
+      );
+      const { user } = setup();
+
+      await user.click(screen.getByRole('button', { name: 'Start new round' }));
+
+      await waitFor(() => {
+        expect(readPendingAttempts('alice').pending).toEqual([]);
+      });
+      expect(sent).toEqual([
+        {
+          answer: 'o',
+          corrected: false,
+          direction: 'kana-to-romaji',
+          hintUsed: true,
+          kanaId: 'hiragana:a',
+          outcome: 'incorrect',
+          questionIndex: 0,
+          roundId: ROUND,
+        },
+      ]);
+      expect(readKanaState('hiragana', 'alice').session?.roundId).not.toBe(
+        ROUND,
+      );
+    });
+
+    it('records nothing when the round is only left to resume later', async () => {
+      const sent = recordAttempts(() =>
+        HttpResponse.json({ duplicates: 0, recorded: 1 }),
+      );
+      const { user } = setup();
+
+      await user.click(
+        screen.getByRole('link', { name: 'Resume practice 1/2' }),
+      );
+
+      expect(sent).toEqual([]);
+      expect(readPendingAttempts('alice').pending).toEqual([]);
+      expect(readKanaState('hiragana', 'alice').session).toEqual(
+        awaitingCorrection(),
+      );
+    });
+  });
+
+  describe('refused results', () => {
+    const storeQueue = (queue: Record<string, PendingKanaAttempt[]>) => {
+      window.localStorage.setItem(
+        'shiori:kana-attempts:alice',
+        JSON.stringify({ pending: [], rejected: [], version: 1, ...queue }),
+      );
+    };
+
+    it('sends results refused by an earlier version again on request', async () => {
+      storeQueue({ rejected: [pendingAttempt(0), pendingAttempt(1)] });
+      const sent = recordAttempts(() =>
+        HttpResponse.json({ duplicates: 0, recorded: 2 }),
+      );
+      const { user } = setup();
+      await openStatistics(user);
+
+      expect(
+        await screen.findByText(
+          '2 results were refused by the server and kept on this device.',
+        ),
+      ).toBeVisible();
+      expect(sent).toEqual([]);
+
+      await user.click(screen.getByRole('button', { name: 'Send again' }));
+
+      await waitFor(() => {
+        expect(screen.queryByText(/refused by the server/)).toBeNull();
+      });
+      expect(sent).toEqual([pendingAttempt(0), pendingAttempt(1)]);
+      expect(
+        window.localStorage.getItem('shiori:kana-attempts:alice'),
+      ).toBeNull();
+    });
+
+    it('offers only removal for results the server named invalid', async () => {
+      storeQueue({ invalid: [pendingAttempt(0)] });
+      const { user } = setup();
+      await openStatistics(user);
+
+      expect(
+        await screen.findByText(
+          '1 result was refused by the server and kept on this device.',
+        ),
+      ).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
+      expect(screen.getByRole('button', { name: 'Remove…' })).toBeVisible();
+    });
+
+    it('removes refused results only after confirmation and keeps unsaved ones', async () => {
+      storeQueue({
+        invalid: [pendingAttempt(1)],
+        pending: [pendingAttempt(2)],
+        rejected: [pendingAttempt(0)],
+      });
+      recordAttempts(() => HttpResponse.error());
+      const { user } = setup();
+      await openStatistics(user);
+
+      await user.click(await screen.findByRole('button', { name: 'Remove…' }));
+      const confirmation = await screen.findByRole('dialog', {
+        name: 'Remove refused results?',
+      });
+      expect(readPendingAttempts('alice').rejected).toHaveLength(1);
+
+      await user.click(
+        within(confirmation).getByRole('button', {
+          name: 'Remove refused results',
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.queryByText(/refused by the server/)).toBeNull();
+      });
+      expect(readPendingAttempts('alice')).toEqual({
+        invalid: [],
+        pending: [pendingAttempt(2)],
+        rejected: [],
+      });
+      expect(statisticsStatus()).toHaveTextContent(
+        '1 result from this device not saved yet.',
+      );
     });
   });
 

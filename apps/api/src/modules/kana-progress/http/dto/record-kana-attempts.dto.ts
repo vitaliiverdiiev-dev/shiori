@@ -60,5 +60,26 @@ export type KanaAttemptsConflictResponse = z.infer<
   typeof kanaAttemptsConflictResponseSchema
 >;
 
+export const kanaAttemptsInvalidResponseSchema = z.object({
+  invalidIndexes: z
+    .array(
+      z
+        .int()
+        .min(0)
+        .max(MAX_ATTEMPTS_PER_REQUEST - 1),
+    )
+    .min(1)
+    .optional()
+    .describe(
+      'Positions in `attempts` of every invalid entry. Absent when the request is invalid as a whole.',
+    ),
+  message: z.string(),
+  statusCode: z.literal(HttpStatus.BAD_REQUEST),
+});
+
+export type KanaAttemptsInvalidResponse = z.infer<
+  typeof kanaAttemptsInvalidResponseSchema
+>;
+
 export const errorResponseSchema = (status: HttpStatus) =>
   z.object({ message: z.string(), statusCode: z.literal(status) });

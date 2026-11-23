@@ -4,10 +4,13 @@ import { Link } from 'react-router';
 import { Button, buttonVariants } from '@/shared/ui';
 import { summarizeSession } from '../helpers/session';
 import type { AttemptSyncSnapshot, KanaPracticeSession } from '../model/types';
+import { RefusedResults } from './refused-results';
 
 type Props = {
+  onDiscardRejected: () => void;
   onRestart: () => void;
   onRetry: () => void;
+  onRetryRejected: () => void;
   onRetrySave: () => void;
   saveStatus: AttemptSyncSnapshot;
   selectionPath: string;
@@ -15,8 +18,10 @@ type Props = {
 };
 
 export const PracticeSummary = ({
+  onDiscardRejected,
   onRestart,
   onRetry,
+  onRetryRejected,
   onRetrySave,
   saveStatus,
   selectionPath,
@@ -65,20 +70,18 @@ export const PracticeSummary = ({
             'All results saved to your progress.'}
           {saveStatus.status === 'waiting' &&
             `${String(saveStatus.pending)} ${saveStatus.pending === 1 ? 'result is' : 'results are'} not saved yet. Shiori will keep trying.`}
-          {saveStatus.rejected > 0 && (
-            <span className="text-destructive">
-              {' '}
-              {saveStatus.rejected}{' '}
-              {saveStatus.rejected === 1 ? 'result was' : 'results were'}{' '}
-              refused by the server and kept on this device.
-            </span>
-          )}
         </p>
         {saveStatus.status === 'waiting' && (
           <Button onClick={onRetrySave} size="sm" variant="outline">
             Try again now
           </Button>
         )}
+        <RefusedResults
+          onRemove={onDiscardRejected}
+          onRetry={onRetryRejected}
+          rejected={saveStatus.rejected}
+          retryable={saveStatus.retryable}
+        />
       </div>
       {missed.length > 0 && (
         <div className="flex flex-col gap-2">
